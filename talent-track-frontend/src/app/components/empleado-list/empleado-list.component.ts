@@ -1,6 +1,6 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core'; // <--- IMPORTAR ESTO
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router'; // Importar ActivatedRoute
 import { ApiService } from '../../services/api.service';
 
 @Component({
@@ -12,30 +12,34 @@ import { ApiService } from '../../services/api.service';
 })
 export class EmpleadoListComponent implements OnInit {
   empleados: any[] = [];
-
+  empresaId: number | null = null;
   // INYECTAR ChangeDetectorRef AQUÍ 👇
-  constructor(private api: ApiService, private cd: ChangeDetectorRef) {}
+  constructor(
+    private api: ApiService, 
+    private cd: ChangeDetectorRef,
+    private route: ActivatedRoute
+  ) {}
 
   ngOnInit() {
-    this.cargarDatos();
+    // Leemos el ID de la URL
+    this.route.paramMap.subscribe(params => {
+      const id = params.get('id');
+      if (id) {
+        this.empresaId = Number(id);
+        this.cargarDatos(this.empresaId);
+      } else {
+        // Si no hay ID, cargamos todos (modo super admin global)
+        this.cargarDatos(); 
+      }
+    });
   }
 
-  cargarDatos() {
-    this.api.getEmpleados().subscribe(
+  cargarDatos(empresaId?: number) {
+    this.api.getEmpleados(empresaId).subscribe(
       (data: any) => {
-        console.log('📦 Datos llegando:', data);
-        
-        // Asignar datos (soportando paginación o lista directa)
-        if (data.results) {
-          this.empleados = data.results;
-        } else {
-          this.empleados = data;
-        }
-
-        // OBLIGAR A ANGULAR A ACTUALIZAR LA PANTALLA 👇
-        this.cd.detectChanges(); 
-      },
-      (error) => console.error('❌ ERROR:', error)
+        this.empleados = data.results || data;
+        this.cd.detectChanges();
+      }
     );
   }
 }

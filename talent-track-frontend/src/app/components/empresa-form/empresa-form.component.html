@@ -1,0 +1,19 @@
+<div class="min-h-screen bg-gray-50 p-8 flex justify-center">
+  <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-lg h-fit">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">🏢 Nueva Empresa</h2>
+    <form (ngSubmit)="guardar()">
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2">Razón Social</label>
+        <input [(ngModel)]="empresa.razon_social" name="razon" type="text" class="w-full border p-2 rounded" required>
+      </div>
+      <div class="mb-6">
+        <label class="block text-gray-700 text-sm font-bold mb-2">RUC / NIT</label>
+        <input [(ngModel)]="empresa.ruc" name="ruc" type="text" class="w-full border p-2 rounded" required>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button routerLink="/empresas" type="button" class="text-gray-500 hover:text-gray-700 font-bold px-4">Cancelar</button>
+        <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>

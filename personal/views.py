@@ -11,9 +11,27 @@ from .serializers import (
 )
 
 class EmpleadoViewSet(viewsets.ModelViewSet):
-    queryset = Empleado.objects.all()
     serializer_class = EmpleadoSerializer
-    # Tip: Aquí se podrían agregar filtros (ej. buscar por cédula)
+    
+    # --- AGREGA ESTA LÍNEA AQUÍ ---
+    queryset = Empleado.objects.all() 
+    # (Esto sirve solo para que el router sepa el nombre base al arrancar)
+    # ------------------------------
+
+    def get_queryset(self):
+        # Esta función SOBRESCRIBE a la línea de arriba cuando se piden datos
+        queryset = Empleado.objects.all()
+        
+        # Tu lógica de filtro
+        dept_id = self.request.query_params.get('departamento')
+        empresa_id = self.request.query_params.get('empresa') # Por si acaso filtramos por empresa directa
+        
+        if dept_id:
+            queryset = queryset.filter(departamento_id=dept_id)
+        if empresa_id:
+            queryset = queryset.filter(empresa_id=empresa_id)
+            
+        return queryset
 
 class ContratoViewSet(viewsets.ModelViewSet):
     queryset = Contrato.objects.all()

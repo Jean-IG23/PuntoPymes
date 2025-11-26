@@ -1,0 +1,20 @@
+<div class="p-8 bg-gray-50 min-h-screen">
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-6">
+        <button onclick="history.back()" class="text-blue-600 hover:underline mb-2 block">← Volver</button>
+        <h1 class="text-3xl font-bold text-gray-900">Departamentos</h1>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      @for (dep of departamentos; track dep.id) {
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-orange-500 hover:shadow-md transition cursor-pointer"
+             [routerLink]="['/departamentos', dep.id, 'empleados']">
+          <h3 class="text-lg font-bold text-gray-800">{{ dep.nombre }}</h3>
+          <p class="text-xs text-gray-400 mt-1">Click para ver personal</p>
+        </div>
+      } @empty {
+        <div class="col-span-4 text-center text-gray-500">No hay departamentos aquí.</div>
+      }
+    </div>
+  </div>
+</div>

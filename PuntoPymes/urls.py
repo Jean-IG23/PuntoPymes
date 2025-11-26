@@ -1,52 +1,50 @@
-"""
-URL configuration for PuntoPymes project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from rest_framework import permissions
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
 
-# Importar vistas de CORE
-from core.views import (
-    EmpresaViewSet, SucursalViewSet, DepartamentoViewSet, 
-    PuestoViewSet, TurnoViewSet
-)
-# Importar vistas de PERSONAL
-from personal.views import (
-    EmpleadoViewSet, ContratoViewSet, DocumentoViewSet, 
-    EventoAsistenciaViewSet, SolicitudViewSet, TipoAusenciaViewSet
+# Vistas
+from core.views import EmpresaViewSet, SucursalViewSet, DepartamentoViewSet, PuestoViewSet, TurnoViewSet
+from personal.views import EmpleadoViewSet, ContratoViewSet, DocumentoViewSet, EventoAsistenciaViewSet, SolicitudViewSet, TipoAusenciaViewSet, JornadaViewSet
+#from kpi.views import KPIViewSet, ResultadoViewSet
+
+# Configuración de la Documentación (Swagger)
+schema_view = get_schema_view(
+   openapi.Info(
+      title="API Talent Track V2",
+      default_version='v1',
+      description="Documentación técnica para el equipo de Desarrollo (Frontend & Móvil)",
+      contact=openapi.Contact(email="jean@talenttrack.com"),
+   ),
+   public=True,
+   permission_classes=(permissions.AllowAny,),
 )
 
 router = DefaultRouter()
-
-# Rutas CORE
+# CORE
 router.register(r'empresas', EmpresaViewSet)
 router.register(r'sucursales', SucursalViewSet)
 router.register(r'departamentos', DepartamentoViewSet)
 router.register(r'puestos', PuestoViewSet)
 router.register(r'turnos', TurnoViewSet)
-
-# Rutas PERSONAL
+# PERSONAL
 router.register(r'empleados', EmpleadoViewSet)
 router.register(r'contratos', ContratoViewSet)
 router.register(r'documentos', DocumentoViewSet)
 router.register(r'marcas', EventoAsistenciaViewSet)
-router.register(r'solicitudes', SolicitudViewSet)
+router.register(r'jornadas', JornadaViewSet)
 router.register(r'tipos-ausencia', TipoAusenciaViewSet)
+router.register(r'solicitudes', SolicitudViewSet)
+# KPI
+#router.register(r'kpis', KPIViewSet)
+#router.register(r'resultados-kpi', ResultadoViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    # Rutas de Documentación
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]

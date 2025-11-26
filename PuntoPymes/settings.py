@@ -32,6 +32,8 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'django.contrib.admin',
+    'drf_yasg',
+    'corsheaders',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -50,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'PuntoPymes.urls'
@@ -80,7 +83,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'talent_track_db',  # El nombre que acabas de crear
         'USER': 'postgres',         # El usuario por defecto
-        'PASSWORD': '3399', # <--- ¡IMPORTANTE! Escribe aquí tu contraseña real
+        'PASSWORD': 'password', # <--- ¡IMPORTANTE! Escribe aquí tu contraseña real
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -135,3 +138,4 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny', # Permitir acceso a cualquiera (para pruebas fáciles)
     ]
 }
+CORS_ALLOW_ALL_ORIGINS = True

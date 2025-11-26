@@ -17,10 +17,34 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from personal.views import EventoAsistenciaViewSet # <-- Importamos el nuevo nombre
+
+# Importar vistas de CORE
+from core.views import (
+    EmpresaViewSet, SucursalViewSet, DepartamentoViewSet, 
+    PuestoViewSet, TurnoViewSet
+)
+# Importar vistas de PERSONAL
+from personal.views import (
+    EmpleadoViewSet, ContratoViewSet, DocumentoViewSet, 
+    EventoAsistenciaViewSet, SolicitudViewSet, TipoAusenciaViewSet
+)
 
 router = DefaultRouter()
+
+# Rutas CORE
+router.register(r'empresas', EmpresaViewSet)
+router.register(r'sucursales', SucursalViewSet)
+router.register(r'departamentos', DepartamentoViewSet)
+router.register(r'puestos', PuestoViewSet)
+router.register(r'turnos', TurnoViewSet)
+
+# Rutas PERSONAL
+router.register(r'empleados', EmpleadoViewSet)
+router.register(r'contratos', ContratoViewSet)
+router.register(r'documentos', DocumentoViewSet)
 router.register(r'marcas', EventoAsistenciaViewSet)
+router.register(r'solicitudes', SolicitudViewSet)
+router.register(r'tipos-ausencia', TipoAusenciaViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

@@ -1,21 +1,114 @@
-<div class="mb-6 flex justify-between items-center">
+<div class="p-8 bg-gray-50 min-h-screen">
+  <div class="max-w-7xl mx-auto">
+    
+    <!-- ENCABEZADO -->
+    <div class="p-8 bg-gray-50 min-h-screen">
+  <div class="max-w-7xl mx-auto">
+    
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
       <div>
-        <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-          <a routerLink="/empresas" class="hover:text-blue-600 transition">Empresas</a>
-          <span>/</span>
-          <span class="text-gray-800 font-medium">Personal</span>
-        </div>
-        
-        <h1 class="text-3xl font-bold text-blue-900">Gestión de Personal</h1>
+        <h1 class="text-3xl font-bold text-gray-900">Directorio de Personal</h1>
+        <p class="text-gray-500 mt-1">Gestión de colaboradores y contratos.</p>
       </div>
-
+      
       <div class="flex gap-3">
-        <a routerLink="/empresas" class="bg-white border border-gray-300 text-gray-700 font-bold py-2 px-4 rounded shadow-sm hover:bg-gray-50 transition">
-          ← Volver
-        </a>
-        
-        <button routerLink="/empleados/nuevo" class="bg-blue-600 text-white font-bold py-2 px-4 rounded shadow hover:bg-blue-700 transition">
-          + Nuevo Empleado
+        <button routerLink="/empleados/carga-masiva" 
+                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition shadow flex items-center gap-2 font-medium">
+          <span class="text-xl">📊</span> Importar Excel
+        </button>
+
+        <button *ngIf="currentDeptoId" 
+                [routerLink]="['/departamentos', currentDeptoId, 'empleados', 'nuevo']" 
+                class="bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition shadow flex items-center gap-2 font-medium">
+          <span>+</span> Nuevo (Aquí)
+        </button>
+
+        <button *ngIf="!currentDeptoId" 
+                routerLink="/empleados/nuevo" 
+                class="bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition shadow flex items-center gap-2 font-medium">
+          <span>+</span> Nuevo Empleado
         </button>
       </div>
     </div>
+    <!-- TABLA DE EMPLEADOS -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">Colaborador</th>
+            <th class="p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">Identificación</th>
+            <th class="p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">Ubicación</th>
+            <th class="p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider">Cargo</th>
+            <th class="p-4 font-semibold text-gray-700 text-sm uppercase tracking-wider text-center">Estado</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          
+          <!-- BUCLE DE DATOS -->
+          @for (emp of empleados; track emp.id) {
+            <tr class="hover:bg-blue-50 transition duration-150 group">
+              
+              <!-- Columna: Nombre y Foto -->
+              <td class="p-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden text-gray-500 font-bold text-sm">
+                    <img *ngIf="emp.foto_url" [src]="emp.foto_url" class="w-full h-full object-cover">
+                    <span *ngIf="!emp.foto_url">{{ emp.nombres.charAt(0) }}{{ emp.apellidos.charAt(0) }}</span>
+                  </div>
+                  <div>
+                    <div class="font-medium text-gray-900">{{ emp.nombres }} {{ emp.apellidos }}</div>
+                    <div class="text-xs text-gray-500">{{ emp.email }}</div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Columna: Cédula -->
+              <td class="p-4 text-gray-600 font-mono text-sm">{{ emp.documento }}</td>
+
+              <!-- Columna: Ubicación (Empresa / Depto) -->
+              <td class="p-4">
+                <div class="flex flex-col">
+                  <span class="text-sm font-medium text-gray-800">{{ emp.nombre_empresa }}</span>
+                  <span class="text-xs text-gray-500">{{ emp.nombre_sucursal }} • {{ emp.nombre_departamento }}</span>
+                </div>
+              </td>
+
+              <!-- Columna: Cargo -->
+              <td class="p-4">
+                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-200">
+                  {{ emp.nombre_puesto || 'Sin Cargo' }}
+                </span>
+              </td>
+
+              <!-- Columna: Estado -->
+              <td class="p-4 text-center">
+                <span class="inline-flex items-center gap-1.5 py-1 px-2 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                  Activo
+                </span>
+              </td>
+
+            </tr>
+          } @empty {
+            <!-- ESTO SALE SI LA LISTA ESTÁ VACÍA -->
+            <tr>
+              <td colspan="5" class="p-16 text-center">
+                <div class="flex flex-col items-center justify-center text-gray-400">
+                  <div class="text-5xl mb-4">👥</div>
+                  <p class="text-lg font-medium text-gray-600">No se encontraron empleados.</p>
+                  <p class="text-sm">Intenta agregar uno nuevo en este departamento.</p>
+                </div>
+              </td>
+            </tr>
+          }
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-4 text-center text-xs text-gray-400">
+      Mostrando {{ empleados.length }} registros.
+    </div>
+
+  </div>
+</div>

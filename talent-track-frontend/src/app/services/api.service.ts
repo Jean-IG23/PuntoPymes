@@ -1,25 +1,26 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-@Injectable({ providedIn: 'root' })
+
+@Injectable({
+  providedIn: 'root'
+})
 export class ApiService {
   private apiUrl = 'http://127.0.0.1:8000/api/';
 
   constructor(private http: HttpClient) { }
 
-  // 1. Obtener lista (Ya lo tenías)
-  getEmpleados(departamentoId?: number): Observable<any> {
-    let url = this.apiUrl + 'empleados/';
-    if (departamentoId) url += `?departamento=${departamentoId}`;
+  // --- GETs (Listados) ---
+  getEmpresas(): Observable<any> { return this.http.get(this.apiUrl + 'empresas/'); }
+  getAreas(empresaId?: number): Observable<any> {
+    let url = this.apiUrl + 'areas/';
+    if (empresaId) {
+      url += `?empresa=${empresaId}`;
+    }
     return this.http.get(url);
   }
+  getEmpresaById(id: number): Observable<any> { return this.http.get(this.apiUrl + 'empresas/' + id + '/'); }
 
-  // 2. GUARDAR NUEVO (Agrega esto) 👇
-  saveEmpleado(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'empleados/', data);
-  }
-
-  // 3. OBTENER CATÁLOGOS (Para los selects del formulario) 👇
   getSucursales(empresaId?: number): Observable<any> {
     let url = this.apiUrl + 'sucursales/';
     if (empresaId) url += `?empresa=${empresaId}`;
@@ -31,39 +32,42 @@ export class ApiService {
     if (sucursalId) url += `?sucursal=${sucursalId}`;
     return this.http.get(url);
   }
-  getPuestos(): Observable<any> { return this.http.get(this.apiUrl + 'puestos/'); }
-  getEmpresas(): Observable<any> { return this.http.get(this.apiUrl + 'empresas/'); }
 
-
-  getTurnos(): Observable<any> { 
-  return this.http.get(this.apiUrl + 'turnos/'); 
-}
-// ... métodos anteriores ...
-
-  // GUARDAR EMPRESA
-  saveEmpresa(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'empresas/', data);
+  getPuestos(departamentoId?: number, empresaId?: number): Observable<any> { 
+    let url = this.apiUrl + 'puestos/?'; // Agregamos ? al final
+    if (departamentoId) url += `departamento=${departamentoId}&`;
+    if (empresaId) url += `empresa=${empresaId}&`;
+    return this.http.get(url);
   }
 
-  // GUARDAR SUCURSAL
-  saveSucursal(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'sucursales/', data);
-  }
-
-  // GUARDAR DEPARTAMENTO
-  saveDepartamento(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'departamentos/', data);
-  }
+  getTurnos(): Observable<any> { return this.http.get(this.apiUrl + 'turnos/'); }
   
-  // GUARDAR PUESTO
-  savePuesto(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'puestos/', data);
+  getEmpleados(empresaId?: number, departamentoId?: number): Observable<any> {
+    let url = this.apiUrl + 'empleados/';
+    if (departamentoId) {
+      url += `?departamento=${departamentoId}`;
+    } else if (empresaId) {
+      url += `?empresa=${empresaId}`;
+    }
+    return this.http.get(url);
   }
+
+  getStats(): Observable<any> { return this.http.get(this.apiUrl + 'dashboard/stats/'); }
+
+  // --- POSTs (Guardar) ---
+  saveEmpresa(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empresas/', data); }
+  saveSucursal(data: any): Observable<any> { return this.http.post(this.apiUrl + 'sucursales/', data); }
+  saveDepartamento(data: any): Observable<any> { return this.http.post(this.apiUrl + 'departamentos/', data); }
   
-  // GUARDAR TURNO
-  saveTurno(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'turnos/', data);
+  // ¡ESTOS SON LOS QUE FALTABAN! 👇
+  savePuesto(data: any): Observable<any> { return this.http.post(this.apiUrl + 'puestos/', data); }
+  saveTurno(data: any): Observable<any> { return this.http.post(this.apiUrl + 'turnos/', data); }
+  
+  saveEmpleado(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empleados/', data); }
+  saveArea(data: any): Observable<any> { return this.http.post(this.apiUrl + 'areas/', data); }
+  uploadEmpleados(file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(this.apiUrl + 'empleados/upload/', formData);
   }
 }
-
-

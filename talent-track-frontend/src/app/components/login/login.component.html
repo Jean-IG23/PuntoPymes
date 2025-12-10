@@ -1,0 +1,70 @@
+<div class="min-h-screen w-full flex bg-white font-sans text-gray-600">
+
+  <div class="hidden lg:flex w-1/2 bg-blue-50 flex-col items-center justify-center p-12 relative overflow-hidden">
+    <img src="assets/login-bg.png" alt="Punto Pymes Logo" class="max-w-md w-full object-contain mb-8 animate-fade-in">
+    
+    <div class="text-center z-10">
+      <h2 class="text-3xl font-bold text-gray-800 mb-2">PUNTO <span class="text-green-500">PYMES</span></h2>
+      <p class="text-gray-500 tracking-widest text-sm mb-6">CÍA. LTDA.</p>
+      
+      <p class="text-gray-400 text-sm max-w-sm mx-auto leading-relaxed">
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.
+      </p>
+    </div>
+
+    <div class="absolute bottom-8 left-12 text-gray-400 text-sm">
+      Contactanos al: 09xxxxxxxxxx
+    </div>
+  </div>
+
+  <div class="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+    <div class="w-full max-w-md">
+      
+      <div class="lg:hidden text-center mb-8">
+        <h2 class="text-2xl font-bold text-blue-900">PUNTO <span class="text-green-500">PYMES</span></h2>
+      </div>
+
+      <div class="hidden lg:block text-center mb-10">
+        <div class="w-16 h-16 bg-blue-50 rounded-full mx-auto flex items-center justify-center mb-2">
+          <span class="text-2xl">🎯</span>
+        </div>
+        <h3 class="text-xl font-bold text-blue-900">PUNTO <span class="text-green-500">PYMES</span></h3>
+        <p class="text-xs text-gray-400 tracking-widest">CÍA. LTDA.</p>
+      </div>
+
+      <div class="mb-8">
+        <h2 class="text-xl text-gray-400 font-light text-center">Inicie sesión mediante su cuenta organizativa</h2>
+      </div>
+
+      <form (ngSubmit)="onLogin()" class="space-y-6">
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-500 mb-2">Correo Electrónico</label>
+          <input [(ngModel)]="credentials.username" name="username" type="text" 
+                 class="w-full bg-gray-200 border-none rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
+                 placeholder="xxxxxx@gmail.com" required>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-500 mb-2">Contraseña</label>
+          <input [(ngModel)]="credentials.password" name="password" type="password" 
+                 class="w-full bg-gray-200 border-none rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
+                 placeholder="••••••••••••••" required>
+        </div>
+
+        <div class="pt-4 flex flex-col items-center gap-4">
+  <button type="submit" 
+          class="w-40 bg-gradient-to-r from-green-50 to-green-100 ...">
+    Ingresar
+  </button>
+  
+  <button type="button"  class="text-sm text-blue-300 hover:text-blue-500 transition-colors">
+    ¿Olvidaste la contraseña?
+  </button>
+  </div>
+
+      </form>
+    </div>
+  </div>
+
+</div>

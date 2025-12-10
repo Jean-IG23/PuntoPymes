@@ -1,0 +1,49 @@
+<div class="p-8">
+  <h1 class="text-3xl font-bold text-gray-800 mb-8">📊 Panel de Control</h1>
+
+  <!-- SI NO HAY DATOS, MUESTRA ESTO -->
+  <div *ngIf="!stats.total_empresas && !stats.total_empleados" class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
+    <p class="text-yellow-700">Conectando con el servidor...</p>
+  </div>
+
+  <!-- GRILLA DE TARJETAS -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    
+    <!-- Tarjeta 1: Empresas -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-purple-500 flex items-center justify-between">
+      <div>
+        <p class="text-sm text-gray-500 font-semibold uppercase">Empresas</p>
+        <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_empresas || 0 }}</p>
+      </div>
+      <div class="p-3 bg-purple-50 rounded-full text-purple-600 text-2xl">🏢</div>
+    </div>
+
+    <!-- Tarjeta 2: Empleados -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 flex items-center justify-between">
+      <div>
+        <p class="text-sm text-gray-500 font-semibold uppercase">Empleados</p>
+        <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_empleados || 0 }}</p>
+      </div>
+      <div class="p-3 bg-blue-50 rounded-full text-blue-600 text-2xl">👥</div>
+    </div>
+
+    <!-- Tarjeta 3: Sucursales -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 flex items-center justify-between">
+      <div>
+        <p class="text-sm text-gray-500 font-semibold uppercase">Sucursales</p>
+        <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_sucursales || 0 }}</p>
+      </div>
+      <div class="p-3 bg-green-50 rounded-full text-green-600 text-2xl">📍</div>
+    </div>
+
+    <!-- Tarjeta 4: Departamentos -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-orange-500 flex items-center justify-between">
+      <div>
+        <p class="text-sm text-gray-500 font-semibold uppercase">Deptos.</p>
+        <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_departamentos || 0 }}</p>
+      </div>
+      <div class="p-3 bg-orange-50 rounded-full text-orange-600 text-2xl">📂</div>
+    </div>
+
+  </div>
+</div>

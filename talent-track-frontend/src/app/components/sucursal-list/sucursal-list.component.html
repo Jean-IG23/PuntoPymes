@@ -1,28 +1,42 @@
 <div class="p-8 bg-gray-50 min-h-screen">
   <div class="max-w-6xl mx-auto">
     
-    <div class="mb-6">
-      <a routerLink="/empresas" class="text-blue-600 hover:underline mb-2 block">← Volver a Empresas</a>
-      <h1 class="text-3xl font-bold text-gray-900">Sucursales</h1>
-      <p class="text-gray-500">Selecciona una sucursal para ver sus departamentos.</p>
+    <div class="flex justify-between items-end mb-6">
+      <div>
+        <a routerLink="/empresas" class="text-blue-600 hover:underline mb-2 block text-sm">← Volver a Empresas</a>
+        <h1 class="text-3xl font-bold text-gray-900">Sucursales</h1>
+        <p class="text-gray-500">Selecciona una sucursal para ver sus departamentos.</p>
+      </div>
+      
+      <!-- BOTÓN NUEVA SUCURSAL -->
+      <button [routerLink]="['/empresas', empresaId, 'sucursales', 'nueva']" 
+              class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition shadow flex items-center gap-2">
+        <span>+</span> Nueva Sucursal
+      </button>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       @for (suc of sucursales; track suc.id) {
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
-          <div class="flex justify-between items-start">
+          <div class="flex justify-between items-start mb-2">
             <h3 class="text-xl font-bold text-gray-800">{{ suc.nombre }}</h3>
             <span class="text-2xl">📍</span>
           </div>
-          <p class="text-sm text-gray-500 mt-2">{{ suc.direccion || 'Sin dirección registrada' }}</p>
+          <p class="text-sm text-gray-500 mb-4">{{ suc.direccion || 'Sin dirección registrada' }}</p>
           
           <button [routerLink]="['/sucursales', suc.id, 'departamentos']" 
-                  class="mt-4 w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition">
+                  class="w-full bg-white border border-green-600 text-green-600 font-semibold py-2 rounded hover:bg-green-50 transition">
             Ver Departamentos →
           </button>
         </div>
       } @empty {
-        <div class="col-span-3 text-center py-10 text-gray-500">No hay sucursales registradas en esta empresa.</div>
+        <div class="col-span-3 text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-300">
+          <p class="text-gray-500 mb-3">No hay sucursales en esta empresa.</p>
+          <button [routerLink]="['/empresas', empresaId, 'sucursales', 'nueva']" 
+              class="text-green-600 font-bold hover:underline">
+        <span>+</span> crear la primera
+      </button>
+        </div>
       }
     </div>
   </div>

@@ -38,13 +38,16 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'rest_framework.authtoken',
     'django.contrib.staticfiles',
     'core',
     'personal',
     'rest_framework',
+    'kpi'
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',                   # <--- ¡MUEVE ESTO AQUÍ ARRIBA! (PRIORIDAD ALTA)
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -52,9 +55,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
-
 ROOT_URLCONF = 'PuntoPymes.urls'
 
 TEMPLATES = [
@@ -133,9 +134,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configuración de Django REST Framework
 REST_FRAMEWORK = {
-    # Usaremos permisos estándar de Django para empezar
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # --- ESTA ES LA LÍNEA CORRECTA ---
+        'rest_framework.authentication.TokenAuthentication', 
+        # ---------------------------------
+        
+        #'rest_framework.authentication.SessionAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny', # Permitir acceso a cualquiera (para pruebas fáciles)
-    ]
+        #'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny'
+    ],
 }
 CORS_ALLOW_ALL_ORIGINS = True

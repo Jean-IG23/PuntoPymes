@@ -1,0 +1,54 @@
+<div class="p-8 bg-gray-50 min-h-screen">
+  <div class="max-w-6xl mx-auto">
+    
+    <div class="flex justify-between items-end mb-6">
+      <div>
+        <a routerLink="/mi-empresa" class="text-blue-600 hover:underline mb-2 block text-sm">← Volver al Panel</a>
+        <h1 class="text-3xl font-bold text-gray-900">Catálogo de Cargos</h1>
+        <p class="text-gray-500">Define los puestos disponibles en tu organización.</p>
+      </div>
+      <button routerLink="/puestos/nuevo" class="bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition shadow flex items-center gap-2">
+        <span>+</span> Crear Nuevo Cargo
+      </button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="p-4 font-semibold text-gray-700 text-sm">Nombre del Cargo</th>
+            <th class="p-4 font-semibold text-gray-700 text-sm">Área Funcional</th>
+            <th class="p-4 font-semibold text-gray-700 text-sm">Tipo</th>
+            <th class="p-4 font-semibold text-gray-700 text-sm text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          @for (p of puestos; track p.id) {
+            <tr class="hover:bg-gray-50 transition">
+              <td class="p-4 font-medium text-gray-900">{{ p.nombre }}</td>
+              <td class="p-4">
+                <span [class]="p.nombre_area === 'Universal / Comodín' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'" 
+                      class="px-2 py-1 rounded text-xs font-bold uppercase">
+                  {{ p.nombre_area }}
+                </span>
+              </td>
+              <td class="p-4 text-sm text-gray-500">
+                {{ p.es_supervisor ? '👮‍♂️ Supervisor' : '👤 Operativo' }}
+              </td>
+              <td class="p-4 text-right">
+                <button class="text-gray-400 hover:text-blue-600">✏️</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="p-8 text-center text-gray-500">
+                No has creado cargos aún.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>

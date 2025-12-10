@@ -3,7 +3,7 @@ from core.models import Empresa, Turno, Departamento, Puesto
 
 # 1. FICHA DEL EMPLEADO
 class Empleado(models.Model):
-    empresa = models.ForeignKey(Empresa, on_delete=models.PROTECT)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
     documento = models.CharField(max_length=20, unique=True)
@@ -13,8 +13,8 @@ class Empleado(models.Model):
     foto_url = models.URLField(blank=True, null=True)
     
     # Organización
-    departamento = models.ForeignKey(Departamento, on_delete=models.PROTECT, null=True)
-    puesto = models.ForeignKey(Puesto, on_delete=models.PROTECT, null=True)
+    departamento = models.ForeignKey(Departamento, on_delete=models.SET_NULL, null=True, blank=True)
+    puesto = models.ForeignKey(Puesto, on_delete=models.SET_NULL, null=True, blank=True)
     turno = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True)
     manager = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
     

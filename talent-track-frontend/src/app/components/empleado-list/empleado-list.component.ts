@@ -1,6 +1,6 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core'; // <--- IMPORTAR ESTO
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, ActivatedRoute } from '@angular/router'; // Importar ActivatedRoute
+import { RouterLink, ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 
 @Component({
@@ -11,9 +11,10 @@ import { ApiService } from '../../services/api.service';
   styleUrl: './empleado-list.component.css'
 })
 export class EmpleadoListComponent implements OnInit {
+  currentDeptoId: number | null = null; 
   empleados: any[] = [];
-  empresaId: number | null = null;
-  // INYECTAR ChangeDetectorRef AQUÍ 👇
+  tituloContexto: string = 'Directorio Global'; // Para cambiar el título dinámicamente
+
   constructor(
     private api: ApiService, 
     private cd: ChangeDetectorRef,
@@ -21,25 +22,33 @@ export class EmpleadoListComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    // Leemos el ID de la URL
-    this.route.paramMap.subscribe(params => {
-      const id = params.get('id');
-      if (id) {
-        this.empresaId = Number(id);
-        this.cargarDatos(this.empresaId);
+    // Suscribirse a los cambios de ruta para detectar filtros
+    this.route.url.subscribe(segments => {
+      const path = segments[0]?.path; // 'empresas', 'departamentos' o 'empleados'
+      const id = Number(this.route.snapshot.paramMap.get('id'));
+
+      if (path === 'departamentos' && id) {
+        this.tituloContexto = 'Personal del Departamento';
+        this.currentDeptoId = id; // 
+        this.cargarDatos(undefined, id);
+      } else if (path === 'empresas' && id) {
+        this.tituloContexto = 'Personal de la Empresa';
+        this.cargarDatos(id, undefined); // Filtro por Empresa
       } else {
-        // Si no hay ID, cargamos todos (modo super admin global)
-        this.cargarDatos(); 
+        this.tituloContexto = 'Directorio Global';
+        this.cargarDatos(); // Todos
       }
     });
   }
 
-  cargarDatos(empresaId?: number) {
-    this.api.getEmpleados(empresaId).subscribe(
+  cargarDatos(empresaId?: number, deptoId?: number) {
+    this.api.getEmpleados(empresaId, deptoId).subscribe(
       (data: any) => {
-        this.empleados = data.results || data;
+        console.log('👥 Empleados cargados:', data);
+        this.empleados = data.results ? data.results : data;
         this.cd.detectChanges();
-      }
+      },
+      (error) => console.error(error)
     );
   }
 }

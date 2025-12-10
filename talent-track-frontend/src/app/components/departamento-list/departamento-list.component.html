@@ -1,19 +1,38 @@
 <div class="p-8 bg-gray-50 min-h-screen">
   <div class="max-w-6xl mx-auto">
-    <div class="mb-6">
-        <button onclick="history.back()" class="text-blue-600 hover:underline mb-2 block">← Volver</button>
+    
+    <div class="flex justify-between items-end mb-8">
+      <div>
+        <button onclick="history.back()" class="text-blue-600 hover:underline mb-2 block text-sm">← Volver</button>
         <h1 class="text-3xl font-bold text-gray-900">Departamentos</h1>
+        <p class="text-gray-500">Áreas funcionales de esta sucursal.</p>
+      </div>
+
+      <!-- BOTÓN NUEVO DEPARTAMENTO -->
+      <button [routerLink]="['/sucursales', sucursalId, 'departamentos', 'nuevo']" 
+              class="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition shadow flex items-center gap-2 font-bold">
+        <span>+</span> Nuevo Depto
+      </button>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
       @for (dep of departamentos; track dep.id) {
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-orange-500 hover:shadow-md transition cursor-pointer"
+        <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-orange-500 hover:shadow-md transition cursor-pointer group"
              [routerLink]="['/departamentos', dep.id, 'empleados']">
-          <h3 class="text-lg font-bold text-gray-800">{{ dep.nombre }}</h3>
-          <p class="text-xs text-gray-400 mt-1">Click para ver personal</p>
+          
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-lg font-bold text-gray-800 group-hover:text-orange-600 transition">{{ dep.nombre }}</h3>
+            <span class="text-gray-300 group-hover:text-orange-400">📂</span>
+          </div>
+          
+          <p class="text-xs text-gray-400">Click para ver personal →</p>
         </div>
       } @empty {
-        <div class="col-span-4 text-center text-gray-500">No hay departamentos aquí.</div>
+        <div class="col-span-4 text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-300">
+          <p class="text-gray-500 mb-3">Esta sucursal no tiene departamentos.</p>
+          <button [routerLink]="['/sucursales', sucursalId, 'departamentos', 'nuevo']"
+           class="text-orange-600 font-bold hover:underline">Crear uno ahora</button>
+        </div>
       }
     </div>
   </div>

@@ -1,17 +1,43 @@
 from rest_framework import serializers
 from .models import Empleado, Contrato, DocumentoEmpleado, EventoAsistencia, SolicitudAusencia, TipoAusencia, Jornada
 from core.models import Departamento, Puesto # Importar modelos necesarios
-
+from django.contrib.auth.models import User
+from django.contrib.auth.models import Group
 # 1. EMPLEADO (Con Validación de Áreas)
 class EmpleadoSerializer(serializers.ModelSerializer):
     # Campos de lectura para mostrar nombres en el frontend
+    crear_usuario_admin = serializers.BooleanField(write_only=True, required=False, default=False)
     nombre_empresa = serializers.CharField(source='empresa.razon_social', read_only=True)
     nombre_departamento = serializers.CharField(source='departamento.nombre', read_only=True)
     nombre_puesto = serializers.CharField(source='puesto.nombre', read_only=True)
-
+   
     class Meta:
         model = Empleado
         fields = '__all__'
+    def create(self, validated_data):
+        crear_admin = validated_data.pop('crear_usuario_admin', False)
+        empleado = Empleado.objects.create(**validated_data)
+        if crear_admin:
+            email = empleado.email
+            cedula = empleado.documento
+            
+            if email:
+                # Buscamos si ya existe el usuario o lo creamos
+                user, created = User.objects.get_or_create(username=email, defaults={'email': email})
+                
+                # Le asignamos contraseña (la cédula) si es nuevo
+                if created:
+                    user.set_password(cedula)
+                
+                # LA CLAVE: Le damos permiso de Staff (Admin de Empresa)
+                user.is_staff = True
+                user.save()
+                
+                # ASIGNAR GRUPO MANAGER
+                manager_group = Group.objects.get(name='MANAGER')
+                user.groups.add(manager_group)
+                    
+        return empleado
 
     def validate(self, data):
         """

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion
 from personal.models import Empleado
-
+from django.contrib.auth.models import Group
 # 1. EMPRESA
 class EmpresaSerializer(serializers.ModelSerializer):
     admin_email = serializers.EmailField(write_only=True, required=False)
@@ -23,7 +23,14 @@ class EmpresaSerializer(serializers.ModelSerializer):
         if email and password:
             username = email
             if not User.objects.filter(username=username).exists():
-                User.objects.create_user(username=username, email=email, password=password, is_staff=True)
+                user = User.objects.create_user(username=username, email=email, password=password, is_staff=True)
+                
+                # --- CAMBIO DE SEGURIDAD ---
+                # Usamos get_or_create para que no falle si el grupo no existe aún
+                owner_group, created = Group.objects.get_or_create(name='OWNER')
+                user.groups.add(owner_group)
+                # ---------------------------
+
                 Empleado.objects.create(
                     empresa=empresa,
                     nombres=nombre_completo,

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
@@ -15,7 +15,7 @@ export class AreaListComponent implements OnInit {
   areas: any[] = [];
   loading: boolean = true;
 
-  constructor(private api: ApiService, private auth: AuthService) {}
+  constructor(private api: ApiService, private auth: AuthService, private cd: ChangeDetectorRef) {}
 
   ngOnInit() {
     const empresaId = this.auth.getEmpresaId();
@@ -24,6 +24,7 @@ export class AreaListComponent implements OnInit {
         (data: any) => {
           this.areas = data.results || data;
           this.loading = false;
+          this.cd.detectChanges();
         },
         (error) => console.error(error)
       );

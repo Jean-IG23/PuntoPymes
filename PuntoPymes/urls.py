@@ -8,7 +8,7 @@ from core.views import NotificacionViewSet
 # IMPORTANTE: Aquí importamos la vista que acabamos de crear
 from core.views import CustomAuthToken
 from kpi.views import KPIViewSet, ResultadoViewSet
-
+from core.views import AreaViewSet
 # ... (Tus imports de ViewSets) ...
 from core.views import EmpresaViewSet, SucursalViewSet, DepartamentoViewSet, PuestoViewSet, TurnoViewSet
 from personal.views import EmpleadoViewSet, ContratoViewSet, DocumentoViewSet, EventoAsistenciaViewSet, SolicitudViewSet, TipoAusenciaViewSet, JornadaViewSet
@@ -48,7 +48,7 @@ router.register(r'marcas', EventoAsistenciaViewSet)
 router.register(r'jornadas', JornadaViewSet)
 router.register(r'tipos-ausencia', TipoAusenciaViewSet)
 router.register(r'solicitudes', SolicitudViewSet)
-
+router.register(r'areas', AreaViewSet)
 # KPI (Descomentar si usas KPI)
 # router.register(r'kpis', KPIViewSet)
 # router.register(r'resultados-kpi', ResultadoViewSet)

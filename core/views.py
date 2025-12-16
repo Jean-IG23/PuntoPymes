@@ -15,7 +15,12 @@ from .serializers import (
     EmpresaSerializer, SucursalSerializer, DepartamentoSerializer, 
     PuestoSerializer, TurnoSerializer, AreaSerializer, NotificacionSerializer
 )
-
+def get_empresa_usuario(user):
+    if user.is_superuser: return None
+    try:
+        return Empleado.objects.get(email=user.email).empresa
+    except Empleado.DoesNotExist:
+        return None
 # 1. EMPRESAS
 class EmpresaViewSet(viewsets.ModelViewSet):
     queryset = Empresa.objects.all() # <--- IMPORTANTE
@@ -47,28 +52,25 @@ class DepartamentoViewSet(viewsets.ModelViewSet):
 
 # 4. ÁREAS (Aquí estaba el error de guardar)
 class AreaViewSet(viewsets.ModelViewSet):
-    queryset = Area.objects.all() # <--- ¡ESTO FALTABA!
+    queryset = Area.objects.all()
     serializer_class = AreaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = Area.objects.all()
-        
-        # Filtro: Si es cliente, solo ve sus áreas
-        if user.is_staff and not user.is_superuser:
-            try:
-                perfil = Empleado.objects.get(email=user.email)
-                return queryset.filter(empresa=perfil.empresa)
-            except Empleado.DoesNotExist:
-                return Area.objects.none()
-        
-        # Filtro: Si es SuperAdmin y pide una empresa específica
-        empresa_id = self.request.query_params.get('empresa')
-        if empresa_id:
-            queryset = queryset.filter(empresa_id=empresa_id)
-            
-        return queryset
+        empresa = get_empresa_usuario(self.request.user)
+        if empresa:
+            return Area.objects.filter(empresa=empresa)
+        return Area.objects.all() # Superadmin ve todo
+
+    def perform_create(self, serializer):
+        # AUTOMÁTICO: Asigna la empresa del usuario logueado
+        empresa = get_empresa_usuario(self.request.user)
+        if empresa:
+            serializer.save(empresa=empresa)
+        elif self.request.user.is_superuser:
+            serializer.save() # Superadmin debe mandar el ID en el JSON
+        else:
+            raise serializers.ValidationError({"error": "No tienes una empresa asignada."})
 
     # Auto-asignar empresa al crear
     def perform_create(self, serializer):
@@ -84,35 +86,31 @@ class AreaViewSet(viewsets.ModelViewSet):
 
 # 5. PUESTOS (Aquí estaba el error de lista vacía)
 class PuestoViewSet(viewsets.ModelViewSet):
-    queryset = Puesto.objects.all() # <--- ¡ESTO FALTABA!
+    queryset = Puesto.objects.all()
     serializer_class = PuestoSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
         queryset = Puesto.objects.all()
-
-        # A. Si es Cliente (Admin Empresa)
-        if user.is_staff and not user.is_superuser:
-            try:
-                perfil = Empleado.objects.get(email=user.email)
-                # ¡Filtramos DIRECTO por la empresa del usuario!
-                queryset = queryset.filter(empresa=perfil.empresa)
-            except Empleado.DoesNotExist:
-                return Puesto.objects.none()
+        empresa = get_empresa_usuario(self.request.user)
         
-        # B. Si es Super Admin (puede ver todo o filtrar)
-        if user.is_superuser:
-            empresa_id = self.request.query_params.get('empresa')
-            if empresa_id:
-                queryset = queryset.filter(empresa_id=empresa_id)
-
-        # C. Filtro adicional por departamento (si se envía)
+        # Filtro de Seguridad
+        if empresa:
+            queryset = queryset.filter(empresa=empresa)
+        
+        # Filtros opcionales (URL)
         dept_id = self.request.query_params.get('departamento')
         if dept_id:
             queryset = queryset.filter(departamento_id=dept_id)
             
         return queryset
+
+    def perform_create(self, serializer):
+        empresa = get_empresa_usuario(self.request.user)
+        if empresa:
+            serializer.save(empresa=empresa)
+        else:
+            serializer.save()
 
 # 6. TURNOS
 class TurnoViewSet(viewsets.ModelViewSet):
@@ -149,6 +147,14 @@ class CustomAuthToken(ObtainAuthToken):
         empresa_id = None
         nombre_empresa = None
         es_admin_empresa = user.is_staff
+        rol = 'EMPLOYEE'
+
+        if user.is_superuser:
+            rol = 'SUPERADMIN'
+        elif user.groups.filter(name='OWNER').exists():
+            rol = 'CLIENT'   # Dueño de Empresa
+        elif user.groups.filter(name='MANAGER').exists():
+            rol = 'MANAGER'  # Gerente / Supervisor
 
         if not user.is_superuser:
             try:
@@ -162,6 +168,7 @@ class CustomAuthToken(ObtainAuthToken):
             'token': token.key,
             'user_id': user.pk,
             'email': user.email,
+            'role': rol,
             'es_superadmin': user.is_superuser,
             'es_admin_empresa': es_admin_empresa,
             'empresa_id': empresa_id,

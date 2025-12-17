@@ -1,0 +1,34 @@
+<div class="p-8 bg-gray-50 min-h-screen">
+  <h1 class="text-3xl font-bold mb-6">Aprobación de Vacaciones</h1>
+  
+  <div class="grid gap-4">
+    <div *ngFor="let s of solicitudes" class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
+      
+      <div>
+        <h3 class="font-bold text-lg text-gray-800">
+          {{ s.empleado_nombre || 'Empleado #' + s.empleado }}
+        </h3>
+        <p class="text-gray-500 text-sm">
+          📅 Del <b>{{ s.fecha_inicio }}</b> al <b>{{ s.fecha_fin }}</b>
+        </p>
+        <p class="text-gray-600 mt-1 italic">"{{ s.motivo }}"</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div *ngIf="s.estado === 'PENDIENTE'" class="flex gap-2">
+          <button (click)="gestionar(s.id, 'APROBADA')" class="bg-green-100 text-green-700 px-4 py-2 rounded-lg font-bold hover:bg-green-200">
+            Aprobar
+          </button>
+          <button (click)="gestionar(s.id, 'RECHAZADA')" class="bg-red-100 text-red-700 px-4 py-2 rounded-lg font-bold hover:bg-red-200">
+            Rechazar
+          </button>
+        </div>
+        
+        <span *ngIf="s.estado !== 'PENDIENTE'" [class]="s.estado === 'APROBADA' ? 'text-green-600' : 'text-red-600'" class="font-bold">
+          {{ s.estado }}
+        </span>
+      </div>
+
+    </div>
+  </div>
+</div>

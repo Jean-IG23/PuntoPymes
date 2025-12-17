@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-portal-empleado',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './portal-empleado.component.html',
   styleUrl: './portal-empleado.component.css'
 })
@@ -17,8 +18,11 @@ export class PortalEmpleadoComponent implements OnInit, OnDestroy {
   fechaActual: string = '';
   timer: any;
   nombreEmpresa: string = '';
-  empleadoNombre: string = ''; // Para saludar
+  empleadoNombre: string = '';
   cargando: boolean = false;
+  solicitud: any = { fecha_inicio: '', fecha_fin: '', motivo: '' };
+  misSolicitudes: any[] = [];
+  mostrarHistorial: boolean = false;
 
   constructor(
     private api: ApiService, 
@@ -31,8 +35,32 @@ export class PortalEmpleadoComponent implements OnInit, OnDestroy {
     this.timer = setInterval(() => this.actualizarReloj(), 1000);
     
     this.nombreEmpresa = localStorage.getItem('nombre_empresa') || 'Mi Trabajo';
-    // Opcional: Podrías guardar el nombre del usuario en localStorage al login para mostrarlo aquí
+    this.cargarMisSolicitudes();
   }
+  cargarMisSolicitudes() {
+    // Necesitas agregar getSolicitudes en api.service.ts apuntando a 'solicitudes/'
+    this.api.getSolicitudes().subscribe((data: any) => {
+        this.misSolicitudes = data.results || data;
+    });
+  }
+
+  solicitarVacacion() {
+    if (!this.solicitud.fecha_inicio || !this.solicitud.fecha_fin) {
+      alert("Por favor selecciona las fechas.");
+      return;
+    }
+    
+    this.api.saveSolicitud(this.solicitud).subscribe(
+      () => {
+        alert("Solicitud enviada al gerente.");
+        this.solicitud = { fecha_inicio: '', fecha_fin: '', motivo: '' };
+        this.cargarMisSolicitudes();
+        this.mostrarHistorial = true;
+      },
+      (err) => alert("Error al enviar solicitud.")
+    );
+  }
+
 
   ngOnDestroy() {
     if (this.timer) clearInterval(this.timer);

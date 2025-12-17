@@ -44,12 +44,11 @@ router.register(r'resultados-kpi', ResultadoViewSet)
 router.register(r'empleados', EmpleadoViewSet)
 router.register(r'contratos', ContratoViewSet)
 router.register(r'documentos', DocumentoViewSet)
-router.register(r'marcas', EventoAsistenciaViewSet)
 router.register(r'jornadas', JornadaViewSet)
 router.register(r'tipos-ausencia', TipoAusenciaViewSet)
 router.register(r'solicitudes', SolicitudViewSet)
 router.register(r'areas', AreaViewSet)
-# KPI (Descomentar si usas KPI)
+router.register(r'marcas', EventoAsistenciaViewSet, basename='marcas')# KPI (Descomentar si usas KPI)
 # router.register(r'kpis', KPIViewSet)
 # router.register(r'resultados-kpi', ResultadoViewSet)
 
@@ -64,4 +63,5 @@ urlpatterns = [
     # Rutas de Documentación
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    
 ]

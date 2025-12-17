@@ -53,7 +53,9 @@ export class ApiService {
   }
 
   getStats(): Observable<any> { return this.http.get(this.apiUrl + 'dashboard/stats/'); }
-
+  getSolicitudes(): Observable<any> { return this.http.get(this.apiUrl + 'solicitudes/'); }
+  saveSolicitud(data: any): Observable<any> { return this.http.post(this.apiUrl + 'solicitudes/', data); }
+  updateSolicitud(id: number, data: any): Observable<any> { return this.http.patch(this.apiUrl + 'solicitudes/' + id + '/', data); }
   // --- POSTs (Guardar) ---
   saveEmpresa(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empresas/', data); }
   saveSucursal(data: any): Observable<any> { return this.http.post(this.apiUrl + 'sucursales/', data); }

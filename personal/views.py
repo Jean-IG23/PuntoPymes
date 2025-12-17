@@ -17,6 +17,7 @@ from .serializers import (
 from core.models import Departamento, Puesto, Empresa
 from rest_framework.decorators import action
 
+
 # 1. VIEWSET DE EMPLEADOS (El más importante)
 class EmpleadoViewSet(viewsets.ModelViewSet):
     queryset = Empleado.objects.all()  # <--- ¡AGREGA ESTA LÍNEA!
@@ -186,25 +187,29 @@ class ContratoViewSet(viewsets.ModelViewSet):
 
 # 3. VIEWSET DE ASISTENCIA (Marcaciones)
 class EventoAsistenciaViewSet(viewsets.ModelViewSet):
-    queryset = EventoAsistencia.objects.all()  
+    queryset = EventoAsistencia.objects.all()
     serializer_class = EventoAsistenciaSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
+    def perform_create(self, serializer):
         user = self.request.user
-        queryset = EventoAsistencia.objects.all()
-
-        if user.is_superuser:
-            return queryset
-        
-        if user.is_staff:
+        try:
+            # Buscamos al empleado asociado al usuario logueado
+            empleado = Empleado.objects.get(email=user.email)
+            serializer.save(empleado=empleado)
+        except Empleado.DoesNotExist:
+            raise serializers.ValidationError({"error": "No tienes un perfil de empleado asociado."})
+            
+    def get_queryset(self):
+        # El empleado solo ve SUS marcas
+        user = self.request.user
+        if not user.is_superuser:
             try:
-                mi_perfil = Empleado.objects.get(email=user.email)
-                return queryset.filter(empresa=mi_perfil.empresa)
+                empleado = Empleado.objects.get(email=user.email)
+                return EventoAsistencia.objects.filter(empleado=empleado).order_by('-fecha_hora')
             except:
                 return EventoAsistencia.objects.none()
-
-        return queryset.filter(empleado__email=user.email)
+        return EventoAsistencia.objects.all()
 
 
 # 4. VIEWSET DE SOLICITUDES (Vacaciones)

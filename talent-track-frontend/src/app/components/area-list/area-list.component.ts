@@ -24,9 +24,8 @@ export class AreaListComponent implements OnInit {
         (data: any) => {
           this.areas = data.results || data;
           this.loading = false;
-          this.cd.detectChanges();
         },
-        (error) => console.error(error)
+        (error: any) => console.error(error) // <--- AGREGAR ": any" AQUÍ
       );
     }
   }

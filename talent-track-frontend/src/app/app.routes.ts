@@ -61,6 +61,7 @@ export const routes: Routes = [
             { path: 'puestos/nuevo', component: PuestoFormComponent },
             { path: 'areas', component: AreaListComponent },
             { path: 'areas/nueva', component: AreaFormComponent },
+            { path: 'portal', component: PortalEmpleadoComponent, canActivate: [authGuard] },
         ]
     },
 

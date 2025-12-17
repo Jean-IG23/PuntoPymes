@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-portal-empleado',
@@ -15,25 +16,26 @@ export class PortalEmpleadoComponent implements OnInit, OnDestroy {
   horaActual: string = '';
   fechaActual: string = '';
   timer: any;
-  
-  usuarioNombre: string = '';
-  empresaNombre: string = '';
+  nombreEmpresa: string = '';
+  empleadoNombre: string = ''; // Para saludar
+  cargando: boolean = false;
 
-  constructor(private api: ApiService, private auth: AuthService) {}
+  constructor(
+    private api: ApiService, 
+    private auth: AuthService,
+    private router: Router
+  ) {}
 
   ngOnInit() {
-    // 1. Iniciar reloj
     this.actualizarReloj();
     this.timer = setInterval(() => this.actualizarReloj(), 1000);
-
-    // 2. Obtener datos del usuario (desde localStorage o token)
-    // Por simplicidad, tomamos lo que guardamos en el login
-    this.empresaNombre = localStorage.getItem('nombre_empresa') || 'Mi Empresa';
-    // Idealmente, haríamos una petición al backend para traer el nombre del empleado
+    
+    this.nombreEmpresa = localStorage.getItem('nombre_empresa') || 'Mi Trabajo';
+    // Opcional: Podrías guardar el nombre del usuario en localStorage al login para mostrarlo aquí
   }
 
   ngOnDestroy() {
-    clearInterval(this.timer);
+    if (this.timer) clearInterval(this.timer);
   }
 
   actualizarReloj() {
@@ -42,23 +44,51 @@ export class PortalEmpleadoComponent implements OnInit, OnDestroy {
     this.fechaActual = ahora.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }
 
-  marcar(tipo: 'CHECK_IN' | 'CHECK_OUT') {
-    // Aquí necesitamos saber el ID del empleado logueado.
-    // Como MVP, vamos a asumir que el backend es inteligente o enviamos un ID guardado.
-    // *NOTA PARA TI:* Para que esto sea 100% real, el login debe devolver el 'empleado_id'.
+  marcar(tipo: 'ENTRADA' | 'SALIDA' | 'INICIO_ALMUERZO' | 'FIN_ALMUERZO') {
+    if (this.cargando) return;
     
-    // Simularemos la marca exitosa visualmente por ahora
-    alert(`✅ Marcación de ${tipo === 'CHECK_IN' ? 'ENTRADA' : 'SALIDA'} registrada a las ${this.horaActual}`);
+    // OJO: El tipo debe coincidir con lo que espera tu Backend (ENTRADA, SALIDA)
+    // Ajustaremos esto si tu backend usa ingles (CHECK_IN)
     
-    /* Código real para conectar con API:
+    this.cargando = true;
+
+    // Objeto Marca
     const marca = {
-      tipo: tipo,
-      registrado_el: new Date().toISOString(),
-      latitud: 0, // Aquí usaríamos geolocalización del navegador
-      longitud: 0,
-      fuente: 'WEB'
+      tipo: tipo, // El backend debe soportar estos strings
+      latitud: 0,
+      longitud: 0
     };
-    this.api.saveMarca(marca).subscribe(...);
-    */
+
+    // Geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          marca.latitud = pos.coords.latitude;
+          marca.longitud = pos.coords.longitude;
+          this.enviar(marca);
+        },
+        () => this.enviar(marca) // Si falla GPS, envía igual
+      );
+    } else {
+      this.enviar(marca);
+    }
+  }
+
+  enviar(data: any) {
+    this.api.registrarAsistencia(data).subscribe(
+      (res: any) => {
+        this.cargando = false;
+        alert(`✅ Marca de ${data.tipo} registrada con éxito.`);
+      },
+      (err: any) => {
+        this.cargando = false;
+        console.error(err);
+        alert('Error al registrar asistencia.');
+      }
+    );
+  }
+
+  salir() {
+    this.auth.logout();
   }
 }

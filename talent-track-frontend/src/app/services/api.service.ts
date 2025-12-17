@@ -12,15 +12,8 @@ export class ApiService {
 
   // --- GETs (Listados) ---
   getEmpresas(): Observable<any> { return this.http.get(this.apiUrl + 'empresas/'); }
-  getAreas(empresaId?: number): Observable<any> {
-    let url = this.apiUrl + 'areas/';
-    if (empresaId) {
-      url += `?empresa=${empresaId}`;
-    }
-    return this.http.get(url);
-  }
   getEmpresaById(id: number): Observable<any> { return this.http.get(this.apiUrl + 'empresas/' + id + '/'); }
-
+  
   getSucursales(empresaId?: number): Observable<any> {
     let url = this.apiUrl + 'sucursales/';
     if (empresaId) url += `?empresa=${empresaId}`;
@@ -33,8 +26,15 @@ export class ApiService {
     return this.http.get(url);
   }
 
+  // --- AQUÍ ESTABA EL ERROR: Faltaba getAreas ---
+  getAreas(empresaId?: number): Observable<any> {
+    let url = this.apiUrl + 'areas/';
+    if (empresaId) url += `?empresa=${empresaId}`;
+    return this.http.get(url);
+  }
+
   getPuestos(departamentoId?: number, empresaId?: number): Observable<any> { 
-    let url = this.apiUrl + 'puestos/?'; // Agregamos ? al final
+    let url = this.apiUrl + 'puestos/?';
     if (departamentoId) url += `departamento=${departamentoId}&`;
     if (empresaId) url += `empresa=${empresaId}&`;
     return this.http.get(url);
@@ -59,12 +59,15 @@ export class ApiService {
   saveSucursal(data: any): Observable<any> { return this.http.post(this.apiUrl + 'sucursales/', data); }
   saveDepartamento(data: any): Observable<any> { return this.http.post(this.apiUrl + 'departamentos/', data); }
   
-  // ¡ESTOS SON LOS QUE FALTABAN! 👇
+  // --- AQUÍ ESTABA EL ERROR: Faltaba saveArea ---
+  saveArea(data: any): Observable<any> { return this.http.post(this.apiUrl + 'areas/', data); }
+  
   savePuesto(data: any): Observable<any> { return this.http.post(this.apiUrl + 'puestos/', data); }
   saveTurno(data: any): Observable<any> { return this.http.post(this.apiUrl + 'turnos/', data); }
-  
   saveEmpleado(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empleados/', data); }
-  saveArea(data: any): Observable<any> { return this.http.post(this.apiUrl + 'areas/', data); }
+  
+  registrarAsistencia(data: any): Observable<any> { return this.http.post(this.apiUrl + 'marcas/', data); }
+
   uploadEmpleados(file: File): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);

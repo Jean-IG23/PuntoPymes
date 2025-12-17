@@ -39,7 +39,7 @@ export class AreaFormComponent implements OnInit {
         alert('¡Área creada!');
         this.router.navigate(['/areas']);
       },
-      (error) => {
+      (error: any) => {
         console.error(error);
         alert('Error al guardar. Es posible que el nombre ya exista.');
       }

@@ -15,28 +15,36 @@ class EmpleadoSerializer(serializers.ModelSerializer):
         model = Empleado
         fields = '__all__'
     def create(self, validated_data):
-        crear_admin = validated_data.pop('crear_usuario_admin', False)
+        # 1. Extraemos el valor del checkbox
+        crear_admin = validated_data.pop('crear_usuario_admin', False) 
+        
+        # 2. Creamos el empleado
         empleado = Empleado.objects.create(**validated_data)
-        if crear_admin:
-            email = empleado.email
-            cedula = empleado.documento
+        
+        # 3. Lógica de Usuario
+        email = empleado.email
+        cedula = empleado.documento
+        
+        if email and cedula:
+            # Buscamos o creamos el usuario
+            user, created = User.objects.get_or_create(username=email, defaults={'email': email})
             
-            if email:
-                # Buscamos si ya existe el usuario o lo creamos
-                user, created = User.objects.get_or_create(username=email, defaults={'email': email})
-                
-                # Le asignamos contraseña (la cédula) si es nuevo
-                if created:
-                    user.set_password(cedula)
-                
-                # LA CLAVE: Le damos permiso de Staff (Admin de Empresa)
-                user.is_staff = True
+            if created:
+                user.set_password(cedula) # Contraseña = Cédula
                 user.save()
                 
-                # ASIGNAR GRUPO MANAGER
-                manager_group = Group.objects.get(name='MANAGER')
+                # Por defecto es empleado normal
+                employee_group, _ = Group.objects.get_or_create(name='EMPLOYEE')
+                user.groups.add(employee_group)
+            
+            # 4. USO CORRECTO DE LA VARIABLE (Aquí estaba el error)
+            if crear_admin:  # <--- ANTES DECÍA "if es_jefe"
+                user.is_staff = True 
+                user.save()
+                
+                manager_group, _ = Group.objects.get_or_create(name='MANAGER')
                 user.groups.add(manager_group)
-                    
+                
         return empleado
 
     def validate(self, data):

@@ -10,7 +10,7 @@ export class ApiService {
 
   constructor(private http: HttpClient) { }
 
-  // --- GETs (Listados) ---
+  // --- GETs (Listados Generales) ---
   getEmpresas(): Observable<any> { return this.http.get(this.apiUrl + 'empresas/'); }
   getEmpresaById(id: number): Observable<any> { return this.http.get(this.apiUrl + 'empresas/' + id + '/'); }
   
@@ -20,13 +20,17 @@ export class ApiService {
     return this.http.get(url);
   }
 
+  // Atajo útil para obtener sucursales directas
+  getSucursalesEmpresa(empresaId: number): Observable<any> {
+    return this.http.get(this.apiUrl + 'sucursales/?empresa=' + empresaId);
+  }
+
   getDepartamentos(sucursalId?: number): Observable<any> {
     let url = this.apiUrl + 'departamentos/';
     if (sucursalId) url += `?sucursal=${sucursalId}`;
     return this.http.get(url);
   }
 
-  // --- AQUÍ ESTABA EL ERROR: Faltaba getAreas ---
   getAreas(empresaId?: number): Observable<any> {
     let url = this.apiUrl + 'areas/';
     if (empresaId) url += `?empresa=${empresaId}`;
@@ -40,8 +44,12 @@ export class ApiService {
     return this.http.get(url);
   }
 
+  // --- TURNOS / HORARIOS ---
   getTurnos(): Observable<any> { return this.http.get(this.apiUrl + 'turnos/'); }
+  saveTurno(data: any): Observable<any> { return this.http.post(this.apiUrl + 'turnos/', data); }
+  deleteTurno(id: number): Observable<any> { return this.http.delete(this.apiUrl + 'turnos/' + id + '/'); }
   
+  // --- EMPLEADOS ---
   getEmpleados(empresaId?: number, departamentoId?: number): Observable<any> {
     let url = this.apiUrl + 'empleados/';
     if (departamentoId) {
@@ -52,27 +60,47 @@ export class ApiService {
     return this.http.get(url);
   }
 
-  getStats(): Observable<any> { return this.http.get(this.apiUrl + 'dashboard/stats/'); }
-  getSolicitudes(): Observable<any> { return this.http.get(this.apiUrl + 'solicitudes/'); }
-  saveSolicitud(data: any): Observable<any> { return this.http.post(this.apiUrl + 'solicitudes/', data); }
-  updateSolicitud(id: number, data: any): Observable<any> { return this.http.patch(this.apiUrl + 'solicitudes/' + id + '/', data); }
-  // --- POSTs (Guardar) ---
-  saveEmpresa(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empresas/', data); }
-  saveSucursal(data: any): Observable<any> { return this.http.post(this.apiUrl + 'sucursales/', data); }
-  saveDepartamento(data: any): Observable<any> { return this.http.post(this.apiUrl + 'departamentos/', data); }
-  
-  // --- AQUÍ ESTABA EL ERROR: Faltaba saveArea ---
-  saveArea(data: any): Observable<any> { return this.http.post(this.apiUrl + 'areas/', data); }
-  
-  savePuesto(data: any): Observable<any> { return this.http.post(this.apiUrl + 'puestos/', data); }
-  saveTurno(data: any): Observable<any> { return this.http.post(this.apiUrl + 'turnos/', data); }
   saveEmpleado(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empleados/', data); }
   
-  registrarAsistencia(data: any): Observable<any> { return this.http.post(this.apiUrl + 'marcas/', data); }
-
   uploadEmpleados(file: File): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post(this.apiUrl + 'empleados/upload/', formData);
+  }
+
+  // --- DASHBOARD & SOLICITUDES ---
+  getStats(): Observable<any> { return this.http.get(this.apiUrl + 'dashboard/stats/'); }
+  getSolicitudes(): Observable<any> { return this.http.get(this.apiUrl + 'solicitudes/'); }
+  saveSolicitud(data: any): Observable<any> { return this.http.post(this.apiUrl + 'solicitudes/', data); }
+  updateSolicitud(id: number, data: any): Observable<any> { return this.http.patch(this.apiUrl + 'solicitudes/' + id + '/', data); }
+  
+  // --- POSTs GENÉRICOS (Guardar) ---
+  saveEmpresa(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empresas/', data); }
+  saveSucursal(data: any): Observable<any> { return this.http.post(this.apiUrl + 'sucursales/', data); }
+  saveDepartamento(data: any): Observable<any> { return this.http.post(this.apiUrl + 'departamentos/', data); }
+  saveArea(data: any): Observable<any> { return this.http.post(this.apiUrl + 'areas/', data); }
+  savePuesto(data: any): Observable<any> { return this.http.post(this.apiUrl + 'puestos/', data); }
+
+  // --- ASISTENCIA ---
+  registrarAsistencia(data: any): Observable<any> { return this.http.post(this.apiUrl + 'marcas/', data); }
+
+  // 👇👇👇 AQUÍ ESTÁ LO NUEVO QUE FALTABA (KPIs) 👇👇👇
+  
+  // --- GESTIÓN DE KPIS ---
+  getKPIs(): Observable<any> {
+    return this.http.get(this.apiUrl + 'kpis/');
+  }
+
+  saveKPI(data: any): Observable<any> {
+    return this.http.post(this.apiUrl + 'kpis/', data);
+  }
+
+  deleteKPI(id: number): Observable<any> {
+    return this.http.delete(this.apiUrl + 'kpis/' + id + '/');
+  }
+
+  // --- RESULTADOS / EVALUACIONES ---
+  saveResultadoKPI(data: any): Observable<any> {
+    return this.http.post(this.apiUrl + 'resultados-kpi/', data);
   }
 }

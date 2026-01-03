@@ -1,0 +1,91 @@
+<div class="max-w-6xl mx-auto">
+  
+  <div class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800">📈 Configuración de Indicadores (KPIs)</h2>
+    <p class="text-gray-500 mt-2">Define qué vas a medir en tu empresa (Ventas, Puntualidad, Calidad, etc.).</p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <div class="lg:col-span-1">
+      <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-6 sticky top-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Nuevo Indicador</h3>
+        
+        <form (ngSubmit)="guardar()">
+          
+          <div class="mb-4">
+            <label class="block text-sm font-semibold text-gray-600 mb-1">Nombre del KPI</label>
+            <input [(ngModel)]="nuevoKPI.nombre" name="nombre" type="text" placeholder="Ej: Ventas Mensuales" 
+                   class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all">
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-sm font-semibold text-gray-600 mb-1">Tipo de Medida</label>
+            <select [(ngModel)]="nuevoKPI.unidad" name="unidad"
+                    class="w-full px-4 py-2 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+              <option *ngFor="let t of tiposUnidad" [value]="t.value">{{ t.label }}</option>
+            </select>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-sm font-semibold text-gray-600 mb-1">Meta / Objetivo Ideal</label>
+            <div class="relative">
+              <input [(ngModel)]="nuevoKPI.meta" name="meta" type="number" 
+                     class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
+              <span class="absolute right-4 top-2 text-gray-400 font-bold text-sm">{{ nuevoKPI.unidad }}</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">El valor que esperas que alcance el empleado.</p>
+          </div>
+
+          <button type="submit" 
+                  class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all transform active:scale-95">
+            + Crear Indicador
+          </button>
+
+        </form>
+      </div>
+    </div>
+
+    <div class="lg:col-span-2">
+      <h3 class="text-lg font-bold text-gray-800 mb-4">Indicadores Activos</h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <div *ngFor="let kpi of kpis" class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow relative group">
+          
+          <div class="flex justify-between items-start">
+            <div>
+              <span class="text-xs font-bold px-2 py-1 rounded bg-blue-50 text-blue-600 uppercase tracking-wide">
+                {{ kpi.unidad }}
+              </span>
+              <h4 class="text-xl font-bold text-gray-800 mt-2">{{ kpi.nombre }}</h4>
+              <p class="text-gray-500 text-sm mt-1">Meta Objetivo: <span class="font-bold text-gray-800">{{ kpi.meta }}</span></p>
+            </div>
+            
+            <div class="text-3xl opacity-20">
+              <span *ngIf="kpi.unidad === '%'">📊</span>
+              <span *ngIf="kpi.unidad === 'USD'">💰</span>
+              <span *ngIf="kpi.unidad === 'NUM'">🔢</span>
+              <span *ngIf="kpi.unidad === 'PTS'">⭐</span>
+            </div>
+          </div>
+
+          <button (click)="borrar(kpi.id)" 
+                  class="absolute top-3 right-3 text-gray-300 hover:text-red-500 transition-colors p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+
+        </div>
+
+        <div *ngIf="kpis.length === 0" class="col-span-full py-12 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+          <p class="text-gray-400 text-lg">No has configurado ningún indicador todavía.</p>
+          <p class="text-gray-400 text-sm">Usa el formulario de la izquierda para empezar.</p>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>

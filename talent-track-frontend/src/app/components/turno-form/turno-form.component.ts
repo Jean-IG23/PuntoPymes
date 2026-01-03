@@ -1,63 +1,46 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-turno-form',
   standalone: true,
-  imports: [CommonModule, FormsModule],
-  templateUrl: './turno-form.component.html',
-  styleUrl: './turno-form.component.css'
+  imports: [CommonModule, FormsModule, RouterLink], 
+  templateUrl: './turno-form.component.html'
 })
-export class TurnoFormComponent implements OnInit {
+export class TurnoFormComponent {
   
-  turno: any = { 
-    nombre: '', 
-    hora_entrada: '08:00', 
-    hora_salida: '17:00', 
-    minutos_descanso: 60, 
-    min_tolerancia: 10, 
-    empresa: '' 
+  // CORRECCIÓN 1: Usamos ': any' aquí
+  turno: any = {
+    nombre: '',
+    hora_entrada: '08:00',
+    hora_salida: '17:00',
+    tolerancia_minutos: 10,
+    empresa: null
   };
-  
-  empresas: any[] = [];
-  horasCalculadas: number = 8; 
 
-  constructor(private api: ApiService, private router: Router) {}
-
-  ngOnInit() {
-    this.api.getEmpresas().subscribe(
-        (data: any) => this.empresas = data.results || data
-    );
-    this.calcularHoras();
-  }
-
-  calcularHoras() {
-    // Cálculo visual simple
-    const inicio = parseInt(this.turno.hora_entrada.split(':')[0]);
-    const fin = parseInt(this.turno.hora_salida.split(':')[0]);
-    const descansoHoras = this.turno.minutos_descanso / 60;
+  constructor(private api: ApiService, private router: Router, private auth: AuthService) {
+    // CORRECCIÓN 2: Asegúrate de haber agregado getEmpresaId en auth.service.ts
+    const empresaId = this.auth.getEmpresaId();
     
-    // Si el turno cruza la medianoche o cálculo básico
-    let total = fin - inicio;
-    if (total < 0) total += 24; // Ajuste si termina al día siguiente
-    
-    this.horasCalculadas = total - descansoHoras;
+    if (empresaId) {
+        this.turno.empresa = empresaId;
+    }
   }
 
   guardar() {
-    if (!this.turno.nombre || !this.turno.empresa) {
-        alert("Completa los campos obligatorios");
-        return;
-    }
-    this.api.saveTurno(this.turno).subscribe(
-      () => { 
-          alert('Turno creado!'); 
-          this.router.navigate(['/empresas']); 
+    this.api.saveTurno(this.turno).subscribe({
+      next: () => {
+        alert('✅ Horario creado correctamente');
+        this.router.navigate(['/turnos']);
       },
-      (err: any) => alert('Error al guardar turno.')
-    );
+      error: (e) => {
+        console.error(e);
+        alert('Error al guardar. Revisa los datos.');
+      }
+    });
   }
 }

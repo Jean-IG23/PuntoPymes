@@ -1,0 +1,47 @@
+<div class="container p-4">
+  <div class="card shadow" style="max-width: 600px; margin: 0 auto;">
+    <div class="card-header bg-success text-white">
+      <h4 class="mb-0">📝 Evaluar Desempeño</h4>
+    </div>
+    <div class="card-body">
+      
+      <div class="mb-3">
+        <label class="form-label fw-bold">Seleccionar Empleado</label>
+        <select class="form-select" [(ngModel)]="evaluacion.empleado">
+          <option value="" disabled selected>-- Busca un empleado --</option>
+          <option *ngFor="let e of empleados" [value]="e.id">
+            {{ e.nombres }} {{ e.apellidos }}
+          </option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-bold">Seleccionar Indicador</label>
+        <select class="form-select" [(ngModel)]="evaluacion.kpi">
+          <option value="" disabled selected>-- ¿Qué vas a evaluar? --</option>
+          <option *ngFor="let k of kpis" [value]="k.id">
+            {{ k.nombre }} (Meta: {{ k.meta_objetivo }})
+          </option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-bold">Periodo (Mes)</label>
+        <input type="month" class="form-control" [(ngModel)]="evaluacion.periodo">
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label fw-bold">Calificación Obtenida</label>
+        <div class="input-group input-group-lg">
+          <input type="number" class="form-control text-center" [(ngModel)]="evaluacion.valor_obtenido" placeholder="0">
+          <span class="input-group-text">Pts / %</span>
+        </div>
+      </div>
+
+      <button class="btn btn-success w-100 py-2 fs-5" (click)="guardarNota()">
+        Guardar Evaluación
+      </button>
+
+    </div>
+  </div>
+</div>

@@ -84,7 +84,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'talent_track_db',  # El nombre que acabas de crear
         'USER': 'postgres',         # El usuario por defecto
-        'PASSWORD': 'password', # <--- ¡IMPORTANTE! Escribe aquí tu contraseña real
+        'PASSWORD': '3399', # <--- ¡IMPORTANTE! Escribe aquí tu contraseña real
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -147,3 +147,7 @@ REST_FRAMEWORK = {
     ],
 }
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:4200",
+    ]

@@ -1,0 +1,63 @@
+<div class="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+  
+  <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md text-center border border-gray-700">
+    
+    <div class="mb-8">
+      <h2 class="text-gray-400 text-sm uppercase tracking-wider font-semibold">Reloj Biométrico</h2>
+      <p class="text-gray-500 text-xs mt-1" *ngIf="empleado">
+        Hola, {{ empleado.nombres }}
+      </p>
+    </div>
+
+    <div class="mb-8 relative">
+        <div class="text-6xl font-mono font-bold text-white tracking-widest relative z-10">
+            {{ horaActual }}
+        </div>
+        <div class="absolute inset-0 bg-indigo-500 blur-3xl opacity-20 rounded-full"></div>
+        <p class="text-indigo-300 mt-2 capitalize">{{ fechaActual }}</p>
+    </div>
+
+    <div class="mb-8 min-h-[60px]">
+        <div *ngIf="cargandoUbicacion" class="flex items-center justify-center text-yellow-500 animate-pulse">
+            <i class="bi bi-geo-alt mr-2"></i> Buscando satélites...
+        </div>
+
+        <div *ngIf="gpsError" class="bg-red-900/30 text-red-400 p-3 rounded-lg text-sm border border-red-800">
+            <i class="bi bi-exclamation-triangle-fill mr-1"></i> {{ gpsError }}
+            <button (click)="obtenerUbicacion()" class="block w-full mt-2 text-white underline">Reintentar</button>
+        </div>
+
+        <div *ngIf="ubicacion && !gpsError" class="text-green-500 flex items-center justify-center">
+            <i class="bi bi-geo-alt-fill mr-2"></i> Ubicación precisa detectada
+        </div>
+    </div>
+
+    <button (click)="marcar()" 
+            [disabled]="cargandoUbicacion || !!gpsError || procesandoMarca"
+            class="w-48 h-48 rounded-full border-8 transition-all duration-300 transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center mx-auto shadow-lg group relative overflow-hidden"
+            [ngClass]="{
+                'border-indigo-600 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400': !procesandoMarca,
+                'border-gray-600 bg-gray-700 text-gray-400 cursor-not-allowed': cargandoUbicacion || !!gpsError,
+                'border-white bg-white/10 animate-pulse': procesandoMarca
+            }">
+        
+        <i class="bi bi-fingerprint text-5xl mb-2 group-hover:text-white transition-colors"></i>
+        <span class="font-bold text-lg group-hover:text-white transition-colors">
+            {{ procesandoMarca ? 'MARCANDO...' : 'MARCAR' }}
+        </span>
+    </button>
+
+    <div class="mt-8">
+        <div *ngIf="mensajeExito" class="bg-green-900/50 border border-green-600 text-green-300 p-4 rounded-xl animate-fade-in-up">
+            <h3 class="font-bold text-lg">¡Marcación Exitosa!</h3>
+            <p>{{ mensajeExito }}</p>
+        </div>
+
+        <div *ngIf="mensajeError" class="bg-red-900/50 border border-red-600 text-red-300 p-4 rounded-xl animate-shake">
+            <h3 class="font-bold text-lg">No se pudo marcar</h3>
+            <p>{{ mensajeError }}</p>
+        </div>
+    </div>
+
+  </div>
+</div>

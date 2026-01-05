@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router'; // Para el botón de "Nuevo"
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -12,33 +12,41 @@ import { AuthService } from '../../services/auth.service';
   styleUrl: './puesto-list.component.css'
 })
 export class PuestoListComponent implements OnInit {
+
   puestos: any[] = [];
   loading: boolean = true;
+  error: string = '';
 
-  constructor(private api: ApiService, private auth: AuthService) {}
+  constructor(
+    private api: ApiService,
+    private auth: AuthService
+  ) {}
 
   ngOnInit() {
     this.cargarPuestos();
   }
 
   cargarPuestos() {
+    this.loading = true;
+    
+    // 1. Obtenemos el ID de la empresa del usuario logueado
     const empresaId = this.auth.getEmpresaId();
 
-    // SOLUCIÓN AL ERROR DE TIPO:
-    // Convertimos 'null' a 'undefined' usando el operador ??
-    // Si empresaId es null, la variable idParaEnviar será undefined.
-    const idParaEnviar = empresaId ?? undefined;
-
-    this.api.getPuestos(undefined, idParaEnviar).subscribe(
-      (data: any) => {
+    // 2. Si por alguna razón es 0 o null (ej. SuperAdmin sin filtrar), manejamos el caso
+    //    Pero para tu caso de uso normal, enviaremos ese ID.
+    
+    this.api.getPuestos(undefined, empresaId).subscribe({
+      next: (data: any) => {
+        // El backend puede devolver un array directo o un objeto con "results"
         this.puestos = data.results || data;
         this.loading = false;
-        console.log("Puestos cargados:", this.puestos);
+        console.log('✅ Puestos cargados:', this.puestos.length);
       },
-      (error: any) => {
-        console.error('Error cargando puestos:', error);
+      error: (err) => {
+        console.error('❌ Error al cargar puestos:', err);
+        this.error = 'No se pudieron cargar los cargos.';
         this.loading = false;
       }
-    );
+    });
   }
 }

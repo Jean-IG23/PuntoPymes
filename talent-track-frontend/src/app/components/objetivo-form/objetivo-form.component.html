@@ -1,0 +1,80 @@
+<div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+  
+  <div class="sm:mx-auto sm:w-full sm:max-w-md">
+    <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+      {{ esEdicion ? 'Editar Objetivo' : 'Definir Nueva Meta' }}
+    </h2>
+    <p class="mt-2 text-center text-sm text-gray-600">
+      Los objetivos claros son la clave del crecimiento.
+    </p>
+  </div>
+
+  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      
+      <form [formGroup]="form" (ngSubmit)="guardar()" class="space-y-6">
+        
+        <div *ngIf="mensajeError" class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <i class="bi bi-exclamation-circle text-red-400"></i>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm text-red-700">{{ mensajeError }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Título del Objetivo</label>
+          <div class="mt-1">
+            <input type="text" formControlName="titulo" 
+                   class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                   placeholder="Ej: Aumentar ventas mensuales">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Descripción / Detalles</label>
+          <div class="mt-1">
+            <textarea formControlName="descripcion" rows="3" 
+                      class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Meta (Valor)</label>
+                <input type="number" formControlName="meta_numerica" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <p class="text-xs text-gray-400 mt-1">El 100% del éxito.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Fecha Límite</label>
+                <input type="date" formControlName="fecha_limite" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-4">
+            <button type="button" routerLink="/objetivos" class="text-sm text-gray-500 hover:text-gray-700">
+                Cancelar
+            </button>
+            
+            <div class="flex gap-2">
+                <button *ngIf="esEdicion" type="button" (click)="eliminar()"
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    Eliminar
+                </button>
+                
+                <button type="submit" [disabled]="form.invalid || loading"
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
+                    {{ loading ? 'Guardando...' : 'Guardar Objetivo' }}
+                </button>
+            </div>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>

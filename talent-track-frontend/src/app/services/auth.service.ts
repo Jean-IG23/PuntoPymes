@@ -7,11 +7,13 @@ import { Router } from '@angular/router';
   providedIn: 'root'
 })
 export class AuthService {
+  // Asegúrate de que esta URL coincida con tu urls.py
   private apiUrl = 'http://127.0.0.1:8000/api/login/';
   private tokenKey = 'auth_token';
 
   constructor(private http: HttpClient, private router: Router) { }
 
+  // --- LOGIN Y GESTIÓN DE SESIÓN ---
   login(credentials: any): Observable<any> {
     return this.http.post(this.apiUrl, credentials).pipe(
       tap((response: any) => {
@@ -23,23 +25,44 @@ export class AuthService {
           // 2. Guardar Datos de Empresa (si existen)
           if (response.empresa_id) {
             localStorage.setItem('empresa_id', String(response.empresa_id));
-            localStorage.setItem('nombre_empresa', response.nombre_empresa);
+            if (response.nombre_empresa) {
+                localStorage.setItem('nombre_empresa', response.nombre_empresa);
+            }
           } else {
-            // Limpiar datos viejos por seguridad
             localStorage.removeItem('empresa_id');
             localStorage.removeItem('nombre_empresa');
+          }
+
+          // 3. ¡VITAL! Guardar el objeto Usuario para el Dashboard
+          // El backend debe devolver 'user': { 'id': 1, 'nombres': 'Juan', ... }
+          if (response.user) {
+            this.saveUser(response.user);
           }
         }
       })
     );
   }
 
-  // --- GESTIÓN DE TOKENS ---
   logout() {
-    localStorage.clear(); // Borra todo (Token, Roles, IDs)
+    localStorage.clear(); // Borra todo (Token, Roles, IDs, User)
     this.router.navigate(['/login']);
   }
 
+  // --- MANEJO DE USUARIO ---
+  
+  saveUser(user: any): void {
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
+  getUser(): any {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      return JSON.parse(userStr);
+    }
+    return null;
+  }
+
+  // --- GESTIÓN DE TOKENS ---
   getToken(): string | null {
     return localStorage.getItem(this.tokenKey);
   }
@@ -48,7 +71,7 @@ export class AuthService {
     return !!this.getToken();
   }
 
-  // --- GESTIÓN DE ROLES (Lógica Unificada) ---
+  // --- GESTIÓN DE ROLES ---
   
   getRole(): string {
     return localStorage.getItem('user_role') || '';
@@ -60,8 +83,7 @@ export class AuthService {
   isManager(): boolean { return this.getRole() === 'MANAGER'; } // Gerente
   isEmployee(): boolean { return this.getRole() === 'EMPLOYEE'; } // Empleado base
 
-  // Permiso para ver el Panel Administrativo (Sidebar)
-  // El empleado normal NO entra aquí, va directo a su portal
+  // Permiso para ver el Panel Administrativo (Sidebar completo)
   canAccessPanel(): boolean {
     const role = this.getRole();
     return role === 'SUPERADMIN' || role === 'CLIENT' || role === 'MANAGER'; 
@@ -74,6 +96,7 @@ export class AuthService {
   }
 
   // --- DATOS DE EMPRESA ---
+  // (Unificada: Solo dejamos esta versión que lee del localStorage)
   getEmpresaId(): number {
     const id = localStorage.getItem('empresa_id');
     return id ? Number(id) : 0;

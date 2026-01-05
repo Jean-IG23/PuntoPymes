@@ -1,105 +1,110 @@
 from rest_framework import serializers
-from .models import Empleado, Contrato, DocumentoEmpleado, EventoAsistencia, SolicitudAusencia, TipoAusencia, Jornada
-from core.models import Departamento, Puesto # Importar modelos necesarios
-from django.contrib.auth.models import User
-from django.contrib.auth.models import Group
-# 1. EMPLEADO (Con Validación de Áreas)
+from django.contrib.auth.models import User, Group
+
+# Importamos SOLO los modelos de esta App (Personal)
+from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia
+
+# 1. SERIALIZER DE EMPLEADO (El Principal)
 class EmpleadoSerializer(serializers.ModelSerializer):
-    # Campos de lectura para mostrar nombres en el frontend
+    # Campo extra para crear usuario admin desde el frontend (no se guarda en BD empleado)
     crear_usuario_admin = serializers.BooleanField(write_only=True, required=False, default=False)
-    nombre_empresa = serializers.CharField(source='empresa.razon_social', read_only=True)
+    
+    # Campos de lectura (ReadOnly) para mostrar nombres en lugar de solo IDs en el JSON
+    nombre_empresa = serializers.CharField(source='empresa.nombre_comercial', read_only=True)
+    nombre_sucursal = serializers.CharField(source='sucursal.nombre', read_only=True)
     nombre_departamento = serializers.CharField(source='departamento.nombre', read_only=True)
     nombre_puesto = serializers.CharField(source='puesto.nombre', read_only=True)
-   
+    nombre_jefe = serializers.CharField(source='jefe_inmediato.nombres', read_only=True)
+    
     class Meta:
         model = Empleado
         fields = '__all__'
+
     def create(self, validated_data):
-        # 1. Extraemos el valor del checkbox
+        # 1. Extraemos el checkbox que no es parte del modelo Empleado
         crear_admin = validated_data.pop('crear_usuario_admin', False) 
         
-        # 2. Creamos el empleado
+        # 2. Creamos la ficha del empleado
         empleado = Empleado.objects.create(**validated_data)
         
-        # 3. Lógica de Usuario
+        # 3. Lógica automática de Usuario (Login)
         email = empleado.email
         cedula = empleado.documento
         
         if email and cedula:
-            # Buscamos o creamos el usuario
+            # Buscamos o creamos el usuario de Django
             user, created = User.objects.get_or_create(username=email, defaults={'email': email})
             
             if created:
-                user.set_password(cedula) # Contraseña = Cédula
+                user.set_password(cedula) # Contraseña por defecto = Cédula
                 user.save()
                 
-                # Por defecto es empleado normal
-                employee_group, _ = Group.objects.get_or_create(name='EMPLOYEE')
-                user.groups.add(employee_group)
+                # Asignar Grupo según el Rol del Empleado
+                nombre_grupo = 'EMPLEADO' # Default
+                if empleado.rol == 'CLIENTE': nombre_grupo = 'CLIENTE'
+                elif empleado.rol == 'RRHH': nombre_grupo = 'RRHH'
+                elif empleado.rol == 'GERENTE': nombre_grupo = 'GERENTE'
+                
+                group, _ = Group.objects.get_or_create(name=nombre_grupo)
+                user.groups.add(group)
             
-            # 4. USO CORRECTO DE LA VARIABLE (Aquí estaba el error)
-            if crear_admin:  # <--- ANTES DECÍA "if es_jefe"
+            # 4. Asignar permisos de Staff (Admin) si corresponde
+            # Se da acceso al admin panel SI: se marcó el check O el rol es administrativo
+            if crear_admin or empleado.rol in ['CLIENTE', 'RRHH']:
                 user.is_staff = True 
                 user.save()
                 
-                manager_group, _ = Group.objects.get_or_create(name='MANAGER')
-                user.groups.add(manager_group)
+            # Vinculamos (Si agregaste el OneToOneField 'usuario' en el modelo Empleado)
+            if hasattr(empleado, 'usuario'):
+                empleado.usuario = user
+                empleado.save()
                 
         return empleado
 
     def validate(self, data):
         """
-        Validación personalizada para asegurar compatibilidad entre Puesto y Departamento.
+        Validación de coherencia organizacional.
+        Evita que asignes un 'Vendedor' (Depto Ventas) al departamento de 'Sistemas'.
         """
-        depto = data.get('departamento') # El departamento destino
-        puesto = data.get('puesto')      # El cargo a ocupar
+        depto = data.get('departamento') # Objeto Departamento
+        puesto = data.get('puesto')      # Objeto Puesto
 
-        # Solo validamos si ambos campos están presentes
+        # Solo validamos si ambos campos vienen en la petición
         if depto and puesto:
-            
-            # CASO 1: Puesto Universal (Comodín)
-            # Si el puesto NO tiene área asignada (es None), puede ir a cualquier departamento.
-            if not puesto.area:
-                return data
-
-            # CASO 2: Validación Estricta
-            # Si el puesto TIENE área, el departamento debe tener LA MISMA área.
-            if depto.area and puesto.area != depto.area:
+            # En nuestro modelo Core, Puesto tiene ForeignKey a Departamento.
+            # Por tanto, un Puesto solo puede pertenecer a SU departamento original.
+            if puesto.departamento != depto:
                 raise serializers.ValidationError({
-                    'puesto': f"Error de Área: El cargo '{puesto.nombre}' pertenece al área '{puesto.area.nombre}', "
-                              f"pero intentas asignarlo al departamento '{depto.nombre}' ({depto.area.nombre})."
+                    'puesto': f"Incoherencia: El cargo '{puesto.nombre}' pertenece al departamento '{puesto.departamento.nombre}', no puedes asignarlo a '{depto.nombre}'."
                 })
         
         return data
 
-# ... (El resto de serializers: Contrato, Documento, etc. se mantienen igual) ...
-
+# 2. CONTRATOS
 class ContratoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contrato
         fields = '__all__'
 
+# 3. DOCUMENTOS
 class DocumentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentoEmpleado
         fields = '__all__'
 
-class EventoAsistenciaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EventoAsistencia
-        fields = '__all__'
-
+# 4. SOLICITUDES DE AUSENCIA
 class SolicitudSerializer(serializers.ModelSerializer):
+    # Mostramos datos extra para la tabla del frontend
+    nombre_empleado = serializers.CharField(source='empleado.nombres', read_only=True)
+    apellido_empleado = serializers.CharField(source='empleado.apellidos', read_only=True)
+    nombre_tipo = serializers.CharField(source='tipo_ausencia.nombre', read_only=True)
+
     class Meta:
         model = SolicitudAusencia
         fields = '__all__'
 
+# 5. TIPOS DE AUSENCIA (Catálogo)
 class TipoAusenciaSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoAusencia
-        fields = '__all__'
-
-class JornadaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Jornada
         fields = '__all__'

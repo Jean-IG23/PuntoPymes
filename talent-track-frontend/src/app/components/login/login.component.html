@@ -8,12 +8,12 @@
       <p class="text-gray-500 tracking-widest text-sm mb-6">CÍA. LTDA.</p>
       
       <p class="text-gray-400 text-sm max-w-sm mx-auto leading-relaxed">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.
+        Gestiona tu talento humano de manera integral, eficiente y moderna.
       </p>
     </div>
 
     <div class="absolute bottom-8 left-12 text-gray-400 text-sm">
-      Contactanos al: 09xxxxxxxxxx
+      Soporte: soporte@puntopymes.com
     </div>
   </div>
 
@@ -25,43 +25,71 @@
       </div>
 
       <div class="hidden lg:block text-center mb-10">
-        <div class="w-16 h-16 bg-blue-50 rounded-full mx-auto flex items-center justify-center mb-2">
-          <span class="text-2xl">🎯</span>
-        </div>
-        <h3 class="text-xl font-bold text-blue-900">PUNTO <span class="text-green-500">PYMES</span></h3>
-        <p class="text-xs text-gray-400 tracking-widest">CÍA. LTDA.</p>
+        <div class="w-16 h-16 bg-blue-50 rounded-full mx-auto flex items-center justify-center mb-2 shadow-sm">
+          <i class="bi bi-person-lock text-2xl text-green-600"></i> </div>
+        <h3 class="text-xl font-bold text-blue-900">Bienvenido</h3>
+        <p class="text-xs text-gray-400 tracking-widest">INICIAR SESIÓN</p>
       </div>
 
-      <div class="mb-8">
-        <h2 class="text-xl text-gray-400 font-light text-center">Inicie sesión mediante su cuenta organizativa</h2>
+      <div class="mb-6">
+        <h2 class="text-sm text-gray-400 font-light text-center">Ingresa tus credenciales corporativas</h2>
       </div>
 
-      <form (ngSubmit)="onLogin()" class="space-y-6">
+      <div *ngIf="errorMessage" class="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm rounded">
+        <p class="font-bold">Error</p>
+        <p>{{ errorMessage }}</p>
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-6">
         
         <div>
           <label class="block text-sm font-medium text-gray-500 mb-2">Correo Electrónico</label>
-          <input [(ngModel)]="credentials.username" name="username" type="text" 
-                 class="w-full bg-gray-200 border-none rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
-                 placeholder="xxxxxx@gmail.com" required>
+          <input formControlName="username" 
+                 type="email" 
+                 class="w-full bg-gray-100 border border-gray-200 rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
+                 placeholder="ejemplo@empresa.com"
+                 [ngClass]="{'border-red-500 ring-1 ring-red-500': loginForm.get('username')?.invalid && loginForm.get('username')?.touched}">
+          
+          <span *ngIf="loginForm.get('username')?.invalid && loginForm.get('username')?.touched" class="text-xs text-red-500 mt-1 ml-1">
+            Correo requerido y válido.
+          </span>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-gray-500 mb-2">Contraseña</label>
-          <input [(ngModel)]="credentials.password" name="password" type="password" 
-                 class="w-full bg-gray-200 border-none rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
-                 placeholder="••••••••••••••" required>
+          <input formControlName="password" 
+                 type="password" 
+                 class="w-full bg-gray-100 border border-gray-200 rounded-lg px-4 py-3 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400 focus:bg-white transition-all"
+                 placeholder="••••••••••••••">
+          
+           <span *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" class="text-xs text-red-500 mt-1 ml-1">
+            La contraseña es requerida.
+          </span>
         </div>
 
         <div class="pt-4 flex flex-col items-center gap-4">
-  <button type="submit" 
-          class="w-40 bg-gradient-to-r from-green-50 to-green-100 ...">
-    Ingresar
-  </button>
-  
-  <button type="button"  class="text-sm text-blue-300 hover:text-blue-500 transition-colors">
-    ¿Olvidaste la contraseña?
-  </button>
-  </div>
+          
+          <button type="submit" 
+                  [disabled]="loginForm.invalid || loading"
+                  class="w-full py-3 px-6 rounded-lg font-bold text-white shadow-lg transition-all transform hover:-translate-y-0.5
+                         bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700
+                         disabled:opacity-50 disabled:cursor-not-allowed">
+            
+            <span *ngIf="!loading">Ingresar</span>
+            
+            <span *ngIf="loading" class="flex items-center justify-center gap-2">
+              <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Validando...
+            </span>
+          </button>
+          
+          <button type="button" class="text-sm text-gray-400 hover:text-green-500 transition-colors">
+            ¿Olvidaste la contraseña?
+          </button>
+        </div>
 
       </form>
     </div>

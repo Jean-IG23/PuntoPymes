@@ -1,0 +1,23 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+
+import { Reloj } from './reloj.component';
+
+describe('Reloj', () => {
+  let component: Reloj;
+  let fixture: ComponentFixture<Reloj>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [Reloj]
+    })
+    .compileComponents();
+
+    fixture = TestBed.createComponent(Reloj);
+    component = fixture.componentInstance;
+    await fixture.whenStable();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});

@@ -1,108 +1,70 @@
-from rest_framework import viewsets, permissions, serializers
-from rest_framework.response import Response
-from .models import KPI, ResultadoKPI
-from .serializers import KPISerializer, ResultadoKPISerializer
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from .models import KPI, EvaluacionDesempeno, Objetivo
+from .serializers import KPISerializer, EvaluacionSerializer, ObjetivoSerializer
 from personal.models import Empleado
-
-# 1. GESTIÓN DE INDICADORES (Definiciones: "Ventas", "Puntualidad", etc.)
+from .services import CalculadoraDesempeno
 class KPIViewSet(viewsets.ModelViewSet):
+    queryset = KPI.objects.all()
     serializer_class = KPISerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
+
+# --- CAMBIO: Antes era ResultadoViewSet, ahora es EvaluacionViewSet ---
+class EvaluacionViewSet(viewsets.ModelViewSet):
+    queryset = EvaluacionDesempeno.objects.all()
+    serializer_class = EvaluacionSerializer
+    permission_classes = [IsAuthenticated]
+
+class ObjetivoViewSet(viewsets.ModelViewSet):
+    queryset = Objetivo.objects.all()
+    serializer_class = ObjetivoSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        
-        # A. SuperAdmin ve todo
+        queryset = Objetivo.objects.all()
+
         if user.is_superuser:
-            return KPI.objects.all()
-        
-        # B. Intentamos filtrar por la empresa del Empleado o del Usuario Admin
-        empresa_id = None
-        
-        # 1. Buscamos en perfil de Empleado
+            return queryset
+
         try:
-            perfil = Empleado.objects.get(email=user.email)
-            empresa_id = perfil.empresa.id
+            empleado = Empleado.objects.get(email=user.email)
+            if user.is_staff: 
+                return queryset.filter(empresa=empleado.empresa)
+            return queryset.filter(empleado=empleado)
+
         except Empleado.DoesNotExist:
-            # 2. Si no es empleado, ¿es un Admin con empresa asignada?
-            if hasattr(user, 'empresa') and user.empresa:
-                empresa_id = user.empresa.id
-            elif hasattr(user, 'empresa_id') and user.empresa_id:
-                empresa_id = user.empresa_id
+            return Objetivo.objects.none()
+        
+class EvaluacionViewSet(viewsets.ModelViewSet):
+    queryset = EvaluacionDesempeno.objects.all()
+    serializer_class = EvaluacionSerializer
+    permission_classes = [IsAuthenticated]
+    @action(detail=False, methods=['post'])
+    def generar_cierre(self, request):
+        """
+        Endpoint para calcular la evaluación mensual de un empleado.
+        Recibe JSON: { "empleado_id": 1, "mes": 10, "anio": 2024 }
+        """
+        empleado_id = request.data.get('empleado_id')
+        mes = request.data.get('mes')
+        anio = request.data.get('anio')
 
-        if empresa_id:
-            return KPI.objects.filter(empresa_id=empresa_id)
-            
-        return KPI.objects.none()
-
-    def perform_create(self, serializer):
-        user = self.request.user
-        empresa = None
-
-        # Intento 1: Obtener empresa desde perfil de Empleado
-        try:
-            perfil = Empleado.objects.get(email=user.email)
-            empresa = perfil.empresa
-        except Empleado.DoesNotExist:
-            # Intento 2: Obtener empresa desde el Usuario (Dueño/Admin)
-            if hasattr(user, 'empresa') and user.empresa:
-                empresa = user.empresa
-
-        # Guardamos inyectando la empresa
-        if empresa:
-            serializer.save(empresa=empresa)
-        elif user.is_superuser:
-            # El superadmin puede enviar el ID manualmente en el JSON si quiere
-            serializer.save()
-        else:
-            # Error claro si no se encuentra empresa (Evita el error 400 silencioso)
-            raise serializers.ValidationError(
-                {"detail": "No se pudo identificar tu empresa. Contacta a soporte."}
+        if not empleado_id or not mes or not anio:
+            return Response(
+                {"error": "Faltan datos (empleado_id, mes, anio)"}, 
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-# 2. RESULTADOS (Las notas: "Juan sacó 100 en Ventas")
-class ResultadoViewSet(viewsets.ModelViewSet):
-    serializer_class = ResultadoKPISerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        
-        # A. SuperAdmin
-        if user.is_superuser:
-            return ResultadoKPI.objects.all()
-            
         try:
-            perfil = Empleado.objects.get(email=user.email)
+            # Llamamos a nuestro "Cerebro"
+            calculadora = CalculadoraDesempeno(empleado_id)
+            evaluacion = calculadora.calcular_cierre_mensual(int(mes), int(anio))
             
-            # B. Si es Staff/Gerente: Ve los resultados de TODA su empresa
-            if user.is_staff:
-                return ResultadoKPI.objects.filter(empresa=perfil.empresa)
-            
-            # C. Empleado normal: Ve SOLO SUS PROPIAS notas
-            return ResultadoKPI.objects.filter(empleado=perfil)
-            
-        except Empleado.DoesNotExist:
-            # D. Caso especial: Admin/Dueño sin perfil de empleado
-            if user.is_staff and hasattr(user, 'empresa') and user.empresa:
-                return ResultadoKPI.objects.filter(empresa=user.empresa)
-                
-            return ResultadoKPI.objects.none()
+            # Devolvemos la evaluación generada
+            serializer = self.get_serializer(evaluacion)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def perform_create(self, serializer):
-        user = self.request.user
-        empresa = None
-
-        try:
-            perfil = Empleado.objects.get(email=user.email)
-            empresa = perfil.empresa
-        except Empleado.DoesNotExist:
-            if hasattr(user, 'empresa') and user.empresa:
-                empresa = user.empresa
-        
-        if empresa:
-            serializer.save(empresa=empresa)
-        else:
-            raise serializers.ValidationError(
-                {"detail": "Error: No tienes una empresa asignada para registrar resultados."}
-            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

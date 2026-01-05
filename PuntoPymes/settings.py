@@ -43,7 +43,9 @@ INSTALLED_APPS = [
     'core',
     'personal',
     'rest_framework',
-    'kpi'
+    'kpi',
+    'asistencia',
+
 ]
 
 MIDDLEWARE = [
@@ -82,9 +84,9 @@ WSGI_APPLICATION = 'PuntoPymes.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'talent_track_db',  # El nombre que acabas de crear
-        'USER': 'postgres',         # El usuario por defecto
-        'PASSWORD': '3399', # <--- ¡IMPORTANTE! Escribe aquí tu contraseña real
+        'NAME': 'talent_track_db',  
+        'USER': 'postgres',     
+        'PASSWORD': 'password', 
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -151,3 +153,5 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",
     ]
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

@@ -1,48 +1,207 @@
-<div class="p-8">
-  <h1 class="text-3xl font-bold text-gray-800 mb-8">📊 Panel de Control</h1>
-
-  <!-- SI NO HAY DATOS, MUESTRA ESTO -->
-  <div *ngIf="!stats.total_empresas && !stats.total_empleados" class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
-    <p class="text-yellow-700">Conectando con el servidor...</p>
+<div class="min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+  
+  <div *ngIf="loading" class="flex justify-center items-center h-64">
+    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
   </div>
 
-  <!-- GRILLA DE TARJETAS -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+  <div *ngIf="!loading" class="max-w-7xl mx-auto">
     
-    <!-- Tarjeta 1: Empresas -->
-    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-purple-500 flex items-center justify-between">
-      <div>
-        <p class="text-sm text-gray-500 font-semibold uppercase">Empresas</p>
-        <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_empresas || 0 }}</p>
+    <div class="max-w-7xl mx-auto"> <div class="md:flex md:items-center md:justify-between mb-8">
+      <div class="flex-1 min-w-0">
+        <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+          Hola, {{ empleado?.nombres?.split(' ')[0] || 'Usuario' }} 
+        </h2>
+        <p class="mt-1 text-sm text-gray-500" *ngIf="empleado">
+          {{ empleado.nombre_puesto }} - {{ empleado.nombre_departamento }}
+        </p>
+        <p class="mt-1 text-sm text-indigo-600 font-semibold" *ngIf="esAdmin">
+          <i class="bi bi-shield-check"></i> Vista de Administrador Activa
+        </p>
       </div>
-      <div class="p-3 bg-purple-50 rounded-full text-purple-600 text-2xl">🏢</div>
+      <div class="mt-4 flex md:mt-0 md:ml-4">
+        <span class="text-sm text-gray-400 italic">
+            {{ fechaHoy | date:'fullDate' | titlecase }}
+        </span>
+      </div>
     </div>
 
-    <!-- Tarjeta 2: Empleados -->
-    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 flex items-center justify-between">
-      <div>
-        <p class="text-sm text-gray-500 font-semibold uppercase">Empleados</p>
-        <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_empleados || 0 }}</p>
-      </div>
-      <div class="p-3 bg-blue-50 rounded-full text-blue-600 text-2xl">👥</div>
+    <div *ngIf="esAdmin && statsGlobales" class="mb-10 animate-fade-in">
+        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Resumen de la Empresa</h3>
+        
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
+                            <i class="bi bi-people text-white text-xl"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Total Colaboradores</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ statsGlobales.total_empleados }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                            <i class="bi bi-check-circle text-white text-xl"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Presentes Hoy</dt>
+                                <dd class="text-lg font-medium text-gray-900">
+                                    {{ statsGlobales.presentes_hoy }} 
+                                    <span class="text-xs text-gray-400">({{ statsGlobales.porcentaje_asistencia }}%)</span>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                            <i class="bi bi-calendar-x text-white text-xl"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Ausentes / Vacaciones</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ statsGlobales.ausentes_hoy }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+             <div class="bg-indigo-50 overflow-hidden shadow rounded-lg border border-indigo-100 cursor-pointer hover:bg-indigo-100 transition">
+                <div class="p-5 flex items-center justify-center h-full">
+                    <div class="text-center">
+                        <i class="bi bi-person-plus-fill text-indigo-600 text-2xl"></i>
+                        <p class="mt-1 text-sm font-medium text-indigo-600">Nuevo Empleado</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Tarjeta 3: Sucursales -->
-    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 flex items-center justify-between">
-      <div>
-        <p class="text-sm text-gray-500 font-semibold uppercase">Sucursales</p>
-        <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_sucursales || 0 }}</p>
+
+    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+        {{ esAdmin ? 'Mi Panel Personal' : 'Mi Resumen' }}
+    </h3>
+    
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+
+      <div class="bg-white overflow-hidden shadow rounded-lg border-l-4"
+           [ngClass]="getEstadoAsistencia() === 'CHECK_IN' ? 'border-green-500' : 'border-gray-300'">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <i class="bi bi-clock-history text-3xl" 
+                   [ngClass]="getEstadoAsistencia() === 'CHECK_IN' ? 'text-green-500' : 'text-gray-400'"></i>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Mi Estado</dt>
+                <dd>
+                  <div class="text-lg font-medium text-gray-900">
+                    <span *ngIf="getEstadoAsistencia() === 'CHECK_IN'">Trabajando 🟢</span>
+                    <span *ngIf="getEstadoAsistencia() === 'CHECK_OUT'">Salida Registrada 🔴</span>
+                    <span *ngIf="getEstadoAsistencia() === 'SIN_REGISTRO'">Sin Marcar ⚪</span>
+                  </div>
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-5 py-3">
+          <div class="text-sm">
+            <a routerLink="/reloj" class="font-medium text-indigo-600 hover:text-indigo-500">
+              Ir al Reloj <span aria-hidden="true">&rarr;</span>
+            </a>
+          </div>
+        </div>
       </div>
-      <div class="p-3 bg-green-50 rounded-full text-green-600 text-2xl">📍</div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-blue-500">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <i class="bi bi-bullseye text-3xl text-blue-500"></i>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Mis Objetivos</dt>
+                <dd>
+                  <div class="text-lg font-medium text-gray-900">{{ objetivosPendientes }} Pendientes</div>
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-5 py-3">
+          <div class="text-sm">
+            <a routerLink="/objetivos" class="font-medium text-blue-600 hover:text-blue-500">
+              Ver mis metas <span aria-hidden="true">&rarr;</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="empleado" class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-yellow-400">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <i class="bi bi-sun text-3xl text-yellow-400"></i>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Vacaciones Disponibles</dt>
+                <dd>
+                  <div class="text-lg font-medium text-gray-900">{{ empleado.saldo_vacaciones || 0 }} Días</div>
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-5 py-3">
+          <div class="text-sm">
+            <a href="#" class="font-medium text-yellow-600 hover:text-yellow-500">
+              Solicitar <span aria-hidden="true">&rarr;</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <!-- Tarjeta 4: Departamentos -->
-    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-orange-500 flex items-center justify-between">
-      <div>
-        <p class="text-sm text-gray-500 font-semibold uppercase">Deptos.</p>
-        <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total_departamentos || 0 }}</p>
-      </div>
-      <div class="p-3 bg-orange-50 rounded-full text-orange-600 text-2xl">📂</div>
+    <div *ngIf="esAdmin" class="mt-8">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">Gestión Administrativa</h3>
+        <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <button class="p-4 bg-white rounded-lg shadow hover:bg-gray-50 transition border border-gray-200">
+                <i class="bi bi-file-earmark-person text-2xl text-purple-600 block mb-2"></i>
+                <span class="text-sm font-medium text-gray-700">Gestionar Empleados</span>
+            </button>
+            <button class="p-4 bg-white rounded-lg shadow hover:bg-gray-50 transition border border-gray-200">
+                <i class="bi bi-building text-2xl text-orange-600 block mb-2"></i>
+                <span class="text-sm font-medium text-gray-700">Empresa y Sucursales</span>
+            </button>
+            <button class="p-4 bg-white rounded-lg shadow hover:bg-gray-50 transition border border-gray-200">
+                <i class="bi bi-file-text text-2xl text-blue-600 block mb-2"></i>
+                <span class="text-sm font-medium text-gray-700">Reportes de Asistencia</span>
+            </button>
+            <button class="p-4 bg-white rounded-lg shadow hover:bg-gray-50 transition border border-gray-200">
+                <i class="bi bi-gear text-2xl text-gray-600 block mb-2"></i>
+                <span class="text-sm font-medium text-gray-700">Configuración</span>
+            </button>
+        </div>
     </div>
 
   </div>

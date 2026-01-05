@@ -51,18 +51,18 @@ class AreaSerializer(serializers.ModelSerializer):
 class SucursalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sucursal
-        fields = '__all__'
+        fields = ['id', 'nombre', 'direccion', 'es_matriz', 'latitud', 'longitud', 'radio_metros', 'empresa']
 
 # 4. DEPARTAMENTO
 class DepartamentoSerializer(serializers.ModelSerializer):
     empresa = serializers.IntegerField(source='sucursal.empresa.id', read_only=True)
-    nombre_area = serializers.CharField(source='area.nombre', read_only=True) # Mostrar nombre
+    nombre_area = serializers.CharField(source='area.nombre', read_only=True) 
     
     class Meta:
         model = Departamento
         fields = '__all__'
 
-# 5. PUESTO (Ajustado)
+# 5. PUESTO 
 class PuestoSerializer(serializers.ModelSerializer):
     nombre_area = serializers.SerializerMethodField() # Campo calculado
 

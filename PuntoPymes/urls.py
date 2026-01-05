@@ -4,32 +4,39 @@ from rest_framework.routers import DefaultRouter
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from django.conf import settings
+from django.conf.urls.static import static
 
 # Vistas de Core
 from core.views import (
-    NotificacionViewSet, 
-    CustomAuthToken, 
+    NotificacionViewSet,
     AreaViewSet, 
     EmpresaViewSet, 
     SucursalViewSet, 
     DepartamentoViewSet, 
     PuestoViewSet, 
     TurnoViewSet,
-    DashboardStatsView  # <--- ¡IMPORTANTE! Agregamos esta vista
+    DashboardStatsView, 
+    CustomLoginView
 )
-
-# Vistas de KPI
-from kpi.views import KPIViewSet, ResultadoViewSet
 
 # Vistas de Personal
 from personal.views import (
     EmpleadoViewSet, 
     ContratoViewSet, 
     DocumentoViewSet, 
-    EventoAsistenciaViewSet, 
     SolicitudViewSet, 
-    TipoAusenciaViewSet, 
-    JornadaViewSet
+    TipoAusenciaViewSet,
+)
+
+# Vistas de Asistencia
+from asistencia.views import AsistenciaViewSet, JornadaViewSet
+
+# Vistas de KPI
+from kpi.views import (
+    KPIViewSet, 
+    EvaluacionViewSet, 
+    ObjetivoViewSet
 )
 
 # Configuración de la Documentación (Swagger)
@@ -37,17 +44,17 @@ schema_view = get_schema_view(
    openapi.Info(
       title="API Talent Track V2",
       default_version='v1',
-      description="Documentación técnica para el equipo de Desarrollo (Frontend & Móvil)",
-      contact=openapi.Contact(email="jean@talenttrack.com"),
+      description="Documentación técnica",
+      contact=openapi.Contact(email="admin@talenttrack.com"),
    ),
    public=True,
    permission_classes=(permissions.AllowAny,),
 )
 
-# ... (Configuración del router) ...
+# --- ROUTER PRINCIPAL ---
 router = DefaultRouter()
 
-# CORE
+# 1. CORE
 router.register(r'empresas', EmpresaViewSet)
 router.register(r'sucursales', SucursalViewSet)
 router.register(r'departamentos', DepartamentoViewSet)
@@ -56,32 +63,39 @@ router.register(r'turnos', TurnoViewSet)
 router.register(r'notificaciones', NotificacionViewSet, basename='notificacion')
 router.register(r'areas', AreaViewSet)
 
-# KPI (SOLUCIÓN DEL ERROR: Agregamos basename)
-router.register(r'kpis', KPIViewSet, basename='kpis')
-router.register(r'resultados-kpi', ResultadoViewSet, basename='resultados-kpi')
-
-# PERSONAL
+# 2. PERSONAL
 router.register(r'empleados', EmpleadoViewSet)
 router.register(r'contratos', ContratoViewSet)
 router.register(r'documentos', DocumentoViewSet)
-router.register(r'jornadas', JornadaViewSet)
 router.register(r'tipos-ausencia', TipoAusenciaViewSet)
 router.register(r'solicitudes', SolicitudViewSet)
-router.register(r'marcas', EventoAsistenciaViewSet, basename='marcas')
+
+# 3. ASISTENCIA (¡CORREGIDO AQUÍ!)
+router.register(r'asistencia', AsistenciaViewSet, basename='asistencia')
+router.register(r'jornadas', JornadaViewSet, basename='jornada')
+
+# 4. KPI
+router.register(r'kpis', KPIViewSet, basename='kpis')
+router.register(r'evaluaciones', EvaluacionViewSet)
+router.register(r'objetivos', ObjetivoViewSet)
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # Login
-    path('api/login/', CustomAuthToken.as_view()), 
+    # Login Personalizado
+    path('api/login/', CustomLoginView.as_view(), name='api_login'), 
     
-    # Dashboard (SOLUCIÓN ERROR FRONTEND 404)
-    path('api/dashboard/stats/', DashboardStatsView.as_view()),
+    # Dashboard Stats
+    path('api/dashboard/stats/', DashboardStatsView.as_view(), name='dashboard_stats'),
 
-    # Rutas del Router
+    # Rutas del Router (API)
     path('api/', include(router.urls)),
     
     # Documentación
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

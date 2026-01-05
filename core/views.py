@@ -4,53 +4,149 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+from django.utils import timezone
 from django.contrib.auth.models import User
 
 # Modelos
 from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion
-from personal.models import Empleado
+from personal.models import Empleado, SolicitudAusencia
+from asistencia.models import Jornada
 
 # Serializers
 from .serializers import (
     EmpresaSerializer, SucursalSerializer, DepartamentoSerializer, 
     PuestoSerializer, TurnoSerializer, AreaSerializer, NotificacionSerializer
 )
+
+# Helper para obtener empresa del usuario logueado
 def get_empresa_usuario(user):
     if user.is_superuser: return None
     try:
+        # Busca empleado activo vinculado al usuario
         return Empleado.objects.get(email=user.email).empresa
     except Empleado.DoesNotExist:
         return None
-# 1. EMPRESAS
+
+# ==================================================
+# 1. AUTENTICACIÓN (Sin cambios, tu código estaba bien)
+# ==================================================
+class CustomLoginView(ObtainAuthToken):
+    # ... (Mantén tu código de Login tal cual estaba, es correcto) ...
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        token, created = Token.objects.get_or_create(user=user)
+
+        role = 'SUPERADMIN'
+        empresa_id = None
+        nombre_empresa = None
+        user_data = {'id': user.id, 'email': user.email, 'nombres': user.username}
+
+        try:
+            empleado = Empleado.objects.get(email=user.email)
+            role = empleado.rol
+            empresa_id = empleado.empresa.id
+            nombre_empresa = empleado.empresa.nombre_comercial
+            user_data = {
+                'id': empleado.id, 
+                'nombres': empleado.nombres,
+                'apellidos': empleado.apellidos,
+                'email': empleado.email,
+                'puesto': empleado.puesto.nombre if empleado.puesto else 'Sin cargo',
+                'saldo_vacaciones': empleado.saldo_vacaciones,
+                'rol': empleado.rol
+            }
+        except Empleado.DoesNotExist:
+            if not user.is_superuser:
+                return Response({'error': 'Usuario sin ficha de empleado activa'}, status=400)
+
+        return Response({
+            'token': token.key,
+            'role': role,
+            'empresa_id': empresa_id,
+            'nombre_empresa': nombre_empresa,
+            'user': user_data
+        })
+
+# ==================================================
+# 2. DASHBOARD (Sin cambios, estaba bien)
+# ==================================================
+class DashboardStatsView(APIView):
+    # ... (Mantén tu código, es correcto) ...
+    def get(self, request):
+        user = request.user
+        hoy = timezone.now().date()
+        empleados_qs = Empleado.objects.all()
+        
+        if not user.is_superuser:
+            try:
+                perfil = Empleado.objects.get(email=user.email)
+                empleados_qs = empleados_qs.filter(empresa=perfil.empresa)
+            except:
+                return Response({'error': 'Usuario sin perfil'}, status=400)
+        
+        total_empleados = empleados_qs.filter(estado='ACTIVO').count()
+        asistencias_hoy = Jornada.objects.filter(fecha=hoy, empleado__in=empleados_qs).count()
+        ausencias_hoy = SolicitudAusencia.objects.filter(
+            fecha_inicio__lte=hoy, fecha_fin__gte=hoy, estado='APROBADA', empleado__in=empleados_qs
+        ).count()
+        
+        return Response({
+            'total_empleados': total_empleados,
+            'presentes_hoy': asistencias_hoy,
+            'ausentes_hoy': ausencias_hoy,
+            'porcentaje_asistencia': round((asistencias_hoy / total_empleados * 100), 1) if total_empleados > 0 else 0
+        })
+
+# ==================================================
+# 3. VIEWSETS DEL CORE (CORREGIDOS)
+# ==================================================
+
 class EmpresaViewSet(viewsets.ModelViewSet):
-    queryset = Empresa.objects.all() # <--- IMPORTANTE
+    queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
 
-# 2. SUCURSALES
 class SucursalViewSet(viewsets.ModelViewSet):
-    queryset = Sucursal.objects.all() # <--- IMPORTANTE
+    queryset = Sucursal.objects.all()
     serializer_class = SucursalSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         queryset = Sucursal.objects.all()
-        empresa_id = self.request.query_params.get('empresa')
-        if empresa_id:
-            queryset = queryset.filter(empresa_id=empresa_id)
+        empresa = get_empresa_usuario(self.request.user)
+        
+        # 1. Seguridad: Filtrar por mi empresa
+        if empresa:
+            queryset = queryset.filter(empresa=empresa)
+        
+        # 2. Filtro Opcional (Para SuperAdmin viendo una empresa X)
+        empresa_param = self.request.query_params.get('empresa')
+        if empresa_param:
+            queryset = queryset.filter(empresa_id=empresa_param)
+            
         return queryset
 
-# 3. DEPARTAMENTOS
 class DepartamentoViewSet(viewsets.ModelViewSet):
-    queryset = Departamento.objects.all() # <--- IMPORTANTE
+    queryset = Departamento.objects.all()
     serializer_class = DepartamentoSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         queryset = Departamento.objects.all()
+        empresa = get_empresa_usuario(self.request.user)
+
+        # 1. Seguridad: Solo deptos de sucursales de mi empresa
+        if empresa:
+            queryset = queryset.filter(sucursal__empresa=empresa)
+
+        # 2. Filtros Frontend
         sucursal_id = self.request.query_params.get('sucursal')
         if sucursal_id:
             queryset = queryset.filter(sucursal_id=sucursal_id)
+            
         return queryset
 
-# 4. ÁREAS (Aquí estaba el error de guardar)
 class AreaViewSet(viewsets.ModelViewSet):
     queryset = Area.objects.all()
     serializer_class = AreaSerializer
@@ -58,33 +154,26 @@ class AreaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         empresa = get_empresa_usuario(self.request.user)
+        # Seguridad: Solo ver mis áreas
         if empresa:
             return Area.objects.filter(empresa=empresa)
-        return Area.objects.all() # Superadmin ve todo
+        
+        # Si es superadmin, ver todas o filtrar por param
+        queryset = Area.objects.all()
+        empresa_param = self.request.query_params.get('empresa')
+        if empresa_param:
+            queryset = queryset.filter(empresa_id=empresa_param)
+        return queryset
 
     def perform_create(self, serializer):
-        # AUTOMÁTICO: Asigna la empresa del usuario logueado
         empresa = get_empresa_usuario(self.request.user)
         if empresa:
+            # Cliente creando área -> Asignar su empresa
             serializer.save(empresa=empresa)
-        elif self.request.user.is_superuser:
-            serializer.save() # Superadmin debe mandar el ID en el JSON
         else:
-            raise serializers.ValidationError({"error": "No tienes una empresa asignada."})
-
-    # Auto-asignar empresa al crear
-    def perform_create(self, serializer):
-        user = self.request.user
-        if user.is_staff and not user.is_superuser:
-            try:
-                perfil = Empleado.objects.get(email=user.email)
-                serializer.save(empresa=perfil.empresa)
-            except:
-                raise serializers.ValidationError("No tienes perfil de empleado.")
-        else:
+            # Superadmin creando área -> Debe venir 'empresa' en el JSON
             serializer.save()
 
-# 5. PUESTOS (Aquí estaba el error de lista vacía)
 class PuestoViewSet(viewsets.ModelViewSet):
     queryset = Puesto.objects.all()
     serializer_class = PuestoSerializer
@@ -94,14 +183,21 @@ class PuestoViewSet(viewsets.ModelViewSet):
         queryset = Puesto.objects.all()
         empresa = get_empresa_usuario(self.request.user)
         
-        # Filtro de Seguridad
+        # 1. Seguridad
         if empresa:
             queryset = queryset.filter(empresa=empresa)
+        else:
+            # Superadmin filtrando
+            empresa_param = self.request.query_params.get('empresa')
+            if empresa_param:
+                queryset = queryset.filter(empresa_id=empresa_param)
         
-        # Filtros opcionales (URL)
-        dept_id = self.request.query_params.get('departamento')
-        if dept_id:
-            queryset = queryset.filter(departamento_id=dept_id)
+        # 2. Filtros de Cascada (Frontend)
+        # Filtro por DEPARTAMENTO (Opcional, si tu modelo Puesto tiene FK a Depto)
+        # Nota: En el nuevo modelo sugerido, Puesto se vincula a ÁREA, no Depto.
+        area_id = self.request.query_params.get('area')
+        if area_id:
+            queryset = queryset.filter(area_id=area_id)
             
         return queryset
 
@@ -112,65 +208,22 @@ class PuestoViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
-# 6. TURNOS
 class TurnoViewSet(viewsets.ModelViewSet):
-    queryset = Turno.objects.all() # <--- IMPORTANTE
+    queryset = Turno.objects.all()
     serializer_class = TurnoSerializer
+    permission_classes = [IsAuthenticated]
 
-# 7. NOTIFICACIONES
+    def get_queryset(self):
+        empresa = get_empresa_usuario(self.request.user)
+        if empresa:
+            return Turno.objects.filter(empresa=empresa)
+        return Turno.objects.all()
+
 class NotificacionViewSet(viewsets.ModelViewSet):
-    queryset = Notificacion.objects.all() # <--- IMPORTANTE
+    queryset = Notificacion.objects.all()
     serializer_class = NotificacionSerializer
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
+        # Cada usuario solo ve SUS notificaciones
         return Notificacion.objects.filter(usuario_destino=self.request.user)
-
-# --- VISTAS EXTRA ---
-
-class DashboardStatsView(APIView):
-    def get(self, request):
-        stats = {
-            "total_empleados": Empleado.objects.count(),
-            "total_empresas": Empresa.objects.count(),
-            "total_sucursales": Sucursal.objects.count(),
-            "total_departamentos": Departamento.objects.count(),
-        }
-        return Response(stats)
-
-class CustomAuthToken(ObtainAuthToken):
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        
-        empresa_id = None
-        nombre_empresa = None
-        es_admin_empresa = user.is_staff
-        rol = 'EMPLOYEE'
-
-        if user.is_superuser:
-            rol = 'SUPERADMIN'
-        elif user.groups.filter(name='OWNER').exists():
-            rol = 'CLIENT'   # Dueño de Empresa
-        elif user.groups.filter(name='MANAGER').exists():
-            rol = 'MANAGER'  # Gerente / Supervisor
-
-        if not user.is_superuser:
-            try:
-                perfil = Empleado.objects.get(email=user.email)
-                empresa_id = perfil.empresa.id
-                nombre_empresa = perfil.empresa.razon_social
-            except Empleado.DoesNotExist:
-                pass
-
-        return Response({
-            'token': token.key,
-            'user_id': user.pk,
-            'email': user.email,
-            'role': rol,
-            'es_superadmin': user.is_superuser,
-            'es_admin_empresa': es_admin_empresa,
-            'empresa_id': empresa_id,
-            'nombre_empresa': nombre_empresa
-        })

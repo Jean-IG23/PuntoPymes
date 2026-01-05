@@ -1,85 +1,96 @@
 from django.db import models
-from datetime import datetime, date, timedelta
 from django.contrib.auth.models import User
+
+# 1. EMPRESA (El Cliente del SaaS)
 class Empresa(models.Model):
     razon_social = models.CharField(max_length=150)
     nombre_comercial = models.CharField(max_length=150, blank=True)
     ruc = models.CharField(max_length=20, unique=True)
-    pais = models.CharField(max_length=50, default='Ecuador')
-    estado = models.CharField(max_length=20, default='ACTIVO')
-    creada_el = models.DateTimeField(auto_now_add=True)
+    direccion = models.TextField(blank=True)
+    logo = models.ImageField(upload_to='logos_empresas/', null=True, blank=True)
+    estado = models.BooleanField(default=True) # Activo/Inactivo
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return self.razon_social
+    def __str__(self): return self.nombre_comercial or self.razon_social
 
-# 2. SUCURSAL
+# 2. SUCURSAL (Ubicación Física)
 class Sucursal(models.Model):
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=100)
-    direccion = models.CharField(max_length=200, blank=True)
-    latitud = models.DecimalField(max_digits=9, decimal_places=6, default=0)
-    longitud = models.DecimalField(max_digits=9, decimal_places=6, default=0)
-    radio_metros = models.IntegerField(default=50)
+    nombre = models.CharField(max_length=255)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='sucursales')
+    direccion = models.TextField(blank=True)
+    es_matriz = models.BooleanField(default=False)
+    
+    # --- CAMPOS NUEVOS PARA EL RELOJ BIOMÉTRICO ---
+    latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    radio_metros = models.IntegerField(default=50, help_text="Radio en metros para permitir marcaje")
 
     def __str__(self):
-        return f"{self.nombre} ({self.empresa.razon_social})"
+        return f"{self.nombre} ({self.empresa.nombre_comercial})"
 
-# 3. ÁREA (Catálogo)
+# 3. ÁREA (Unidad Funcional Global)
 class Area(models.Model):
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=100)
-    descripcion = models.TextField(blank=True)
+    nombre = models.CharField(max_length=100) # Ej: Comercial, RRHH, Tecnología
+    descripcion = models.TextField(blank=True, null=True)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='areas')
     
     class Meta:
-        unique_together = ('empresa', 'nombre')
+        unique_together = ('empresa', 'nombre') # No repetir nombres en la misma empresa
+
+    def __str__(self):
+        return f"{self.nombre} - {self.empresa.razon_social}"
+
+# 4. DEPARTAMENTO (Unidad Operativa Local)
+class Departamento(models.Model):
+    nombre = models.CharField(max_length=100) # Ej: Ventas Mostrador
+    
+    # RELACIÓN FÍSICA (¿Dónde está?)
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='departamentos')
+    
+    # ¡NUEVO! RELACIÓN FUNCIONAL (¿A qué área pertenece?)
+    # Usamos null=True temporalmente para no romper datos viejos si tienes
+    area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, related_name='departamentos')
+    
+    def __str__(self):
+        return f"{self.nombre} ({self.sucursal.nombre})"
+
+# 5. PUESTO (El Cargo)
+class Puesto(models.Model):
+    nombre = models.CharField(max_length=100)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
+    
+    # Opcional: Vincular puesto a un Área para filtrar (Ej: Solo mostrar puestos de Ventas en el área de Ventas)
+    area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    es_supervisor = models.BooleanField(default=False)
+    salario_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=460)
+    salario_maximo = models.DecimalField(max_digits=10, decimal_places=2, default=1000)
 
     def __str__(self):
         return self.nombre
 
-# 4. DEPARTAMENTO
-class Departamento(models.Model):
-    sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=100)
-    # El departamento SÍ debe tener un área definida
-    area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    def __str__(self):
-        return f"{self.nombre} - {self.sucursal.nombre}"
-
-# 5. PUESTO (Con lógica Comodín)
-class Puesto(models.Model):
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=100)
-    
-    # CAMBIO CLAVE: null=True permite que sea "Universal" (sin área)
-    area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    descripcion = models.TextField(blank=True)
-    es_supervisor = models.BooleanField(default=False)
-    salario_base_sugerido = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    def __str__(self):
-        area_nombre = self.area.nombre if self.area else "Universal"
-        return f"{self.nombre} ({area_nombre})"
-
-# 6. TURNO
+# 6. TURNO (Reglas de Asistencia)
 class Turno(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=50)
+    nombre = models.CharField(max_length=50) # Ej: "Oficina L-V"
     hora_entrada = models.TimeField()
     hora_salida = models.TimeField()
     minutos_descanso = models.IntegerField(default=60)
     min_tolerancia = models.IntegerField(default=10)
     
+    # MEJORA VITAL: Días Laborables
+    
+    dias_laborables = models.JSONField(default=list, help_text="Lista de días: 0=Lunes, 6=Domingo")
+
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} ({self.hora_entrada} - {self.hora_salida})"
 
 # 7. NOTIFICACIÓN
 class Notificacion(models.Model):
     TIPOS = [
         ('VACACION', 'Solicitud de Vacaciones'),
+        ('OBJETIVO', 'Asignación de Objetivo'), # Agregué este por tu módulo de KPIs
         ('SISTEMA', 'Mensaje del Sistema'),
-        ('PERSONAL', 'Mensaje Personal'),
     ]
     usuario_destino = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notificaciones')
     titulo = models.CharField(max_length=100)
@@ -93,4 +104,4 @@ class Notificacion(models.Model):
         ordering = ['-creada_el']
 
     def __str__(self):
-        return f"{self.titulo} -> {self.usuario_destino.username}"
+        return f"{self.tipo}: {self.titulo}"

@@ -1,0 +1,158 @@
+<div class="max-w-7xl mx-auto py-6 px-4">
+  
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Gestión de Ausencias</h1>
+    <button (click)="showModal = true" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+      + Nueva Solicitud
+    </button>
+  </div>
+
+  <div class="mb-6 border-b border-gray-200" *ngIf="auth.isManagement()">
+    <nav class="-mb-px flex space-x-8">
+      <button (click)="activeTab = 'MIS_SOLICITUDES'" 
+              [class.border-indigo-500]="activeTab === 'MIS_SOLICITUDES'"
+              [class.text-indigo-600]="activeTab === 'MIS_SOLICITUDES'"
+              class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition border-transparent text-gray-500 hover:text-gray-700">
+        Mis Solicitudes
+      </button>
+
+      <button (click)="activeTab = 'EQUIPO'" 
+              [class.border-indigo-500]="activeTab === 'EQUIPO'"
+              [class.text-indigo-600]="activeTab === 'EQUIPO'"
+              class="whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition border-transparent text-gray-500 hover:text-gray-700">
+        Pendientes de Aprobación
+        <span class="ml-2 bg-red-100 text-red-600 py-0.5 px-2 rounded-full text-xs" *ngIf="solicitudesEquipo.length > 0">
+          {{ solicitudesEquipo.length }}
+        </span>
+      </button>
+    </nav>
+  </div>
+
+  <div *ngIf="activeTab === 'MIS_SOLICITUDES'">
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+      <ul class="divide-y divide-gray-200">
+        <li *ngFor="let sol of misSolicitudes" class="px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-indigo-600">{{ sol.tipo_ausencia.nombre }}</p>
+              <p class="text-sm text-gray-500">Del {{ sol.fecha_inicio }} al {{ sol.fecha_fin }}</p>
+              <p class="text-xs text-gray-400 mt-1" *ngIf="sol.comentario_jefe">💬 Respuesta: {{ sol.comentario_jefe }}</p>
+            </div>
+            <div>
+              <span [ngClass]="{
+                'bg-yellow-100 text-yellow-800': sol.estado === 'PENDIENTE',
+                'bg-green-100 text-green-800': sol.estado === 'APROBADA',
+                'bg-red-100 text-red-800': sol.estado === 'RECHAZADA'
+              }" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                {{ sol.estado }}
+              </span>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <div *ngIf="misSolicitudes.length === 0" class="p-6 text-center text-gray-500">
+        No tienes solicitudes históricas.
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="activeTab === 'EQUIPO' && auth.isManagement()">
+    <div class="grid gap-4">
+      <div *ngFor="let sol of solicitudesEquipo" class="bg-white p-6 rounded-lg shadow border border-gray-200">
+        <div class="flex justify-between items-start">
+          <div class="flex items-center">
+             <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 mr-3">
+                  {{ sol.nombre_empleado?.charAt(0) || 'U' }}
+              </div>
+              <div>
+                  <h3 class="text-lg font-bold text-gray-900">
+                      {{ sol.nombre_empleado }} {{ sol.apellido_empleado }}
+                  </h3>
+                  <p class="text-sm text-gray-500">
+                      {{ sol.nombre_tipo || 'Permiso' }} • {{ sol.fecha_inicio }} - {{ sol.fecha_fin }}
+                  </p>
+              </div>
+          </div>
+        </div>
+        
+        <div class="mt-4 bg-gray-50 p-3 rounded text-sm text-gray-600 italic">
+          "{{ sol.motivo || 'Sin motivo especificado' }}"
+        </div>
+
+        <div class="mt-4 flex gap-3 justify-end">
+          <button (click)="gestionar(sol.id, 'RECHAZADA')" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded border border-red-200 text-sm">
+            Rechazar
+          </button>
+          <button (click)="gestionar(sol.id, 'APROBADA')" class="px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded text-sm shadow">
+            Aprobar Solicitud
+          </button>
+        </div>
+      </div>
+      
+      <div *ngIf="solicitudesEquipo.length === 0" class="p-10 text-center bg-white rounded shadow text-gray-500">
+        <i class="bi bi-check-circle text-4xl text-green-400 mb-2"></i>
+        <p>¡Todo al día! No tienes solicitudes pendientes.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div *ngIf="showModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center p-4 z-50">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md relative animate-fade-in-down">
+        
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-gray-900">Solicitar Ausencia</h2>
+            <button (click)="showModal=false" class="text-gray-400 hover:text-gray-600">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <form [formGroup]="solicitudForm" (ngSubmit)="nuevaSolicitud()">
+            
+            <div class="mb-4">
+                <label class="block text-sm font-bold mb-2 text-gray-700">Tipo de Permiso *</label>
+                <select formControlName="tipo_ausencia" 
+                        class="w-full border p-2 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                        [class.border-red-500]="solicitudForm.get('tipo_ausencia')?.invalid && solicitudForm.get('tipo_ausencia')?.touched">
+                    <option [ngValue]="null">-- Seleccione --</option>
+                    <option *ngFor="let t of tiposAusencia" [value]="t.id">{{ t.nombre }}</option>
+                </select>
+                <p *ngIf="solicitudForm.get('tipo_ausencia')?.invalid && solicitudForm.get('tipo_ausencia')?.touched" class="text-red-500 text-xs mt-1">
+                    Debes seleccionar un tipo.
+                </p>
+                <p *ngIf="tiposAusencia.length === 0" class="text-orange-500 text-xs mt-1 font-bold">
+                    ⚠️ No hay tipos configurados en el sistema. Contacta a RRHH.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-bold mb-2 text-gray-700">Desde *</label>
+                    <input type="date" formControlName="fecha_inicio" class="w-full border p-2 rounded focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold mb-2 text-gray-700">Hasta *</label>
+                    <input type="date" formControlName="fecha_fin" class="w-full border p-2 rounded focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-bold mb-2 text-gray-700">Motivo (Opcional)</label>
+                <textarea formControlName="motivo" class="w-full border p-2 rounded focus:ring-indigo-500" rows="3" placeholder="Ej: Cita médica, vacación familiar..."></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" (click)="showModal=false" class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition">
+                    Cancelar
+                </button>
+                
+                <button type="submit" 
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow font-medium flex items-center gap-2">
+                    <span>Enviar Solicitud</span>
+                    <i class="bi bi-send"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

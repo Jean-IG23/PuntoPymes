@@ -1,49 +1,52 @@
 from django.db import models
 from django.contrib.auth.models import User
-# Importamos los modelos base desde la APP CORE
-from core.models import Empresa, Sucursal, Departamento, Puesto, Turno
-
+from core.models import Empresa, Sucursal, Departamento, Puesto, Area
 # 1. FICHA DEL EMPLEADO
 class Empleado(models.Model):
+    # --- ROLES DEL SISTEMA (Simplificados y Jerárquicos) ---
     ROLES = [
-        ('CLIENTE', 'Admin de Empresa (Dueño)'), 
-        ('RRHH', 'Gestor de RRHH'),
-        ('GERENTE', 'Líder de Área (Manager)'),
-        ('EMPLEADO', 'Colaborador')
+        ('SUPERADMIN', 'Super Admin (SaaS)'),   # Tú (Acceso total técnico)
+        ('ADMIN', 'Cliente / Dueño'),           # El Cliente (Configuración total de su empresa)
+        ('RRHH', 'Recursos Humanos'),           # Gestión operativa (Permisos, Contratos)
+        ('GERENTE', 'Gerente / Líder'),         # Visión de equipo (Asistencia, Aprobación básica)
+        ('EMPLEADO', 'Colaborador'),            # Usuario final (Solo ve lo suyo)
     ]
+
+    # Relación con el usuario de Django (Login)
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name='empleado')
     
-    # Vinculación con Usuario de Login
-    usuario = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    
-    # Datos Biográficos
-    nombres = models.CharField(max_length=100)
-    apellidos = models.CharField(max_length=100)
-    documento = models.CharField(max_length=20, unique=True) # Cédula
-    email = models.EmailField(unique=True) 
+    # Datos Personales
+    nombres = models.CharField(max_length=150)
+    apellidos = models.CharField(max_length=150)
+    email = models.EmailField(unique=True)
     telefono = models.CharField(max_length=20, blank=True)
     direccion = models.TextField(blank=True)
-    foto = models.ImageField(upload_to='empleados_fotos/', null=True, blank=True)
-    
-    # Ubicación Organizacional
-    sucursal = models.ForeignKey(Sucursal, on_delete=models.SET_NULL, null=True)
-    departamento = models.ForeignKey(Departamento, on_delete=models.SET_NULL, null=True)
-    puesto = models.ForeignKey(Puesto, on_delete=models.SET_NULL, null=True)
-    
-    # Reglas Operativas
-    # OJO: Aquí usamos el Turno que importamos de CORE
-    turno = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True)
-    jefe_inmediato = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='subordinados')
-    
-    # Estado y Rol
-    rol = models.CharField(max_length=20, choices=ROLES, default='EMPLEADO')
-    estado = models.CharField(max_length=20, default='ACTIVO') 
-    
-    fecha_ingreso = models.DateField(null=True, blank=True)
-    saldo_vacaciones = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    foto = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
 
-    def __str__(self): return f"{self.nombres} {self.apellidos}"
+    # --- VINCULACIÓN EMPRESARIAL ---
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='empleados')
+    
+    # Estructura (Aquí se asigna el lugar y función)
+    departamento = models.ForeignKey(Departamento, on_delete=models.SET_NULL, null=True, blank=True)
+    puesto = models.ForeignKey(Puesto, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # --- JERARQUÍA Y ACCESO ---
+    rol = models.CharField(max_length=20, choices=ROLES, default='EMPLEADO')
+    
+    # Campo opcional: Si es GERENTE, ¿de qué Área es responsable?
+    # Esto permite que un Gerente vea a TODOS los empleados de "Ventas", 
+    # sin importar si están en Quito o Guayaquil.
+    lider_area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, help_text="Solo para Gerentes: Define qué área supervisa globalmente")
+
+    # Datos Laborales
+    fecha_ingreso = models.DateField()
+    sueldo = models.DecimalField(max_digits=10, decimal_places=2, default=460)
+    saldo_vacaciones = models.IntegerField(default=15)
+    
+    estado = models.CharField(max_length=20, default='ACTIVO', choices=[('ACTIVO', 'Activo'), ('INACTIVO', 'Inactivo')])
+
+    def __str__(self):
+        return f"{self.nombres} {self.apellidos} ({self.rol})"
 
 # 2. DOCUMENTOS DEL EMPLEADO
 class DocumentoEmpleado(models.Model):
@@ -89,7 +92,7 @@ class SolicitudAusencia(models.Model):
     
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
-    motivo = models.TextField()
+    motivo = models.TextField(null=True, blank=True)
     estado = models.CharField(max_length=20, choices=ESTADOS, default='PENDIENTE')
     
     fecha_resolucion = models.DateField(null=True, blank=True)

@@ -1,0 +1,76 @@
+<nav class="bg-white border-b border-gray-200 shadow-sm fixed w-full z-30 top-0">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16">
+      
+      <div class="flex">
+        <div class="flex-shrink-0 flex items-center cursor-pointer" routerLink="/dashboard">
+          <span class="text-2xl font-bold text-indigo-600">TalentTrack</span>
+        </div>
+
+        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+          
+          <a routerLink="/dashboard" 
+             routerLinkActive="border-indigo-500 text-gray-900"
+             class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+             Inicio
+          </a>
+
+          <a *ngIf="auth.canConfigCompany()" 
+             routerLink="/organizacion"
+             routerLinkActive="border-indigo-500 text-gray-900"
+             class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+             Organización
+          </a>
+
+          <a *ngIf="auth.isManagement()" 
+             routerLink="/empleados"
+             routerLinkActive="border-indigo-500 text-gray-900"
+             class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+             Personal
+          </a>
+
+          <a *ngIf="auth.isEmployee() || auth.isGerente()" 
+             routerLink="/mi-perfil"
+             routerLinkActive="border-indigo-500 text-gray-900"
+             class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+             Mi Ficha
+          </a>
+
+        </div>
+      </div>
+
+      <div class="hidden sm:ml-6 sm:flex sm:items-center">
+        
+        <div class="ml-3 relative flex items-center gap-4">
+          <div class="text-right leading-tight">
+            <div class="text-sm font-bold text-gray-900">{{ user?.first_name }}</div>
+            <div class="text-xs text-gray-500">{{ auth.getRole() }}</div>
+          </div>
+
+          <button (click)="auth.logout()" class="bg-gray-100 p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 transition">
+            <i class="bi bi-box-arrow-right text-lg"></i>
+          </button>
+        </div>
+
+      </div>
+
+      <div class="-mr-2 flex items-center sm:hidden">
+        <button (click)="mobileMenuOpen = !mobileMenuOpen" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+          <i class="bi bi-list text-2xl"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="mobileMenuOpen" class="sm:hidden bg-white border-t">
+    <div class="pt-2 pb-3 space-y-1">
+      <a routerLink="/dashboard" class="block pl-3 pr-4 py-2 border-l-4 border-indigo-500 text-base font-medium text-indigo-700 bg-indigo-50">Inicio</a>
+      
+      <a *ngIf="auth.canConfigCompany()" routerLink="/organizacion" class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Organización</a>
+      
+      <a *ngIf="auth.isManagement()" routerLink="/empleados" class="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800">Personal</a>
+      
+      <button (click)="auth.logout()" class="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-red-600 hover:bg-gray-50">Cerrar Sesión</button>
+    </div>
+  </div>
+</nav>

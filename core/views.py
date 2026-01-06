@@ -6,12 +6,13 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from django.utils import timezone
 from django.contrib.auth.models import User
-
+from personal.models import Empleado
+from django.db import transaction
 # Modelos
 from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion
 from personal.models import Empleado, SolicitudAusencia
 from asistencia.models import Jornada
-
+from rest_framework import status
 # Serializers
 from .serializers import (
     EmpresaSerializer, SucursalSerializer, DepartamentoSerializer, 
@@ -106,6 +107,79 @@ class DashboardStatsView(APIView):
 class EmpresaViewSet(viewsets.ModelViewSet):
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
+
+    def create(self, request, *args, **kwargs):
+        # 1. Separar datos de Admin y Empresa
+        data = request.data.copy()
+        
+        admin_email = data.pop('admin_email', None)
+        admin_password = data.pop('admin_password', None)
+        admin_nombre = data.pop('admin_nombre', None)
+
+        # 2. Validación Manual
+        if not admin_email or not admin_password:
+            return Response(
+                {"error": "Faltan credenciales del Administrador (Email o Password)."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                # 3. Serializar y Guardar Empresa
+                serializer = self.get_serializer(data=data)
+                if not serializer.is_valid():
+                    print("❌ Error Val Empresa:", serializer.errors)
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+                empresa = serializer.save()
+
+                # 4. Validar Usuario existente
+                if User.objects.filter(email=admin_email).exists():
+                    raise Exception(f"El email {admin_email} ya está registrado.")
+                
+                # 5. Crear Usuario Django
+                user = User.objects.create_user(
+                    username=admin_email, 
+                    email=admin_email, 
+                    password=admin_password,
+                    first_name=admin_nombre or "Admin"
+                )
+
+                # 6. Crear Sucursal Matriz
+                sucursal_matriz = Sucursal.objects.create(
+                    nombre="Matriz Principal",
+                    empresa=empresa,
+                    es_matriz=True,
+                    direccion=empresa.direccion or "Dirección Principal"
+                )
+
+                # 7. Crear Departamento Gerencia
+                depto_admin = Departamento.objects.create(
+                    nombre="Gerencia General",
+                    sucursal=sucursal_matriz
+                )
+
+                # 8. Crear Empleado (Lazy Import)
+                from personal.models import Empleado
+                Empleado.objects.create(
+                    usuario=user,
+                    nombres=admin_nombre or "Administrador",
+                    apellidos="",
+                    email=admin_email,
+                    empresa=empresa,
+                    rol='ADMIN',
+                    # sucursal=sucursal_matriz, <--- ¡ESTA LÍNEA SE BORRA!
+                    departamento=depto_admin, # El departamento ya vincula la sucursal
+                    fecha_ingreso=timezone.now().date(),
+                    sueldo=0,
+                    estado='ACTIVO'
+                )
+
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print(f"🔥 Error en Create Empresa: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class SucursalViewSet(viewsets.ModelViewSet):
     queryset = Sucursal.objects.all()

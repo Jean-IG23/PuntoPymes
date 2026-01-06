@@ -35,7 +35,7 @@ export class PuestoListComponent implements OnInit {
     // 2. Si por alguna razón es 0 o null (ej. SuperAdmin sin filtrar), manejamos el caso
     //    Pero para tu caso de uso normal, enviaremos ese ID.
     
-    this.api.getPuestos(undefined, empresaId).subscribe({
+    this.api.getPuestos(undefined, empresaId || undefined).subscribe({
       next: (data: any) => {
         // El backend puede devolver un array directo o un objeto con "results"
         this.puestos = data.results || data;

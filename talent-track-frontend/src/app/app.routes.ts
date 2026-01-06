@@ -1,80 +1,119 @@
-import { Routes, Router } from '@angular/router';
-import { inject } from '@angular/core';
+import { Routes } from '@angular/router';
 
-// 1. SERVICIOS
-import { AuthService } from './services/auth.service';
+// 1. IMPORTAR GUARDS (Los porteros de seguridad)
+import { authGuard } from './guards/auth.guard'; 
+import { adminGuard } from './guards/admin.guard'; 
+import { configGuard } from './guards/config.guard';
 
-// 2. COMPONENTES
+// 2. IMPORTAR COMPONENTES
+// Nota: Asegúrate de que todos empiecen con './components/...' si esa es tu estructura
 import { LoginComponent } from './components/login/login.component';
+import { MainLayoutComponent } from './components/layout/main-layout/main-layout.component'; 
 import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { OrganizacionComponent } from './components/organizacion/organizacion.component';
+import { EmpleadoListComponent } from './components/empleado-list/empleado-list.component';
+import { EmpleadoFormComponent } from './components/empleado-form/empleado-form.component';
+import { CargaMasivaComponent } from './components/carga-masiva/carga-masiva.component';
 import { RelojComponent } from './components/reloj/reloj.component';
 import { ObjetivosListComponent } from './components/objetivos-list/objetivos-list.component';
 import { ObjetivoFormComponent } from './components/objetivo-form/objetivo-form.component';
-import { EmpleadoListComponent } from './components/empleado-list/empleado-list.component';
-import { EmpleadoFormComponent } from './components/empleado-form/empleado-form.component';
 import { AsistenciaAdminComponent } from './components/asistencia-admin/asistencia-admin.component';
+import { SolicitudesComponent } from './components/solicitudes/solicitudes.component';
+import { ConfigAusenciasComponent } from './components/config-ausencias/config-ausencias.component';
 
-// CORRECCIÓN 1: Verifica si tu carpeta se llama "carga-masiva" o "carga-masiva.component"
-// Lo estándar en Angular es esto:
-import { CargaMasivaComponent } from './components/carga-masiva/carga-masiva.component'; 
-
-// 3. GUARD
-const authGuard = () => {
-  const auth = inject(AuthService);
-  const router = inject(Router);
-
-  if (auth.isLoggedIn()) {
-    return true;
-  } else {
-    router.navigate(['/login']);
-    return false;
-  }
-};
-
-// 4. RUTAS
+// 3. DEFINICIÓN DE RUTAS
 export const routes: Routes = [
   
-  // -- RAÍZ --
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  // -- RUTA PÚBLICA --
   { path: 'login', component: LoginComponent },
 
-  // -- RUTAS PROTEGIDAS --
-  
-  // DASHBOARD
-  { path: 'home', component: DashboardComponent, canActivate: [authGuard] },
+  // -- RUTAS PRIVADAS (Envueltas en MainLayout) --
+  {
+    path: '',
+    component: MainLayoutComponent, // El caparazón (Navbar + Content)
+    canActivate: [authGuard],       // 1er Candado: Solo logueados pueden ver esto
+    children: [
+        
+        // Redirección por defecto: Si entra a la raíz, va al dashboard
+        { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
 
-  // ASISTENCIA
-  { path: 'reloj', component: RelojComponent, canActivate: [authGuard] },
+        // --- ACCESO GENERAL (Jefes y Empleados) ---
+        { path: 'dashboard', component: DashboardComponent },
+        { path: 'reloj', component: RelojComponent },
+        { path: 'mi-perfil', component: EmpleadoFormComponent }, // O el componente de perfil de lectura
+        { path: 'solicitudes', component: SolicitudesComponent },
+        { path: 'objetivos', component: ObjetivosListComponent },
 
-  // OBJETIVOS (KPIs)
-  { path: 'objetivos', component: ObjetivosListComponent, canActivate: [authGuard] },
-  { path: 'objetivos/nuevo', component: ObjetivoFormComponent, canActivate: [authGuard] },
-  { path: 'objetivos/editar/:id', component: ObjetivoFormComponent, canActivate: [authGuard] },
+        // --- ACCESO RESTRINGIDO (Solo Jefes - Usamos adminGuard) ---
+        
+        // 1. ORGANIZACIÓN
+        { 
+          path: 'organizacion', 
+          component: OrganizacionComponent,
+          canActivate: [adminGuard] // <--- Solo Jefes
+        },
+        
+        // 2. EMPLEADOS
+        { 
+          path: 'empleados', 
+          component: EmpleadoListComponent,
+          canActivate: [adminGuard] 
+        },
+        { 
+          path: 'empleados/nuevo', 
+          component: EmpleadoFormComponent,
+          canActivate: [adminGuard]
+        },
+        { 
+          path: 'empleados/editar/:id', 
+          component: EmpleadoFormComponent,
+          canActivate: [adminGuard]
+        },
+        { 
+          path: 'empleados/carga-masiva', 
+          component: CargaMasivaComponent,
+          canActivate: [adminGuard]
+        },
+        
+        // 3. CONTEXTUALES (Departamentos)
+        { 
+          path: 'departamentos/:id/empleados', 
+          component: EmpleadoListComponent, 
+          canActivate: [adminGuard] 
+        },
+        { 
+          path: 'departamentos/:id/empleados/nuevo', 
+          component: EmpleadoFormComponent, 
+          canActivate: [adminGuard] 
+        },
 
-  // EMPLEADOS (Gestión General)
-  { path: 'empleados/carga-masiva', component: CargaMasivaComponent, canActivate: [authGuard] }, 
-  { path: 'empleados/nuevo', component: EmpleadoFormComponent, canActivate: [authGuard] },
-  { path: 'empleados/editar/:id', component: EmpleadoFormComponent, canActivate: [authGuard] },
-  { path: 'empleados', component: EmpleadoListComponent, canActivate: [authGuard] },
-
-  // CORRECCIÓN 2: RUTAS CONTEXTUALES (Por Departamento)
-  // Esto permite que la lógica de "verificarContexto" que hicimos en los componentes funcione.
-  { 
-    path: 'departamentos/:id/empleados', 
-    component: EmpleadoListComponent, 
-    canActivate: [authGuard] 
+        // 4. REPORTES Y GESTIÓN
+        { 
+          path: 'asistencia/reporte', 
+          component: AsistenciaAdminComponent, 
+          canActivate: [adminGuard] 
+        },
+        
+        // 5. GESTIÓN OBJETIVOS
+        { 
+          path: 'objetivos/nuevo', 
+          component: ObjetivoFormComponent, 
+          canActivate: [adminGuard] 
+        },
+        { 
+          path: 'objetivos/editar/:id', 
+          component: ObjetivoFormComponent, 
+          canActivate: [adminGuard] 
+        },
+        { 
+    path: 'configuracion/ausencias', 
+    component: ConfigAusenciasComponent,
+    canActivate: [configGuard] 
   },
-  { 
-    path: 'departamentos/:id/empleados/nuevo', 
-    component: EmpleadoFormComponent, 
-    canActivate: [authGuard] 
+    ]
   },
 
-  // -- 404 --
-  { path: '**', redirectTo: 'home' },
-  { 
-  path: 'asistencia/reporte', 
-  component: AsistenciaAdminComponent, 
-  canActivate: [authGuard] 
-},
+  // -- 404 (Wildcard) --
+  // Si escriben una ruta loca, los mandamos al dashboard
+  { path: '**', redirectTo: 'dashboard' },
 ];

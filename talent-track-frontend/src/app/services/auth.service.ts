@@ -7,34 +7,32 @@ import { Router } from '@angular/router';
   providedIn: 'root'
 })
 export class AuthService {
-  // Asegúrate de que esta URL coincida con tu urls.py
-  private apiUrl = 'http://127.0.0.1:8000/api/login/';
+  
+  private apiUrl = 'http://127.0.0.1:8000/api/'; 
   private tokenKey = 'auth_token';
 
   constructor(private http: HttpClient, private router: Router) { }
 
   // --- LOGIN Y GESTIÓN DE SESIÓN ---
   login(credentials: any): Observable<any> {
-    return this.http.post(this.apiUrl, credentials).pipe(
+    localStorage.removeItem(this.tokenKey); 
+    localStorage.removeItem('user');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('empresa_id');
+
+    return this.http.post(this.apiUrl + 'login/', credentials).pipe(
       tap((response: any) => {
         if (response.token) {
-          // 1. Guardar Token y Rol Principal
           localStorage.setItem(this.tokenKey, response.token);
-          localStorage.setItem('user_role', response.role); // 'SUPERADMIN', 'CLIENT', 'MANAGER', 'EMPLOYEE'
+          localStorage.setItem('user_role', response.role); 
           
-          // 2. Guardar Datos de Empresa (si existen)
           if (response.empresa_id) {
             localStorage.setItem('empresa_id', String(response.empresa_id));
             if (response.nombre_empresa) {
                 localStorage.setItem('nombre_empresa', response.nombre_empresa);
             }
-          } else {
-            localStorage.removeItem('empresa_id');
-            localStorage.removeItem('nombre_empresa');
           }
 
-          // 3. ¡VITAL! Guardar el objeto Usuario para el Dashboard
-          // El backend debe devolver 'user': { 'id': 1, 'nombres': 'Juan', ... }
           if (response.user) {
             this.saveUser(response.user);
           }
@@ -44,22 +42,18 @@ export class AuthService {
   }
 
   logout() {
-    localStorage.clear(); // Borra todo (Token, Roles, IDs, User)
+    localStorage.clear(); 
     this.router.navigate(['/login']);
   }
 
   // --- MANEJO DE USUARIO ---
-  
   saveUser(user: any): void {
     localStorage.setItem('user', JSON.stringify(user));
   }
 
   getUser(): any {
     const userStr = localStorage.getItem('user');
-    if (userStr) {
-      return JSON.parse(userStr);
-    }
-    return null;
+    return userStr ? JSON.parse(userStr) : null;
   }
 
   // --- GESTIÓN DE TOKENS ---
@@ -71,34 +65,64 @@ export class AuthService {
     return !!this.getToken();
   }
 
-  // --- GESTIÓN DE ROLES ---
+  // ==========================================
+  //      GESTIÓN DE ROLES Y PERMISOS
+  // ==========================================
   
   getRole(): string {
     return localStorage.getItem('user_role') || '';
   }
 
-  // Roles Específicos
-  isSuperAdmin(): boolean { return this.getRole() === 'SUPERADMIN'; }
-  isClient(): boolean { return this.getRole() === 'CLIENT'; }   // Dueño
-  isManager(): boolean { return this.getRole() === 'MANAGER'; } // Gerente
-  isEmployee(): boolean { return this.getRole() === 'EMPLOYEE'; } // Empleado base
+  // 1. ROLES ESPECÍFICOS (Indispensables para validaciones puntuales)
+  isSuperAdmin(): boolean { return this.getRole() === 'SUPERADMIN'; } // <--- ESTE FALTABA
+  isGerente(): boolean { return this.getRole() === 'GERENTE'; }
+  isRRHH(): boolean { return this.getRole() === 'RRHH'; }
+  isEmployee(): boolean { return this.getRole() === 'EMPLEADO'; }
 
-  // Permiso para ver el Panel Administrativo (Sidebar completo)
-  canAccessPanel(): boolean {
+  // 2. NIVELES JERÁRQUICOS (Para lógica de negocio agrupada)
+
+  // NIVEL DIOS: SuperAdmin (SaaS) y Admin (Dueño Empresa)
+  // Tienen acceso a facturación y datos sensibles.
+  isAdminLevel(): boolean {
     const role = this.getRole();
-    return role === 'SUPERADMIN' || role === 'CLIENT' || role === 'MANAGER'; 
+    return role === 'SUPERADMIN' || role === 'ADMIN'; 
   }
 
-  // Helper para saber si es "Admin de Empresa" (Dueño o Gerente)
+  // NIVEL CONFIGURACIÓN: Dueño + RRHH
+  // Pueden crear turnos, sucursales, puestos y contratar.
+  canConfigCompany(): boolean {
+    const user = this.getUser();
+    if (!user) return false;
+    
+    // Si es SuperAdmin de Django, pase libre
+    if (this.isSuperAdmin()) return true;
+
+    // Roles permitidos para configurar catálogos
+    const rolesPermitidos = ['ADMIN', 'CLIENTE', 'RRHH'];
+    return rolesPermitidos.includes(user.rol);
+  }
+
+  // NIVEL SUPERVISIÓN: Dueño + RRHH + Gerente
+  // Pueden ver listas de empleados, aprobar vacaciones, ver dashboard de equipo.
+  isManagement(): boolean {
+    const role = this.getRole();
+    return ['SUPERADMIN', 'ADMIN', 'RRHH', 'GERENTE'].includes(role);
+  }
+
+  // Helper para mostrar paneles administrativos generales
+  canAccessPanel(): boolean {
+    return this.isManagement(); 
+  }
+
+  // Helper legacy (si lo usas en algún lado para identificar Admin de Empresa)
   isCompanyAdmin(): boolean {
     const role = this.getRole();
-    return role === 'CLIENT' || role === 'MANAGER';
+    return role === 'ADMIN' || role === 'SUPERADMIN';
   }
 
   // --- DATOS DE EMPRESA ---
-  // (Unificada: Solo dejamos esta versión que lee del localStorage)
-  getEmpresaId(): number {
+  getEmpresaId(): number | null {
     const id = localStorage.getItem('empresa_id');
-    return id ? Number(id) : 0;
+    return id ? Number(id) : null;
   }
 }

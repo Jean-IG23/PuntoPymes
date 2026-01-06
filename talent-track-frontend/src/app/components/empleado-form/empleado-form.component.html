@@ -1,200 +1,120 @@
-<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-5xl mx-auto">
+<div class="max-w-4xl mx-auto py-8 px-4">
+  
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">
+        {{ isEditing ? 'Editar Colaborador' : 'Contratar Nuevo Personal' }}
+      </h1>
+      <p class="text-gray-500 text-sm mt-1">Complete la ficha técnica del empleado.</p>
+    </div>
+    <button routerLink="/empleados" class="text-gray-500 hover:text-gray-700">
+      <i class="bi bi-x-lg text-xl"></i>
+    </button>
+  </div>
+
+  <form [formGroup]="empleadoForm" (ngSubmit)="guardar()" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     
-    <div class="mb-8 flex justify-between items-center">
-      <div>
-        <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Alta de Colaborador</h2>
-        <p class="mt-2 text-sm text-gray-600">Complete la ficha técnica para registrar un nuevo ingreso.</p>
+    <div class="p-6 border-b border-gray-100">
+      <h3 class="text-lg font-medium text-indigo-600 mb-4 flex items-center gap-2">
+        <i class="bi bi-person-vcard"></i> Datos Personales
+      </h3>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nombres *</label>
+          <input type="text" formControlName="nombres" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos *</label>
+          <input type="text" formControlName="apellidos" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Cédula / DNI *</label>
+          <input type="text" formControlName="documento" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+          <p class="text-xs text-gray-400 mt-1">Será la contraseña inicial.</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico *</label>
+          <input type="email" formControlName="email" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+          <p class="text-xs text-blue-500 mt-1" *ngIf="!isEditing">Se creará un usuario de acceso automáticamente.</p>
+        </div>
+        
+        </div>
+    </div>
+
+    <div class="p-6 border-b border-gray-100 bg-gray-50/50">
+      <h3 class="text-lg font-medium text-indigo-600 mb-4 flex items-center gap-2">
+        <i class="bi bi-building-gear"></i> Asignación Organizacional
+      </h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Sucursal *</label>
+          <select formControlName="sucursal" (change)="onSucursalChange()" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <option [ngValue]="null">-- Seleccione --</option>
+            <option *ngFor="let s of sucursales" [value]="s.id">{{ s.nombre }}</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Departamento *</label>
+          <select formControlName="departamento" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <option [ngValue]="null">-- Seleccione --</option>
+            <option *ngFor="let d of departamentosFiltrados" [value]="d.id">{{ d.nombre }}</option>
+          </select>
+          <p *ngIf="departamentosFiltrados.length === 0 && empleadoForm.get('sucursal')?.value" class="text-xs text-red-400 mt-1">
+            Esta sucursal no tiene departamentos.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Cargo / Puesto *</label>
+          <select formControlName="puesto" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <option [ngValue]="null">-- Seleccione --</option>
+            <option *ngFor="let p of puestos" [value]="p.id">{{ p.nombre }}</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Turno Asignado *</label>
+          <select formControlName="turno_asignado" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+            <option [ngValue]="null">-- Seleccione --</option>
+            <option *ngFor="let t of turnos" [value]="t.id">{{ t.nombre }} ({{t.hora_entrada}} - {{t.hora_salida}})</option>
+          </select>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de Ingreso</label>
+            <input type="date" formControlName="fecha_ingreso" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Rol de Acceso</label>
+            <select formControlName="rol" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-yellow-50">
+              <option value="EMPLEADO">Empleado (Básico)</option>
+              <option value="GERENTE">Gerente (Jefe de Área)</option>
+              <option value="RRHH">RRHH (Gestión Total)</option>
+            </select>
+        </div>
+
       </div>
-      <button routerLink="/empleados" class="group relative flex items-center justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-indigo-600 bg-white hover:bg-indigo-50 border-indigo-200 shadow-sm transition-all duration-200">
-        <i class="bi bi-arrow-left mr-2"></i> Volver
+    </div>
+
+    <div class="p-6 flex items-center justify-end gap-3 bg-gray-50">
+      <button type="button" routerLink="/empleados" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-white transition">
+        Cancelar
+      </button>
+      
+      <button type="submit" [disabled]="empleadoForm.invalid || loading" 
+              class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+        <span *ngIf="loading" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+        {{ isEditing ? 'Guardar Cambios' : 'Contratar Empleado' }}
       </button>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-      
-      <div class="h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
-
-      <div class="p-8">
-        <form [formGroup]="empleadoForm" (ngSubmit)="guardar()" class="space-y-8">
-
-          <div>
-            <div class="flex items-center pb-4 border-b border-gray-200 mb-6">
-              <div class="flex-shrink-0 bg-indigo-100 rounded-lg p-2 mr-3">
-                <i class="bi bi-building text-indigo-600 text-xl"></i>
-              </div>
-              <h3 class="text-lg leading-6 font-semibold text-gray-900">Asignación Organizacional</h3>
-            </div>
-
-            <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-              
-              <div class="sm:col-span-6" *ngIf="!esCliente">
-                <label class="block text-sm font-medium text-gray-700">Empresa Matriz <span class="text-red-500">*</span></label>
-                <div class="mt-1">
-                  <select formControlName="empresa" (change)="onSelectEmpresa()" 
-                          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-3 px-3 bg-gray-50">
-                    <option value="">-- Seleccione Empresa --</option>
-                    <option *ngFor="let e of empresas" [value]="e.id">{{ e.razon_social }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="sm:col-span-3">
-                <label class="block text-sm font-medium text-gray-700">Sucursal / Sede <span class="text-red-500">*</span></label>
-                <div class="mt-1">
-                  <select formControlName="sucursal" (change)="onSelectSucursal()"
-                          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border"
-                          [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': empleadoForm.get('sucursal')?.invalid && empleadoForm.get('sucursal')?.touched}">
-                    <option value="">-- Seleccione Sede --</option>
-                    <option *ngFor="let s of filteredSucursales" [value]="s.id">{{ s.nombre }}</option>
-                  </select>
-                  <p *ngIf="empleadoForm.get('sucursal')?.invalid && empleadoForm.get('sucursal')?.touched" class="mt-1 text-xs text-red-500">Obligatorio.</p>
-                </div>
-              </div>
-
-              <div class="sm:col-span-3">
-                <label class="block text-sm font-medium text-gray-700">Departamento <span class="text-red-500">*</span></label>
-                <div class="mt-1">
-                  <select formControlName="departamento" (change)="onSelectDepartamento()"
-                          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border"
-                          [ngClass]="{'border-red-300': empleadoForm.get('departamento')?.invalid && empleadoForm.get('departamento')?.touched}">
-                    <option value="">-- Seleccione Departamento --</option>
-                    <option *ngFor="let d of filteredDepartamentos" [value]="d.id">{{ d.nombre }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="sm:col-span-3">
-                <label class="block text-sm font-medium text-gray-700">Cargo a Ocupar <span class="text-red-500">*</span></label>
-                <div class="mt-1">
-                  <select formControlName="puesto"
-                          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border"
-                          [ngClass]="{'border-red-300': empleadoForm.get('puesto')?.invalid && empleadoForm.get('puesto')?.touched}">
-                    <option value="">-- Seleccione Cargo --</option>
-                    <option *ngFor="let p of filteredPuestos" [value]="p.id">
-                      {{ p.nombre }} <span *ngIf="!p.area">(Comodín)</span>
-                    </option>
-                  </select>
-                  <p class="mt-1 text-xs text-gray-500" *ngIf="!empleadoForm.get('departamento')?.value">
-                    <i class="bi bi-info-circle"></i> Selecciona depto. primero.
-                  </p>
-                </div>
-              </div>
-
-              <div class="sm:col-span-3">
-                <label class="block text-sm font-medium text-gray-700">Turno <span class="text-red-500">*</span></label>
-                <div class="mt-1">
-                  <select formControlName="turno"
-                          class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border">
-                    <option value="">-- Seleccione Turno --</option>
-                    <option *ngFor="let t of filteredTurnos" [value]="t.id">
-                      {{ t.nombre }} ({{ t.hora_entrada.substring(0,5) }} - {{ t.hora_salida.substring(0,5) }})
-                    </option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div class="flex items-center pb-4 border-b border-gray-200 mb-6">
-              <div class="flex-shrink-0 bg-green-100 rounded-lg p-2 mr-3">
-                <i class="bi bi-person-vcard text-green-600 text-xl"></i>
-              </div>
-              <h3 class="text-lg leading-6 font-semibold text-gray-900">Información Personal</h3>
-            </div>
-
-            <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-              
-              <div class="sm:col-span-3">
-                <label class="block text-sm font-medium text-gray-700">Nombres <span class="text-red-500">*</span></label>
-                <div class="mt-1 relative rounded-md shadow-sm">
-                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span class="text-gray-500 sm:text-sm"><i class="bi bi-person"></i></span>
-                  </div>
-                  <input type="text" formControlName="nombres" class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border" placeholder="Juan Carlos">
-                </div>
-              </div>
-
-              <div class="sm:col-span-3">
-                <label class="block text-sm font-medium text-gray-700">Apellidos <span class="text-red-500">*</span></label>
-                <div class="mt-1 relative rounded-md shadow-sm">
-                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span class="text-gray-500 sm:text-sm"><i class="bi bi-person"></i></span>
-                  </div>
-                  <input type="text" formControlName="apellidos" class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border" placeholder="Pérez López">
-                </div>
-              </div>
-
-              <div class="sm:col-span-2">
-                <label class="block text-sm font-medium text-gray-700">Cédula / DNI <span class="text-red-500">*</span></label>
-                <input type="text" formControlName="documento" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 border px-3">
-              </div>
-
-              <div class="sm:col-span-4">
-                <label class="block text-sm font-medium text-gray-700">Email Corporativo <span class="text-red-500">*</span></label>
-                <div class="mt-1 relative rounded-md shadow-sm">
-                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span class="text-gray-500 sm:text-sm"><i class="bi bi-envelope"></i></span>
-                  </div>
-                  <input type="email" formControlName="email" class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border" placeholder="usuario@empresa.com"
-                  [ngClass]="{'border-red-300 text-red-900 focus:ring-red-500 focus:border-red-500': empleadoForm.get('email')?.invalid && empleadoForm.get('email')?.touched}">
-                </div>
-                <p *ngIf="empleadoForm.get('email')?.hasError('email')" class="mt-1 text-sm text-red-600">Email inválido.</p>
-              </div>
-
-              <div class="sm:col-span-3">
-                <label class="block text-sm font-medium text-gray-700">Teléfono</label>
-                <input type="text" formControlName="telefono" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 border px-3">
-              </div>
-
-              <div class="sm:col-span-3">
-                <label class="block text-sm font-medium text-gray-700">Dirección</label>
-                <input type="text" formControlName="direccion" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 border px-3">
-              </div>
-            </div>
-          </div>
-
-          <div class="rounded-lg bg-yellow-50 p-4 border border-yellow-200">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                <i class="bi bi-shield-lock text-yellow-500 text-2xl"></i>
-              </div>
-              <div class="ml-3">
-                <h3 class="text-sm font-medium text-yellow-800">Permisos de Acceso</h3>
-                <div class="mt-2">
-                  <div class="flex items-center">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" formControlName="crear_usuario_admin" class="sr-only peer">
-                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-yellow-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
-                      <span class="ml-3 text-sm font-medium text-gray-900">Es Gerente / Supervisor</span>
-                    </label>
-                  </div>
-                  <p class="mt-2 text-sm text-yellow-700">
-                    Si activas esto, el usuario podrá gestionar su departamento. Si no, solo usará el reloj.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="pt-5 border-t border-gray-200">
-            <div class="flex justify-end">
-              <button type="button" routerLink="/empleados" class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                Cancelar
-              </button>
-              <button type="submit" [disabled]="empleadoForm.invalid" 
-                      class="ml-3 inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                <i class="bi bi-save mr-2"></i> Guardar Empleado
-              </button>
-            </div>
-            <p *ngIf="empleadoForm.invalid && empleadoForm.touched" class="text-right mt-2 text-xs text-red-500">
-              * Complete los campos obligatorios
-            </p>
-          </div>
-
-        </form>
-      </div>
-    </div>
-  </div>
+  </form>
 </div>

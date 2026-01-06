@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { Layout } from './layout';
+import { ConfigAusencias } from './config-ausencias.component';
 
-describe('Layout', () => {
-  let component: Layout;
-  let fixture: ComponentFixture<Layout>;
+describe('ConfigAusencias', () => {
+  let component: ConfigAusencias;
+  let fixture: ComponentFixture<ConfigAusencias>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Layout]
+      imports: [ConfigAusencias]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(Layout);
+    fixture = TestBed.createComponent(ConfigAusencias);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

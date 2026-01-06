@@ -71,19 +71,30 @@ class Puesto(models.Model):
 
 # 6. TURNO (Reglas de Asistencia)
 class Turno(models.Model):
+    TIPOS_JORNADA = [
+        ('RIGIDO', 'Horario Fijo (Entrada/Salida estricta)'),
+        ('FLEXIBLE', 'Bolsa de Horas (Meta semanal)'),
+    ]
+
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=50) # Ej: "Oficina L-V"
-    hora_entrada = models.TimeField()
-    hora_salida = models.TimeField()
-    minutos_descanso = models.IntegerField(default=60)
-    min_tolerancia = models.IntegerField(default=10)
+    nombre = models.CharField(max_length=50) # Ej: "Administrativo L-V"
     
-    # MEJORA VITAL: Días Laborables
+    # Configuración Híbrida
+    tipo_jornada = models.CharField(max_length=20, choices=TIPOS_JORNADA, default='RIGIDO')
     
-    dias_laborables = models.JSONField(default=list, help_text="Lista de días: 0=Lunes, 6=Domingo")
+    # Para horario RIGIDO
+    hora_entrada = models.TimeField(null=True, blank=True)
+    hora_salida = models.TimeField(null=True, blank=True)
+    min_tolerancia = models.IntegerField(default=10, help_text="Minutos de gracia antes de marcar atraso")
+    
+    # Para horario FLEXIBLE
+    horas_semanales_meta = models.IntegerField(default=40, help_text="Total de horas a cumplir (Ej: 40)")
+    
+    # Días laborables: Guardaremos una lista de ints [0,1,2,3,4] (0=Lunes)
+    dias_laborables = models.JSONField(default=list) 
 
     def __str__(self):
-        return f"{self.nombre} ({self.hora_entrada} - {self.hora_salida})"
+        return f"{self.nombre} ({self.tipo_jornada})"
 
 # 7. NOTIFICACIÓN
 class Notificacion(models.Model):

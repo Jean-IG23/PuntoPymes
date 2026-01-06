@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders,HttpParams  } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AuthService } from './auth.service';
 
@@ -13,7 +13,7 @@ export class ApiService {
 
   constructor(private http: HttpClient, private auth: AuthService) { }
 
-  //Helper para enviar el Token en cada petición
+  // Helper para enviar el Token en cada petición
   private getHeaders() {
     const token = this.auth.getToken();
     return {
@@ -23,8 +23,11 @@ export class ApiService {
       })
     };
   }
+
+  // ==========================================
+  // 0. DASHBOARD
+  // ==========================================
   getStats(): Observable<any> {
-    // Conecta con la vista DashboardStatsView de Django
     return this.http.get(this.apiUrl + 'dashboard/stats/', this.getHeaders());
   }
 
@@ -41,17 +44,17 @@ export class ApiService {
 
   // Sucursales
   getSucursales(empresaId?: number): Observable<any> {
-    let url = this.apiUrl + 'sucursales/';
-    if (empresaId) url += `?empresa=${empresaId}`;
-    return this.http.get(url, this.getHeaders());
+    let params = new HttpParams();
+    if (empresaId) params = params.set('empresa', empresaId.toString());
+    return this.http.get(this.apiUrl + 'sucursales/', { headers: this.getHeaders().headers, params });
   }
   saveSucursal(data: any): Observable<any> { return this.http.post(this.apiUrl + 'sucursales/', data, this.getHeaders()); }
 
   // Áreas
   getAreas(empresaId?: number): Observable<any> {
-    let url = this.apiUrl + 'areas/';
-    if (empresaId) url += `?empresa=${empresaId}`;
-    return this.http.get(url, this.getHeaders());
+    let params = new HttpParams();
+    if (empresaId) params = params.set('empresa', empresaId.toString());
+    return this.http.get(this.apiUrl + 'areas/', { headers: this.getHeaders().headers, params });
   }
   saveArea(data: any): Observable<any> { return this.http.post(this.apiUrl + 'areas/', data, this.getHeaders()); }
 
@@ -64,7 +67,7 @@ export class ApiService {
   saveDepartamento(data: any): Observable<any> { return this.http.post(this.apiUrl + 'departamentos/', data, this.getHeaders()); }
 
   // Puestos
-  getPuestos(departamentoId?: number, empresaId?: number): Observable<any> {
+  getPuestos(departamentoId?: number | null, empresaId?: number | null): Observable<any> {
     let params = new HttpParams();
     if (departamentoId) params = params.set('departamento', departamentoId.toString());
     if (empresaId) params = params.set('empresa', empresaId.toString());
@@ -82,28 +85,41 @@ export class ApiService {
   // 2. MÓDULO PERSONAL (Gente)
   // ==========================================
 
-  // Empleados
-  getEmpleados(empresaId?: number, deptoId?: number): Observable<any> {
+  // Empleados (Lista)
+  createEmpleado(data: any): Observable<any> {
+    return this.http.post(this.apiUrl + 'empleados/', data);
+  }
+
+  // 2. Actualizar empleado existente (PUT)
+  getEmpleados(empresaId?: number | null, deptoId?: number | null): Observable<any> {
     let params = new HttpParams();
     if (empresaId) params = params.set('empresa', empresaId.toString());
     if (deptoId) params = params.set('departamento', deptoId.toString());
     
     return this.http.get(this.apiUrl + 'empleados/', { headers: this.getHeaders().headers, params });
   }
+  // Empleado (Individual)
+  getEmpleado(id: number): Observable<any> {
+    return this.http.get(`${this.apiUrl}empleados/${id}/`, this.getHeaders());
+  }
 
   saveEmpleado(data: any): Observable<any> {
     return this.http.post(this.apiUrl + 'empleados/', data, this.getHeaders());
   }
-
-  // Carga Masiva (Excel) - Nota: FormData requiere headers especiales, Angular los maneja pero necesita Auth
+  
   updateEmpleado(id: number, data: any): Observable<any> {
     return this.http.put(this.apiUrl + `empleados/${id}/`, data, this.getHeaders());
   }
+
+  // Carga Masiva (Excel)
   uploadEmpleados(archivo: File): Observable<any> {
     const formData = new FormData();
-    // 'archivo' es el nombre que Django esperará en request.FILES['archivo']
     formData.append('archivo', archivo); 
-    return this.http.post(this.apiUrl + 'empleados/importar_excel/', formData);
+    const token = this.auth.getToken();
+    const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`
+    });
+    return this.http.post(this.apiUrl + 'empleados/importar_excel/', formData, { headers });
   }
 
   // Solicitudes (Vacaciones)
@@ -113,18 +129,22 @@ export class ApiService {
 
   // Tipos de Ausencia
   getTiposAusencia(): Observable<any> { return this.http.get(this.apiUrl + 'tipos-ausencia/', this.getHeaders()); }
+  createTipoAusencia(data: any): Observable<any> {
+    return this.http.post(this.apiUrl + 'tipos-ausencia/', data);
+  }
 
+  deleteTipoAusencia(id: number): Observable<any> {
+    return this.http.delete(this.apiUrl + `tipos-ausencia/${id}/`);
+  }
   // ==========================================
   // 3. MÓDULO ASISTENCIA (Reloj)
   // ==========================================
 
   marcarAsistencia(lat: number, lng: number): Observable<any> {
-    // Apunta al ViewSet nuevo en asistencia/views.py
     return this.http.post(this.apiUrl + 'asistencia/marcar/', { lat, lng }, this.getHeaders());
   }
 
   registrarAsistencia(data: any): Observable<any> {
-    // Si el componente viejo manda un objeto completo, extraemos lat/lng o lo mandamos directo
     return this.http.post(this.apiUrl + 'asistencia/marcar/', data, this.getHeaders());
   }
 
@@ -163,18 +183,19 @@ export class ApiService {
   getKPIs(): Observable<any> { return this.http.get(this.apiUrl + 'kpis/', this.getHeaders()); }
   saveKPI(data: any): Observable<any> { return this.http.post(this.apiUrl + 'kpis/', data, this.getHeaders()); }
   deleteKPI(id: number): Observable<any> { return this.http.delete(this.apiUrl + 'kpis/' + id + '/', this.getHeaders()); }
+  
+  // RESULTADOS KPI (EL QUE FALTABA) ⬇️
   saveResultadoKPI(data: any): Observable<any> {
-     // Nota: Asegúrate de tener este endpoint en Backend o usa DetalleEvaluacion
-     return this.http.post(this.apiUrl + 'resultados-kpi/', data, this.getHeaders());
+    return this.http.post(this.apiUrl + 'resultados-kpi/', data, this.getHeaders());
   }
-  // Evaluaciones (Boletín)
+
+  // Evaluaciones
   getEvaluaciones(empleadoId?: number): Observable<any> {
     let url = this.apiUrl + 'evaluaciones/';
     if (empleadoId) url += `?empleado=${empleadoId}`;
     return this.http.get(url, this.getHeaders());
   }
 
-  // EL CEREBRO: Dispara el cálculo automático
   generarCierreMensual(empleadoId: number, mes: number, anio: number): Observable<any> {
     return this.http.post(this.apiUrl + 'evaluaciones/generar_cierre/', {
       empleado_id: empleadoId,
@@ -182,5 +203,16 @@ export class ApiService {
       anio: anio
     }, this.getHeaders());
   }
+
+  // 2. Create a new request
+  createSolicitud(data: any): Observable<any> {
+    return this.http.post(this.apiUrl + 'solicitudes/', data);
+  }
+
+  // 3. Approve/Reject a request (Manager/HR action)
+  gestionarSolicitud(id: number, data: { estado: string, comentario_jefe?: string }): Observable<any> {
+    return this.http.post(this.apiUrl + `solicitudes/${id}/gestionar/`, data);
+  }
+
   
 }

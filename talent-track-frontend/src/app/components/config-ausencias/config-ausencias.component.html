@@ -1,0 +1,56 @@
+<div class="max-w-4xl mx-auto py-8 px-4">
+  
+  <h1 class="text-2xl font-bold mb-6 text-gray-900">Configuración de Permisos y Vacaciones</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    
+    <div class="bg-white p-6 rounded-lg shadow border border-gray-200 h-fit">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <i class="bi bi-plus-circle text-indigo-600"></i> Nuevo Tipo
+      </h2>
+      
+      <form [formGroup]="formTipo" (ngSubmit)="crearTipo()">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+          <input type="text" formControlName="nombre" placeholder="Ej: Día de Cumpleaños" 
+                 class="w-full border p-2 rounded focus:ring-indigo-500">
+          <p class="text-xs text-gray-500 mt-1">
+            Nota: Si es para vacaciones anuales, usa la palabra "Vacaciones".
+          </p>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+          <textarea formControlName="descripcion" rows="3" class="w-full border p-2 rounded"></textarea>
+        </div>
+
+        <button type="submit" [disabled]="formTipo.invalid" 
+                class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-50">
+          Guardar Configuración
+        </button>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+      <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+        <h2 class="font-bold text-gray-700">Catálogo Actual</h2>
+      </div>
+      
+      <ul class="divide-y divide-gray-200">
+        <li *ngFor="let t of tipos" class="px-6 py-4 flex justify-between items-center group">
+          <div>
+            <p class="font-medium text-gray-900">{{ t.nombre }}</p>
+            <p class="text-sm text-gray-500">{{ t.descripcion || 'Sin descripción' }}</p>
+          </div>
+          <button (click)="eliminarTipo(t.id)" class="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition">
+            <i class="bi bi-trash-fill"></i>
+          </button>
+        </li>
+        <li *ngIf="tipos.length === 0" class="px-6 py-8 text-center text-gray-400 italic">
+          No has configurado tipos de ausencia aún.
+        </li>
+      </ul>
+    </div>
+
+  </div>
+</div>

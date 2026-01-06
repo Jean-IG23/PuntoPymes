@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { ApiService } from '../../services/api.service';
@@ -8,98 +8,95 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, RouterModule],
-  templateUrl: './dashboard.component.html',
-  styleUrl: './dashboard.component.css'
+  templateUrl: './dashboard.component.html'
 })
 export class DashboardComponent implements OnInit {
 
   empleado: any = null;
-  resumenAsistencia: any = null;
-  objetivosPendientes: number = 0;
-  
-  // Variables para MODO ADMIN
-  esAdmin: boolean = false;
-  statsGlobales: any = null;
-  
   loading: boolean = true;
   fechaHoy: Date = new Date();
+  
+  // Estado
+  esAdmin: boolean = false;
+  pendientesEquipo: number = 0;
+  
+  // Stats (Inicializados en 0 para evitar errores si no cargan)
+  statsGlobales: any = {
+    total_empleados: 0,
+    presentes_hoy: 0,
+    porcentaje_asistencia: 0,
+    ausentes_hoy: 0
+  };
 
   constructor(
     private api: ApiService,
-    private auth: AuthService,
-    private cd: ChangeDetectorRef // <--- CORREGIDO: private cd: ...
+    public auth: AuthService
   ) {}
 
   ngOnInit() {
-    // 1. CARGA INSTANTÁNEA (Datos de memoria)
-    const user = this.auth.getUser();
-    if (user) {
-        this.empleado = user; 
-        this.esAdmin = this.auth.isCompanyAdmin() || this.auth.isSuperAdmin();
-    }
-
-    // 2. CARGA ASÍNCRONA (Datos frescos del servidor)
-    this.cargarDatosDelServidor();
+    this.cargarDatos();
   }
 
-  cargarDatosDelServidor() {
+  cargarDatos() {
     this.loading = true;
+    const user = this.auth.getUser();
+    
+    // 1. Verificar Roles
+    this.esAdmin = this.auth.canConfigCompany();
 
-    // A. Estadísticas Globales (Solo Admin)
-    if (this.esAdmin) {
-      this.api.getStats().subscribe({
-        next: (data) => {
-            this.statsGlobales = data;
-            this.cd.detectChanges(); // Forzar actualización visual
+    // 2. Obtener Perfil Completo (Para ver saldo de vacaciones)
+    // Usamos getEmpleados() que ya filtra por el usuario logueado en el backend
+    this.api.getEmpleados().subscribe({
+      next: (res: any) => {
+        // Manejo robusto: si es array o paginación
+        const lista = res.results || res;
+        if (lista.length > 0) {
+          this.empleado = lista[0];
+        } else if (user) {
+          // Fallback: usar datos del token si no hay ficha
+          this.empleado = user; 
+        }
+        
+        // Una vez tenemos al empleado, cargamos datos extra
+        this.cargarDatosAdicionales();
+      },
+      error: (e) => {
+        console.error('Error cargando perfil', e);
+        this.loading = false;
+      }
+    });
+  }
+
+  cargarDatosAdicionales() {
+    // A. Si es GERENTE/ADMIN: Contar solicitudes pendientes del equipo
+    if (this.auth.isManagement()) {
+      this.api.getSolicitudes().subscribe({
+        next: (res: any) => {
+          const todas = res.results || res;
+          // Filtramos: Pendientes que NO son mías
+          this.pendientesEquipo = todas.filter((s: any) => 
+            s.estado === 'PENDIENTE' && s.empleado.id !== this.empleado.id
+          ).length;
+          this.loading = false;
         },
-        error: () => console.warn('No se pudieron cargar stats')
+        error: () => this.loading = false
       });
+    } else {
+      this.loading = false;
     }
 
-    // B. Datos Operativos (Asistencia y Objetivos)
-    if (this.empleado && this.empleado.id) {
-        
-        // Asistencia
-        this.api.getHistorialAsistencia().subscribe((data: any) => {
-            const marcas = data.results || data;
-            if (marcas.length > 0) this.resumenAsistencia = marcas[0];
-            this.cd.detectChanges();
-        });
-
-        // Objetivos
-        this.api.getObjetivos(this.empleado.id).subscribe((data: any) => {
-            const lista = data.results || data;
-            this.objetivosPendientes = lista.filter((o: any) => o.estado === 'PENDIENTE').length;
-            
-            this.loading = false;
-            this.cd.detectChanges();
-        });
-
-    } else {
-        // Plan B: Si no hay usuario en memoria, buscamos perfil completo
-        this.api.getEmpleados().subscribe({
-            next: (data: any) => {
-                const miPerfil = Array.isArray(data) ? data[0] : (data.results ? data.results[0] : data);
-                this.empleado = miPerfil;
-                
-                // Si encontramos perfil, volvemos a llamar para cargar sus datos operativos
-                if (this.empleado) {
-                    this.cargarDatosDelServidor(); 
-                } else {
-                    this.loading = false;
-                    this.cd.detectChanges();
-                }
-            },
-            error: () => {
-                this.loading = false;
-                this.cd.detectChanges();
-            }
-        });
+    // B. Si es ADMIN: Cargar Stats Globales (Simulamos por ahora si no existe el endpoint)
+    if (this.esAdmin) {
+       // Si creas el endpoint getStats en el futuro, descomenta esto:
+       /* this.api.getStats().subscribe(data => {
+          this.statsGlobales = data;
+       }); 
+       */
     }
   }
 
-  getEstadoAsistencia(): string {
-    if (!this.resumenAsistencia) return 'SIN_REGISTRO';
-    return this.resumenAsistencia.tipo;
+  // Helper para vista
+  getPrimerNombre(): string {
+    return this.empleado?.nombres ? this.empleado.nombres.split(' ')[0] : 'Colaborador';
   }
 }

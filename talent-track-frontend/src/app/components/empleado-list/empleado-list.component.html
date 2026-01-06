@@ -1,103 +1,152 @@
-<div class="p-8 bg-gray-50 min-h-screen">
+<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+  
+  <div class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+    
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">
+        Equipo de Trabajo
+      </h1>
+      <p class="text-sm text-gray-500 mt-1">
+        <span *ngIf="auth.isGerente()">
+          <i class="bi bi-lock-fill text-yellow-500"></i> Vista restringida a tu departamento.
+        </span>
+        <span *ngIf="auth.canConfigCompany()">
+          Gestión global de talento humano y nómina.
+        </span>
+      </p>
+    </div>
+    
+    <div class="flex gap-3" *ngIf="auth.canConfigCompany()">
+      
+      <button routerLink="/empleados/carga-masiva" 
+              class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 hover:text-green-700 transition shadow-sm flex items-center gap-2 font-medium text-sm">
+        <i class="bi bi-file-earmark-spreadsheet text-lg text-green-600"></i> 
+        <span class="hidden sm:inline">Importar Excel</span>
+      </button>
+
+      <button routerLink="/empleados/nuevo" 
+              class="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition shadow flex items-center gap-2 font-bold text-sm">
+        <i class="bi bi-person-plus-fill text-lg"></i> 
+        Contratar Personal
+      </button>
+      
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto mb-6">
+    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col sm:flex-row gap-4">
+      <div class="relative flex-1">
+        <i class="bi bi-search absolute left-3 top-3 text-gray-400"></i>
+        <input type="text" placeholder="Buscar por nombre, cédula o cargo..." 
+               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+      </div>
+      </div>
+  </div>
+
   <div class="max-w-7xl mx-auto">
     
-    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900">Directorio de Personal</h1>
-        <p class="text-gray-500 mt-1">
-          {{ currentDeptoId ? 'Viendo colaboradores de este departamento' : 'Gestión global de talento humano' }}
-        </p>
+    <div *ngIf="loading" class="flex justify-center items-center h-64 bg-white rounded-xl shadow-sm border border-gray-200">
+      <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
+        <p class="text-gray-500 text-sm">Cargando directorio...</p>
+      </div>
+    </div>
+
+    <div *ngIf="!loading && empleados.length === 0" class="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+      <div class="bg-gray-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+        <i class="bi bi-people text-2xl text-gray-400"></i>
+      </div>
+      <h3 class="text-lg font-medium text-gray-900">No hay colaboradores encontrados</h3>
+      <p class="text-gray-500 max-w-sm mx-auto mt-2">
+        No se encontraron registros accesibles con tu nivel de permisos actual.
+      </p>
+    </div>
+
+    <div *ngIf="!loading && empleados.length > 0" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Colaborador</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicación</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol & Turno</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+              <th scope="col" class="relative px-6 py-3"><span class="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            
+            <tr *ngFor="let emp of empleados" class="hover:bg-gray-50 transition">
+              
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="flex-shrink-0 h-10 w-10">
+                    <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                        {{ emp.nombres.charAt(0) }}{{ emp.apellidos.charAt(0) }}
+                    </div>
+                  </div>
+                  <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-900">{{ emp.nombres }} {{ emp.apellidos }}</div>
+                    <div class="text-sm text-gray-500">{{ emp.email }}</div>
+                  </div>
+                </div>
+              </td>
+
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">{{ emp.departamento?.nombre || 'Sin Depto' }}</div>
+                <div class="text-xs text-gray-500">{{ emp.sucursal?.nombre || 'Sin Sucursal' }}</div>
+              </td>
+
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 mb-1">
+                  {{ emp.puesto?.nombre || emp.rol }}
+                </span>
+                <div class="text-xs text-gray-500">
+                    {{ emp.turno_asignado?.nombre || 'Turno Estándar' }}
+                </div>
+              </td>
+
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span *ngIf="emp.estado === 'ACTIVO'" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                  Activo
+                </span>
+                <span *ngIf="emp.estado !== 'ACTIVO'" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                  Inactivo
+                </span>
+              </td>
+
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                
+                <ng-container *ngIf="auth.canConfigCompany()">
+                    <a [routerLink]="['/empleados/editar', emp.id]" class="text-indigo-600 hover:text-indigo-900 mr-4 cursor-pointer">
+                        Editar
+                    </a>
+                </ng-container>
+
+                <ng-container *ngIf="auth.isGerente()">
+                    <button class="text-gray-600 hover:text-indigo-600 mr-3" title="Ver Asistencia">
+                        <i class="bi bi-calendar-check"></i>
+                    </button>
+                    <button class="text-gray-600 hover:text-indigo-600" title="Ver Detalles">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </ng-container>
+
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
       </div>
       
-      <div class="flex gap-3">
-        <button routerLink="/empleados/carga-masiva" 
-                class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition shadow flex items-center gap-2 font-medium">
-          <span>📊</span> Importar Excel
-        </button>
-
-        <button *ngIf="currentDeptoId" 
-                [routerLink]="['/departamentos', currentDeptoId, 'empleados', 'nuevo']" 
-                class="bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition shadow flex items-center gap-2 font-medium">
-          <span>+</span> Nuevo (Aquí)
-        </button>
-
-        <button *ngIf="!currentDeptoId" 
-                routerLink="/empleados/nuevo" 
-                class="bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-800 transition shadow flex items-center gap-2 font-medium">
-          <span>+</span> Nuevo Empleado
-        </button>
+      <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 sm:px-6 flex justify-between items-center">
+         <span class="text-sm text-gray-700">Mostrando {{ empleados.length }} registros</span>
+         <div class="flex gap-2">
+             <button class="px-3 py-1 border rounded bg-white disabled:opacity-50" disabled>Anterior</button>
+             <button class="px-3 py-1 border rounded bg-white disabled:opacity-50" disabled>Siguiente</button>
+         </div>
       </div>
+
     </div>
-
-    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex gap-4">
-      <div class="relative flex-1">
-        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">🔍</span>
-        <input [(ngModel)]="searchTerm" (keyup)="filtrar()" type="text" 
-               class="w-full py-2 pl-10 pr-4 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
-               placeholder="Buscar por nombre, cédula, cargo...">
-      </div>
-    </div>
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <table class="w-full text-left border-collapse">
-        <thead class="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th class="p-4 font-semibold text-gray-700 text-sm">Colaborador</th>
-            <th class="p-4 font-semibold text-gray-700 text-sm">Cargo</th>
-            <th class="p-4 font-semibold text-gray-700 text-sm">Ubicación</th>
-            <th class="p-4 font-semibold text-gray-700 text-sm">Estado</th>
-            <th class="p-4 text-right font-semibold text-gray-700 text-sm">Acciones</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          <tr *ngFor="let e of empleadosFiltrados" class="hover:bg-gray-50 transition group">
-            
-            <td class="p-4 flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm overflow-hidden shrink-0">
-                <img *ngIf="e.foto_url" [src]="e.foto_url" class="w-full h-full object-cover">
-                <span *ngIf="!e.foto_url">{{ e.nombres.charAt(0) }}{{ e.apellidos.charAt(0) }}</span>
-              </div>
-              <div>
-                <p class="font-bold text-gray-900 text-sm">{{ e.nombres }} {{ e.apellidos }}</p>
-                <p class="text-xs text-gray-500">{{ e.email }}</p>
-              </div>
-            </td>
-
-            <td class="p-4">
-              <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold border border-gray-200">
-                {{ e.nombre_puesto || 'Sin Cargo' }}
-              </span>
-            </td>
-
-            <td class="p-4 text-sm text-gray-600">
-              <div class="flex flex-col">
-                <span class="font-medium">{{ e.nombre_departamento || 'General' }}</span>
-                <span class="text-xs text-gray-400">{{ e.nombre_empresa }}</span>
-              </div>
-            </td>
-
-            <td class="p-4">
-              <span [class]="e.estado === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
-                    class="px-2 py-1 rounded-full text-xs font-bold">
-                {{ e.estado }}
-              </span>
-            </td>
-
-            <td class="p-4 text-right">
-              <button class="text-gray-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition">
-                ✏️
-              </button>
-            </td>
-          </tr>
-
-          <tr *ngIf="empleadosFiltrados.length === 0 && !loading">
-            <td colspan="5" class="p-12 text-center text-gray-500">
-              <p>No se encontraron empleados.</p>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
   </div>
 </div>

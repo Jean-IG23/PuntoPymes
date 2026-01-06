@@ -1,93 +1,73 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-objetivo-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   templateUrl: './objetivo-form.component.html',
   styleUrl: './objetivo-form.component.css'
 })
 export class ObjetivoFormComponent implements OnInit {
-  
-  form: FormGroup;
+
+  form!: FormGroup;
+  empleados: any[] = [];
   loading = false;
-  esEdicion = false;
-  objetivoId: number | null = null;
-  mensajeError = '';
+  titulo = 'Nueva Meta / Objetivo';
+  id: any = null;
 
   constructor(
     private fb: FormBuilder,
     private api: ApiService,
     private auth: AuthService,
     private router: Router,
-    private route: ActivatedRoute,
-    private cd: ChangeDetectorRef //Inyección para actualizar vista
-  ) {
-    // Definimos el formulario
-    this.form = this.fb.group({
-      titulo: ['', [Validators.required, Validators.minLength(5)]],
-      descripcion: ['', Validators.required],
-      meta_numerica: [100, [Validators.required, Validators.min(1)]],
-      fecha_limite: ['', Validators.required],
-      // Campos ocultos
-      empleado: [null],
-      estado: ['PENDIENTE'] 
-    });
-  }
+    private route: ActivatedRoute
+  ) {}
 
   ngOnInit() {
-    // 1. Asignar ID del empleado al formulario (Para cuando guardemos)
-    const user = this.auth.getUser();
-    if (user && user.id) {
-      this.form.patchValue({ empleado: user.id });
+    this.initForm();
+    this.cargarEmpleados();
+    
+    // Verificar si es edición
+    this.id = this.route.snapshot.paramMap.get('id');
+    if (this.id) {
+      this.titulo = 'Editar Objetivo';
+      this.cargarObjetivo(this.id);
     }
+  }
 
-    // 2. Revisar URL: ¿Estamos editando? (ej: /objetivos/editar/5)
-    this.route.params.subscribe(params => {
-      if (params['id']) {
-        this.esEdicion = true;
-        this.objetivoId = params['id'];
-        this.cargarDatos(this.objetivoId!);
-      }
+  initForm() {
+    this.form = this.fb.group({
+      empleado: ['', Validators.required],
+      titulo: ['', [Validators.required, Validators.minLength(5)]],
+      descripcion: ['', Validators.required],
+      fecha_limite: ['', Validators.required], // Deadline
+      prioridad: ['MEDIA', Validators.required],
+      estado: ['PENDIENTE'] // Por defecto
     });
   }
 
-  // Carga un SOLO objetivo para editarlo
-  cargarDatos(id: number) {
-    this.loading = true;
-    
-    // Reutilizamos getObjetivos y buscamos el específico
-    this.api.getObjetivos().subscribe({
+  cargarEmpleados() {
+    // Aquí es donde en el futuro filtraremos: "Dame solo mis subordinados"
+    // Por ahora, traemos todos.
+    this.api.getEmpleados().subscribe({
       next: (res: any) => {
-        const lista = res.results || res;
-        const objetivo = lista.find((o: any) => o.id == id);
-        
-        if (objetivo) {
-          this.form.patchValue({
-            titulo: objetivo.titulo,
-            descripcion: objetivo.descripcion,
-            meta_numerica: objetivo.meta_numerica,
-            fecha_limite: objetivo.fecha_limite,
-            estado: objetivo.estado,
-            empleado: objetivo.empleado
-          });
-        }
-        
-        this.loading = false;
-        this.cd.detectChanges(); // <--- IMPORTANTE: Actualizar vista
+        this.empleados = res.results || res;
       },
-      error: (err) => {
-        console.error(err);
-        this.mensajeError = 'No se pudo cargar el objetivo.';
-        this.loading = false;
-        this.cd.detectChanges();
-      }
+      error: (e) => console.error(e)
     });
+  }
+
+  cargarObjetivo(id: number) {
+    this.loading = true;
+    // Asumiendo que tienes un endpoint getObjetivo(id) o usas getObjetivos filtrado
+    // Como en tu API service actual tienes getObjetivos(empleadoId), 
+    // tal vez necesites un getObjetivoById(id) en el backend o filtrar en el front.
+    // Simularemos carga por ahora o implementa getObjetivoById en ApiService.
   }
 
   guardar() {
@@ -96,46 +76,18 @@ export class ObjetivoFormComponent implements OnInit {
       return;
     }
 
-    this.loading = true;
-    this.mensajeError = '';
     const data = this.form.value;
-
-    let peticion;
-    if (this.esEdicion && this.objetivoId) {
-      peticion = this.api.updateObjetivo(this.objetivoId, data);
-    } else {
-      peticion = this.api.saveObjetivo(data);
-    }
-
-    peticion.subscribe({
+    
+    // Si es nuevo, lo creamos
+    this.api.saveObjetivo(data).subscribe({
       next: () => {
-        this.loading = false;
+        alert('Objetivo asignado correctamente 🎯');
         this.router.navigate(['/objetivos']);
       },
-      error: (err) => {
-        console.error(err);
-        this.loading = false;
-        this.mensajeError = 'Ocurrió un error al guardar. Verifica los datos.';
-        this.cd.detectChanges(); // <--- Mostrar error visualmente
+      error: (e) => {
+        console.error(e);
+        alert('Error al asignar objetivo.');
       }
     });
-  }
-  
-  eliminar() {
-    if (!this.esEdicion || !this.objetivoId) return;
-    
-    if (confirm('¿Estás seguro de eliminar este objetivo?')) {
-      this.loading = true;
-      this.api.deleteObjetivo(this.objetivoId).subscribe({
-        next: () => {
-             this.loading = false;
-             this.router.navigate(['/objetivos']);
-        },
-        error: () => {
-            this.loading = false;
-            alert("Error al eliminar");
-        }
-      });
-    }
   }
 }

@@ -37,11 +37,22 @@ export class ApiService {
   
   // Empresas
   getEmpresas(): Observable<any> { return this.http.get(this.apiUrl + 'empresas/', this.getHeaders()); }
+  createEmpresa(data: any): Observable<any> {
+    return this.http.post(this.apiUrl + 'empresas/', data);
+  }
+
   getEmpresaById(id: number): Observable<any> { 
     return this.http.get(this.apiUrl + 'empresas/' + id + '/', this.getHeaders()); 
   }
   saveEmpresa(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empresas/', data, this.getHeaders()); }
+updateEmpresa(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}empresas/${id}/`, data);
+  }
 
+  // ELIMINAR EMPRESA
+  deleteEmpresa(id: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}empresas/${id}/`);
+  }
   // Sucursales
   getSucursales(empresaId?: number): Observable<any> {
     let params = new HttpParams();

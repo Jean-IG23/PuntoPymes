@@ -16,17 +16,9 @@ export class DashboardComponent implements OnInit {
   loading: boolean = true;
   fechaHoy: Date = new Date();
   
-  // Estado
-  esAdmin: boolean = false;
+  // Estados para la vista
+  esAdmin: boolean = false; // Admin de empresa (RRHH)
   pendientesEquipo: number = 0;
-  
-  // Stats (Inicializados en 0 para evitar errores si no cargan)
-  statsGlobales: any = {
-    total_empleados: 0,
-    presentes_hoy: 0,
-    porcentaje_asistencia: 0,
-    ausentes_hoy: 0
-  };
 
   constructor(
     private api: ApiService,
@@ -37,27 +29,30 @@ export class DashboardComponent implements OnInit {
     this.cargarDatos();
   }
 
+  // Helper para mostrar nombre corto en el HTML
+  getPrimerNombre(): string {
+    return this.empleado?.nombres ? this.empleado.nombres.split(' ')[0] : 'Usuario';
+  }
+
   cargarDatos() {
     this.loading = true;
     const user = this.auth.getUser();
     
-    // 1. Verificar Roles
+    // 1. Verificamos si es Admin de Empresa (RRHH)
     this.esAdmin = this.auth.canConfigCompany();
 
-    // 2. Obtener Perfil Completo (Para ver saldo de vacaciones)
-    // Usamos getEmpleados() que ya filtra por el usuario logueado en el backend
+    // 2. Intentamos cargar el perfil de empleado
     this.api.getEmpleados().subscribe({
       next: (res: any) => {
-        // Manejo robusto: si es array o paginación
         const lista = res.results || res;
+        
         if (lista.length > 0) {
           this.empleado = lista[0];
         } else if (user) {
-          // Fallback: usar datos del token si no hay ficha
+          // Si no tiene ficha (ej. SuperUser nuevo), usamos datos básicos del token
           this.empleado = user; 
         }
         
-        // Una vez tenemos al empleado, cargamos datos extra
         this.cargarDatosAdicionales();
       },
       error: (e) => {
@@ -68,14 +63,14 @@ export class DashboardComponent implements OnInit {
   }
 
   cargarDatosAdicionales() {
-    // A. Si es GERENTE/ADMIN: Contar solicitudes pendientes del equipo
+    // Si es Gerente, buscamos si tiene solicitudes pendientes de aprobar
     if (this.auth.isManagement()) {
       this.api.getSolicitudes().subscribe({
         next: (res: any) => {
           const todas = res.results || res;
           // Filtramos: Pendientes que NO son mías
           this.pendientesEquipo = todas.filter((s: any) => 
-            s.estado === 'PENDIENTE' && s.empleado.id !== this.empleado.id
+            s.estado === 'PENDIENTE' && s.empleado?.id !== this.empleado?.id
           ).length;
           this.loading = false;
         },
@@ -84,19 +79,5 @@ export class DashboardComponent implements OnInit {
     } else {
       this.loading = false;
     }
-
-    // B. Si es ADMIN: Cargar Stats Globales (Simulamos por ahora si no existe el endpoint)
-    if (this.esAdmin) {
-       // Si creas el endpoint getStats en el futuro, descomenta esto:
-       /* this.api.getStats().subscribe(data => {
-          this.statsGlobales = data;
-       }); 
-       */
-    }
-  }
-
-  // Helper para vista
-  getPrimerNombre(): string {
-    return this.empleado?.nombres ? this.empleado.nombres.split(' ')[0] : 'Colaborador';
   }
 }

@@ -1,250 +1,198 @@
-<div class="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-  
-  <div class="max-w-7xl mx-auto mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">
-          {{ isSuperAdmin ? 'Panel SaaS' : 'Mi Organización' }}
-      </h1>
-      <p class="text-gray-500">Configuración centralizada de tu empresa.</p>
+<div class="min-h-screen bg-gray-50 p-4 sm:p-8 animate-fade-in">
+
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Organización</h1>
+      <p class="text-gray-500 text-sm">Gestión de empresas y estructura organizativa.</p>
+    </div>
+
+    <div *ngIf="auth.isSuperAdmin()" class="flex bg-gray-200 rounded-lg p-1">
+        <button (click)="activeTab = 'EMPRESAS'" 
+                [ngClass]="activeTab === 'EMPRESAS' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+                class="px-4 py-1.5 rounded-md text-sm font-bold transition">
+            Empresas
+        </button>
+        <button (click)="activeTab = 'ESTRUCTURA'; cargarDatosEstructura()" 
+                [ngClass]="activeTab === 'ESTRUCTURA' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+                class="px-4 py-1.5 rounded-md text-sm font-bold transition">
+            Configuración Interna
+        </button>
+    </div>
   </div>
 
-  <div *ngIf="isSuperAdmin">
-     <p>Vista de SuperAdmin activa.</p>
-  </div>
-
-  <div *ngIf="!isSuperAdmin" class="max-w-7xl mx-auto">
+  <div *ngIf="activeTab === 'EMPRESAS'">
       
-      <div class="bg-white shadow rounded-lg mb-6">
-          <nav class="flex divide-x divide-gray-200">
-              <button (click)="activeTab = 'AREAS'" [class.text-indigo-600]="activeTab === 'AREAS'" class="flex-1 py-4 px-4 text-center text-sm font-medium hover:bg-gray-50">
-                  1. Áreas
-              </button>
-              <button (click)="activeTab = 'TURNOS'" [class.text-indigo-600]="activeTab === 'TURNOS'" class="flex-1 py-4 px-4 text-center text-sm font-medium hover:bg-gray-50">
-                  2. Turnos y Horarios
-              </button>
-              <button (click)="activeTab = 'ESTRUCTURA'" [class.text-indigo-600]="activeTab === 'ESTRUCTURA'" class="flex-1 py-4 px-4 text-center text-sm font-medium hover:bg-gray-50">
-                  3. Sucursales
-              </button>
-              <button (click)="activeTab = 'PUESTOS'" [class.text-indigo-600]="activeTab === 'PUESTOS'" class="flex-1 py-4 px-4 text-center text-sm font-medium hover:bg-gray-50">
-                  4. Cargos
-              </button>
-          </nav>
+      <div *ngIf="auth.isSuperAdmin()" class="flex flex-wrap justify-end gap-3 mb-6">
+        <button (click)="abrirModalEmpresa(false)" 
+                class="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition shadow-sm font-medium">
+          <i class="bi bi-building-fill-add"></i> <span>Agregar Mi Empresa</span>
+        </button>
+
+        <button (click)="abrirModalEmpresa(true)" 
+                class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm font-medium">
+          <i class="bi bi-cloud-plus-fill"></i> <span>Agregar Cliente</span>
+        </button>
       </div>
 
-      <div *ngIf="activeTab === 'AREAS'" class="bg-white shadow rounded-lg p-6">
-          <div class="flex justify-between mb-4">
-              <h3 class="text-lg font-bold">Catálogo de Áreas</h3>
-              <button (click)="showAreaForm = true" class="text-indigo-600 font-bold">+ Crear Área</button>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div *ngFor="let a of areas" class="border p-4 rounded-lg hover:shadow-md">
-                  <h4 class="font-bold">{{ a.nombre }}</h4>
-                  <p class="text-sm text-gray-500">{{ a.descripcion }}</p>
-              </div>
-          </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <div *ngFor="let emp of empresas" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative overflow-hidden hover:shadow-md transition group">
+            
+            <div class="absolute top-0 left-0 w-full h-1" 
+                 [ngClass]="esMiEmpresa(emp.id) ? 'bg-gray-900' : 'bg-indigo-500'">
+            </div>
+            
+            <div class="flex justify-between items-start mb-4">
+                <div class="p-3 rounded-lg transition-colors" 
+                     [ngClass]="esMiEmpresa(emp.id) ? 'bg-gray-100 text-gray-900' : 'bg-indigo-50 text-indigo-600'">
+                    <i class="bi" [ngClass]="esMiEmpresa(emp.id) ? 'bi-building-fill-check' : 'bi-cloud-check'"></i>
+                </div>
+
+                <span *ngIf="esMiEmpresa(emp.id)" 
+                      class="bg-gray-900 text-white text-xs px-3 py-1 rounded-full font-bold tracking-wide shadow-sm">
+                    MI EMPRESA
+                </span>
+                
+                <span *ngIf="!esMiEmpresa(emp.id)" 
+                      class="bg-indigo-100 text-indigo-700 text-xs px-3 py-1 rounded-full font-bold tracking-wide">
+                    CLIENTE
+                </span>
+            </div>
+
+            <h3 class="text-lg font-bold text-gray-900 mb-1 group-hover:text-indigo-600 transition-colors">
+                {{ emp.nombre }}
+            </h3>
+            
+            <p class="text-sm text-gray-500 flex items-center gap-2 mb-3">
+                <i class="bi bi-geo-alt-fill text-gray-400"></i> 
+                {{ emp.direccion || 'Sin dirección' }}
+            </p>
+
+            <div class="flex justify-between items-center text-xs text-gray-400 border-t pt-3 mt-2">
+                <span class="font-mono">RUC: {{ emp.ruc }}</span>
+                <span class="font-mono">ID: {{ emp.id }}</span>
+            </div>
+        </div>
+
+        <div *ngIf="empresas.length === 0 && !loading" class="col-span-full text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+           No hay empresas registradas.
+        </div>
       </div>
 
-      <div *ngIf="activeTab === 'TURNOS'" class="bg-white shadow rounded-lg p-6">
-          <div class="flex justify-between mb-4">
-              <div>
-                  <h3 class="text-lg font-bold">Configuración de Jornadas</h3>
-                  <p class="text-sm text-gray-500">Define horarios fijos o bolsas de horas.</p>
-              </div>
-              <button (click)="showTurnoModal = true" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700">
-                  + Nuevo Turno
-              </button>
-          </div>
+        <div *ngIf="empresas.length === 0 && !loading" class="col-span-full text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+           No hay empresas registradas.
+        </div>
+  </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div *ngFor="let t of turnos" class="border rounded-xl p-5 relative overflow-hidden">
-                  <div class="absolute top-0 left-0 w-2 h-full" 
-                       [ngClass]="t.tipo_jornada === 'RIGIDO' ? 'bg-blue-500' : 'bg-purple-500'"></div>
-                  
-                  <div class="ml-4">
-                      <h4 class="font-bold text-gray-900">{{ t.nombre }}</h4>
-                      <span class="text-xs px-2 py-1 rounded-full font-bold" 
-                            [ngClass]="t.tipo_jornada === 'RIGIDO' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'">
-                          {{ t.tipo_jornada === 'RIGIDO' ? 'Horario Fijo' : 'Flexible / Por Horas' }}
-                      </span>
-                      
-                      <div class="mt-3 text-sm text-gray-600 space-y-1">
-                          <p *ngIf="t.tipo_jornada === 'RIGIDO'">
-                              ⏰ <strong>{{ t.hora_entrada }}</strong> a <strong>{{ t.hora_salida }}</strong>
-                          </p>
-                          <p *ngIf="t.tipo_jornada === 'FLEXIBLE'">
-                              🎯 Meta: <strong>{{ t.horas_semanales_meta }} horas</strong> / semana
-                          </p>
-                          <p>📅 {{ getDiasStr(t.dias_laborables) }}</p>
-                      </div>
-                  </div>
+  <div *ngIf="activeTab === 'ESTRUCTURA'" class="animate-fade-in">
+      
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">Resumen de Estructura</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="bg-blue-50 p-4 rounded-lg text-center">
+                  <span class="block text-2xl font-bold text-blue-600">{{ areas.length }}</span>
+                  <span class="text-sm text-blue-800">Áreas</span>
+              </div>
+              <div class="bg-green-50 p-4 rounded-lg text-center">
+                  <span class="block text-2xl font-bold text-green-600">{{ sucursales.length }}</span>
+                  <span class="text-sm text-green-800">Sucursales</span>
+              </div>
+              <div class="bg-purple-50 p-4 rounded-lg text-center">
+                  <span class="block text-2xl font-bold text-purple-600">{{ puestos.length }}</span>
+                  <span class="text-sm text-purple-800">Puestos</span>
+              </div>
+              <div class="bg-orange-50 p-4 rounded-lg text-center">
+                  <span class="block text-2xl font-bold text-orange-600">{{ turnos.length }}</span>
+                  <span class="text-sm text-orange-800">Turnos</span>
               </div>
           </div>
-      </div>
-
-      <div *ngIf="activeTab === 'ESTRUCTURA'" class="space-y-6">
-          <div class="flex justify-end">
-              <button (click)="showSucursalForm = true" class="bg-indigo-600 text-white px-4 py-2 rounded shadow">+ Nueva Sucursal</button>
-          </div>
-          <div *ngFor="let s of sucursales" class="bg-white shadow rounded-lg overflow-hidden">
-              <div class="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
-                  <h3 class="font-bold text-lg">📍 {{ s.nombre }}</h3>
-                  <button (click)="abrirModalDepto(s.id)" class="text-sm bg-white border px-3 py-1 rounded hover:bg-gray-100">+ Depto</button>
-              </div>
-              <div class="p-4">
-                  <ul class="space-y-2">
-                      <li *ngFor="let d of getDeptosBySucursal(s.id)" class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
-                          <span class="text-gray-900 font-medium">{{ d.nombre }}</span>
-                          <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Área: {{ getNombreArea(d.area) }}</span>
-                      </li>
-                  </ul>
-                  <p *ngIf="getDeptosBySucursal(s.id).length === 0" class="text-sm text-gray-400 italic">Sin departamentos.</p>
-              </div>
-          </div>
-      </div>
-
-      <div *ngIf="activeTab === 'PUESTOS'" class="bg-white shadow rounded-lg p-6">
-          <div class="flex justify-between mb-4">
-              <h3 class="text-lg font-bold">Cargos</h3>
-              <button (click)="showPuestoModal = true" class="bg-indigo-600 text-white px-4 py-2 rounded shadow">+ Nuevo Cargo</button>
-          </div>
-          <table class="min-w-full divide-y divide-gray-200">
-              <thead>
-                  <tr>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase">Cargo</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase">Rango Salarial</th>
-                      <th class="text-left text-xs font-medium text-gray-500 uppercase">Supervisor</th>
-                  </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-200">
-                  <tr *ngFor="let p of puestos">
-                      <td class="py-3 text-sm text-gray-900">{{ p.nombre }}</td>
-                      <td class="py-3 text-sm text-gray-500">${{ p.salario_minimo }} - ${{ p.salario_maximo }}</td>
-                      <td class="py-3 text-sm">
-                          <span *ngIf="p.es_supervisor" class="text-green-600 font-bold">Sí</span>
-                      </td>
-                  </tr>
-              </tbody>
-          </table>
-      </div>
-
-  </div> <div *ngIf="showTurnoModal" class="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-      <div class="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <h3 class="text-xl font-bold mb-4">Configurar Turno</h3>
           
-          <form [formGroup]="turnoForm" (ngSubmit)="guardarTurno()">
-              
-              <div class="mb-4">
-                  <label class="block text-sm font-medium text-gray-700">Nombre del Turno</label>
-                  <input formControlName="nombre" placeholder="Ej: Administrativo Matriz" class="w-full border p-2 rounded">
-              </div>
-
-              <div class="mb-4">
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Modalidad</label>
-                  <div class="flex gap-4">
-                      <label class="flex items-center p-3 border rounded cursor-pointer w-1/2 hover:bg-blue-50" [class.border-blue-500]="turnoForm.get('tipo_jornada')?.value === 'RIGIDO'">
-                          <input type="radio" formControlName="tipo_jornada" value="RIGIDO" class="text-blue-600">
-                          <span class="ml-2 text-sm font-bold">Horario Fijo</span>
-                      </label>
-                      <label class="flex items-center p-3 border rounded cursor-pointer w-1/2 hover:bg-purple-50" [class.border-purple-500]="turnoForm.get('tipo_jornada')?.value === 'FLEXIBLE'">
-                          <input type="radio" formControlName="tipo_jornada" value="FLEXIBLE" class="text-purple-600">
-                          <span class="ml-2 text-sm font-bold">Bolsa de Horas</span>
-                      </label>
-                  </div>
-              </div>
-
-              <div class="bg-gray-50 p-4 rounded mb-4 border">
-                  
-                  <div *ngIf="turnoForm.get('tipo_jornada')?.value === 'RIGIDO'">
-                      <div class="grid grid-cols-2 gap-4">
-                          <div>
-                              <label class="block text-xs font-bold text-gray-500">Entrada</label>
-                              <input type="time" formControlName="hora_entrada" class="w-full border p-2 rounded">
-                          </div>
-                          <div>
-                              <label class="block text-xs font-bold text-gray-500">Salida</label>
-                              <input type="time" formControlName="hora_salida" class="w-full border p-2 rounded">
-                          </div>
-                      </div>
-                      <div class="mt-3">
-                          <label class="block text-xs font-bold text-gray-500">Tolerancia Atraso (min)</label>
-                          <input type="number" formControlName="min_tolerancia" class="w-20 border p-2 rounded">
-                      </div>
-                  </div>
-
-                  <div *ngIf="turnoForm.get('tipo_jornada')?.value === 'FLEXIBLE'">
-                      <label class="block text-xs font-bold text-gray-500">Meta de Horas Semanales</label>
-                      <input type="number" formControlName="horas_semanales_meta" class="w-full border p-2 rounded" placeholder="40">
-                      <p class="text-xs text-gray-400 mt-1">Se contarán todas las horas trabajadas en la semana.</p>
-                  </div>
-
-              </div>
-
-              <div class="mb-6">
-                  <label class="block text-sm font-medium text-gray-700 mb-2">Días Laborables</label>
-                  <div class="flex flex-wrap gap-2">
-                      <label *ngFor="let dia of diasSemana" class="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded cursor-pointer hover:bg-gray-200">
-                          <input type="checkbox" 
-                                 [checked]="isDiaChecked(dia.id)" 
-                                 (change)="onDiaChange($event, dia.id)"
-                                 class="rounded text-indigo-600">
-                          <span class="text-sm">{{ dia.nombre }}</span>
-                      </label>
-                  </div>
-              </div>
-
-              <div class="flex justify-end gap-3">
-                  <button type="button" (click)="showTurnoModal = false" class="text-gray-500">Cancelar</button>
-                  <button type="submit" [disabled]="turnoForm.invalid" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 disabled:opacity-50">
-                      Guardar Turno
-                  </button>
-              </div>
-
-          </form>
+          <div class="mt-8 text-center text-gray-500 text-sm">
+            <p>Selecciona una opción del menú lateral o implementa aquí las tablas de gestión.</p>
+          </div>
       </div>
   </div>
 
-  <div *ngIf="showAreaForm" class="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-    <div class="bg-white p-6 rounded-lg w-96">
-        <form [formGroup]="areaForm" (ngSubmit)="guardarArea()">
-            <input formControlName="nombre" placeholder="Nombre Área" class="w-full border p-2 mb-2 rounded">
-            <button class="bg-indigo-600 text-white w-full py-2 rounded">Guardar</button>
-            <button type="button" (click)="showAreaForm=false" class="text-gray-500 w-full mt-2">Cancelar</button>
-        </form>
-     </div>
-  </div>
-  
-  <div *ngIf="showSucursalForm" class="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-     <div class="bg-white p-6 rounded-lg w-96">
-        <form [formGroup]="sucursalForm" (ngSubmit)="guardarSucursal()">
-            <input formControlName="nombre" placeholder="Nombre Sucursal" class="w-full border p-2 mb-2 rounded">
-            <input formControlName="direccion" placeholder="Dirección" class="w-full border p-2 mb-2 rounded">
-            <button class="bg-indigo-600 text-white w-full py-2 rounded">Guardar</button>
-            <button type="button" (click)="showSucursalForm=false" class="text-gray-500 w-full mt-2">Cancelar</button>
-        </form>
-     </div>
-  </div>
+</div>
 
-  <div *ngIf="showDeptoForm" class="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-     <div class="bg-white p-6 rounded-lg w-96">
-        <form [formGroup]="deptoForm" (ngSubmit)="guardarDepto()">
-            <input formControlName="nombre" placeholder="Nombre Depto" class="w-full border p-2 mb-2 rounded">
-            <select formControlName="area" class="w-full border p-2 mb-2 rounded">
-                <option [ngValue]="null">-- Selecciona Área --</option>
-                <option *ngFor="let a of areas" [value]="a.id">{{ a.nombre }}</option>
-            </select>
-            <button class="bg-indigo-600 text-white w-full py-2 rounded">Guardar</button>
-            <button type="button" (click)="showDeptoForm=false" class="text-gray-500 w-full mt-2">Cancelar</button>
-        </form>
-     </div>
-  </div>
+<div *ngIf="showModalEmpresa" class="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-down">
+        
+        <div class="px-6 py-4 border-b flex justify-between items-center" 
+             [ngClass]="esModoCliente ? 'bg-indigo-600 text-white' : 'bg-gray-900 text-white'">
+            <h2 class="text-lg font-bold flex items-center gap-2">
+                <i class="bi" [ngClass]="esModoCliente ? 'bi-cloud-plus' : 'bi-building-add'"></i>
+                {{ esModoCliente ? 'Nuevo Cliente SaaS' : 'Fundar Mi Empresa' }}
+            </h2>
+            <button (click)="showModalEmpresa=false" class="text-white hover:text-gray-200">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
 
-  <div *ngIf="showPuestoModal" class="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-     <div class="bg-white p-6 rounded-lg w-96">
-        <form [formGroup]="puestoForm" (ngSubmit)="guardarPuesto()">
-            <input formControlName="nombre" placeholder="Nombre Cargo" class="w-full border p-2 mb-2 rounded">
-            <button class="bg-indigo-600 text-white w-full py-2 rounded">Guardar</button>
-            <button type="button" (click)="showPuestoModal=false" class="text-gray-500 w-full mt-2">Cancelar</button>
-        </form>
-     </div>
-  </div>
+        <form [formGroup]="formEmpresa" (ngSubmit)="guardarEmpresa()" class="p-6">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Razón Social (Legal) *</label>
+                    <input formControlName="razon_social" type="text" class="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ej: Importadora del Sur S.A.">
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Comercial *</label>
+                        <input formControlName="nombre" type="text" class="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">RUC *</label>
+                        <input formControlName="ruc" type="text" class="w-full border p-2 rounded outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ej: 1790012345001">
+                    </div>
+                </div>
 
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                        <input formControlName="direccion" type="text" class="w-full border p-2 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input formControlName="telefono" type="text" class="w-full border p-2 rounded">
+                    </div>
+                </div>
+
+                <div *ngIf="esModoCliente" class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mt-4 animate-fade-in">
+                    <p class="text-xs font-bold text-indigo-800 uppercase mb-3 flex items-center gap-2">
+                        <i class="bi bi-person-lock"></i> Credenciales Admin
+                    </p>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs text-gray-500 font-bold">Nombre Administrador</label>
+                            <input formControlName="admin_nombre" type="text" class="w-full border p-2 rounded bg-white">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 font-bold">Email (Usuario)</label>
+                            <input formControlName="admin_email" type="email" class="w-full border p-2 rounded bg-white">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 font-bold">Contraseña</label>
+                            <input formControlName="admin_password" type="password" class="w-full border p-2 rounded bg-white">
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="!esModoCliente" class="bg-gray-100 p-3 rounded text-xs text-gray-600 flex gap-2">
+                    <i class="bi bi-info-circle-fill"></i>
+                    Se vinculará tu usuario actual como administrador de esta empresa.
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" (click)="showModalEmpresa=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button type="submit" [disabled]="formEmpresa.invalid" 
+                        class="px-6 py-2 text-white rounded-lg shadow-md transition disabled:opacity-50"
+                        [ngClass]="esModoCliente ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-900 hover:bg-gray-800'">
+                    {{ esModoCliente ? 'Registrar Cliente' : 'Crear Organización' }}
+                </button>
+            </div>
+        </form>
+    </div>
 </div>

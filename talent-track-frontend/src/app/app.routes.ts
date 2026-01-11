@@ -20,7 +20,7 @@ import { ObjetivoFormComponent } from './components/objetivo-form/objetivo-form.
 import { AsistenciaAdminComponent } from './components/asistencia-admin/asistencia-admin.component';
 import { SolicitudesComponent } from './components/solicitudes/solicitudes.component';
 import { ConfigAusenciasComponent } from './components/config-ausencias/config-ausencias.component';
-
+import { SaasDashboardComponent } from './components/saas-dashboard/saas-dashboard.component';
 // 3. DEFINICIÓN DE RUTAS
 export const routes: Routes = [
   
@@ -39,6 +39,7 @@ export const routes: Routes = [
 
         // --- ACCESO GENERAL (Jefes y Empleados) ---
         { path: 'dashboard', component: DashboardComponent },
+        { path: 'saas-admin', component: SaasDashboardComponent },
         { path: 'reloj', component: RelojComponent },
         { path: 'mi-perfil', component: EmpleadoFormComponent }, // O el componente de perfil de lectura
         { path: 'solicitudes', component: SolicitudesComponent },

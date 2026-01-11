@@ -25,9 +25,7 @@
       </div>
     </div>
 
-    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
-        Mi Espacio
-    </h3>
+    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Mi Espacio</h3>
     
     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-10">
 
@@ -110,11 +108,10 @@
             </div>
           </div>
       </div>
-
     </div>
 
-    <div *ngIf="esAdmin" class="mt-8 pb-10"> <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4 px-1">Gestión de Empresa</h3>
-        
+    <div *ngIf="esAdmin" class="mt-8 pb-4">
+        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4 px-1">Gestión de Empresa</h3>
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
             
             <a routerLink="/empleados" class="block p-5 bg-white rounded-xl shadow-sm hover:shadow-lg transition border border-gray-100 group text-left cursor-pointer">
@@ -122,7 +119,6 @@
                     <i class="bi bi-people-fill text-2xl"></i>
                 </div>
                 <span class="block text-sm font-bold text-gray-700 group-hover:text-gray-900">Directorio</span>
-                <span class="text-xs text-gray-400">Gestionar Personal</span>
             </a>
 
             <a routerLink="/empleados/carga-masiva" class="block p-5 bg-white rounded-xl shadow-sm hover:shadow-lg transition border border-gray-100 group text-left cursor-pointer">
@@ -130,7 +126,6 @@
                     <i class="bi bi-file-earmark-excel-fill text-2xl"></i>
                 </div>
                 <span class="block text-sm font-bold text-gray-700 group-hover:text-gray-900">Importar</span>
-                <span class="text-xs text-gray-400">Carga Masiva Excel</span>
             </a>
 
             <a routerLink="/solicitudes" class="block p-5 bg-white rounded-xl shadow-sm hover:shadow-lg transition border border-gray-100 group text-left cursor-pointer">
@@ -138,7 +133,6 @@
                     <i class="bi bi-calendar-check-fill text-2xl"></i>
                 </div>
                 <span class="block text-sm font-bold text-gray-700 group-hover:text-gray-900">Ausencias</span>
-                <span class="text-xs text-gray-400">Reporte Global</span>
             </a>
 
             <a routerLink="/configuracion/ausencias" class="block p-5 bg-white rounded-xl shadow-sm hover:shadow-lg transition border border-gray-100 group text-left cursor-pointer">
@@ -146,9 +140,16 @@
                     <i class="bi bi-gear-fill text-2xl"></i>
                 </div>
                 <span class="block text-sm font-bold text-gray-700 group-hover:text-gray-900">Configuración</span>
-                <span class="text-xs text-gray-400">Tipos de Permisos</span>
             </a>
-            </div>
+        </div>
+    </div>
+
+    <div *ngIf="auth.isSuperAdmin()" class="mt-8 bg-gray-900 rounded-xl p-6 text-white text-center">
+        <h3 class="text-xl font-bold mb-2">☁️ Zona SaaS (Super Admin)</h3>
+        <p class="text-gray-400 mb-4">Gestiona las empresas clientes del sistema.</p>
+        <button routerLink="/saas-admin" class="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg transition">
+            Ir al Panel Maestro
+        </button>
     </div>
 
   </div>

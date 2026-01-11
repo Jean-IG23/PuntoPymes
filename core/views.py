@@ -109,76 +109,92 @@ class EmpresaViewSet(viewsets.ModelViewSet):
     serializer_class = EmpresaSerializer
 
     def create(self, request, *args, **kwargs):
-        # 1. Separar datos de Admin y Empresa
+        # 1. Copiamos los datos para poder manipularlos (sacar campos extra)
         data = request.data.copy()
         
+        # --- VALIDACIÓN ANTI-DUPLICADOS (RUC) ---
+        ruc_entrante = data.get('ruc')
+        if ruc_entrante and Empresa.objects.filter(ruc=ruc_entrante).exists():
+            return Response(
+                {"error": f"El RUC {ruc_entrante} ya está registrado en el sistema."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # ----------------------------------------
+
+        # 2. Extraemos los datos "extra" que no son del modelo Empresa
+        # (Esto se hace UNA sola vez)
         admin_email = data.pop('admin_email', None)
         admin_password = data.pop('admin_password', None)
         admin_nombre = data.pop('admin_nombre', None)
 
-        # 2. Validación Manual
-        if not admin_email or not admin_password:
-            return Response(
-                {"error": "Faltan credenciales del Administrador (Email o Password)."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         try:
             with transaction.atomic():
-                # 3. Serializar y Guardar Empresa
+                # 3. CREAR LA EMPRESA
                 serializer = self.get_serializer(data=data)
                 if not serializer.is_valid():
-                    print("❌ Error Val Empresa:", serializer.errors)
+                    # Esto te dirá si falta "razon_social" u otro campo obligatorio
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
                 
                 empresa = serializer.save()
 
-                # 4. Validar Usuario existente
-                if User.objects.filter(email=admin_email).exists():
-                    raise Exception(f"El email {admin_email} ya está registrado.")
-                
-                # 5. Crear Usuario Django
-                user = User.objects.create_user(
-                    username=admin_email, 
-                    email=admin_email, 
-                    password=admin_password,
-                    first_name=admin_nombre or "Admin"
-                )
+                # 4. DEFINIR QUIÉN SERÁ EL ADMINISTRADOR
+                usuario_admin = None
+                nombre_empleado = ""
 
-                # 6. Crear Sucursal Matriz
+                # CASO A: SuperAdmin creando su propia empresa (sin email nuevo)
+                if not admin_email and request.user.is_superuser:
+                    usuario_admin = request.user
+                    nombre_empleado = "Super Admin"
+                
+                # CASO B: Creando un Cliente Nuevo (con credenciales)
+                elif admin_email and admin_password:
+                    if User.objects.filter(email=admin_email).exists():
+                         raise Exception(f"El email {admin_email} ya está en uso.")
+                    
+                    usuario_admin = User.objects.create_user(
+                        username=admin_email,
+                        email=admin_email,
+                        password=admin_password,
+                        first_name=admin_nombre or "Admin"
+                    )
+                    nombre_empleado = admin_nombre or "Administrador"
+                
+                else:
+                    raise Exception("Faltan credenciales (Email/Pass) para crear el usuario administrador.")
+
+                # 5. CREAR ESTRUCTURA BASE
                 sucursal_matriz = Sucursal.objects.create(
                     nombre="Matriz Principal",
                     empresa=empresa,
                     es_matriz=True,
-                    direccion=empresa.direccion or "Dirección Principal"
+                    direccion=empresa.direccion or "Oficina Central"
                 )
 
-                # 7. Crear Departamento Gerencia
-                depto_admin = Departamento.objects.create(
+                depto_gerencia = Departamento.objects.create(
                     nombre="Gerencia General",
                     sucursal=sucursal_matriz
                 )
 
-                # 8. Crear Empleado (Lazy Import)
-                from personal.models import Empleado
-                Empleado.objects.create(
-                    usuario=user,
-                    nombres=admin_nombre or "Administrador",
-                    apellidos="",
-                    email=admin_email,
-                    empresa=empresa,
-                    rol='ADMIN',
-                    # sucursal=sucursal_matriz, <--- ¡ESTA LÍNEA SE BORRA!
-                    departamento=depto_admin, # El departamento ya vincula la sucursal
-                    fecha_ingreso=timezone.now().date(),
-                    sueldo=0,
-                    estado='ACTIVO'
-                )
+                # 6. VINCULAR EMPLEADO (Si no existe ya)
+                if not Empleado.objects.filter(usuario=usuario_admin, empresa=empresa).exists():
+                    Empleado.objects.create(
+                        usuario=usuario_admin,
+                        nombres=nombre_empleado,
+                        apellidos="",
+                        email=usuario_admin.email,
+                        empresa=empresa,
+                        rol='ADMIN',
+                        departamento=depto_gerencia,
+                        fecha_ingreso=timezone.now().date(),
+                        sueldo=0,
+                        estado='ACTIVO'
+                    )
 
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            print(f"🔥 Error en Create Empresa: {str(e)}")
+            print(f"🔥 Error creando empresa: {str(e)}")
+            # Devolvemos el error como string simple para que Angular lo muestre en el alert
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class SucursalViewSet(viewsets.ModelViewSet):

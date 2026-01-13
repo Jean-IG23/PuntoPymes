@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { filter } from 'rxjs/operators'; 
 
 @Component({
   selector: 'app-dashboard',
@@ -10,74 +11,97 @@ import { AuthService } from '../../services/auth.service';
   imports: [CommonModule, RouterModule],
   templateUrl: './dashboard.component.html'
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
 
-  empleado: any = null;
-  loading: boolean = true;
-  fechaHoy: Date = new Date();
-  
-  // Estados para la vista
-  esAdmin: boolean = false; // Admin de empresa (RRHH)
-  pendientesEquipo: number = 0;
+  // Datos del Dashboard
+  stats: any = {
+    nombres: 'Usuario', // Valor por defecto para que no se vea vacío
+    rol: '',
+    puesto: '',
+    saldo_vacaciones: 0,
+    solicitudes_pendientes: 0,
+    es_lider: false,
+    estado: '...'
+  };
+
+  // Variables de UI (Solo fecha y reloj)
+  fechaActual = new Date();
+  horaActual = '';
+  intervaloReloj: any;
 
   constructor(
     private api: ApiService,
-    public auth: AuthService
-  ) {}
+    public auth: AuthService,
+    private cdr: ChangeDetectorRef,
+    private router: Router
+  ) {
+    // Recarga datos al navegar
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.cargarDashboard();
+    });
+  }
 
   ngOnInit() {
-    this.cargarDatos();
+    this.iniciarReloj();
+    this.cargarDashboard();
   }
 
-  // Helper para mostrar nombre corto en el HTML
-  getPrimerNombre(): string {
-    return this.empleado?.nombres ? this.empleado.nombres.split(' ')[0] : 'Usuario';
+  ngOnDestroy() {
+    if (this.intervaloReloj) clearInterval(this.intervaloReloj);
   }
 
-  cargarDatos() {
-    this.loading = true;
-    const user = this.auth.getUser();
-    
-    // 1. Verificamos si es Admin de Empresa (RRHH)
-    this.esAdmin = this.auth.canConfigCompany();
+  iniciarReloj() {
+    this.intervaloReloj = setInterval(() => {
+      const now = new Date();
+      this.horaActual = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }, 1000);
+  }
 
-    // 2. Intentamos cargar el perfil de empleado
-    this.api.getEmpleados().subscribe({
-      next: (res: any) => {
-        const lista = res.results || res;
-        
-        if (lista.length > 0) {
-          this.empleado = lista[0];
-        } else if (user) {
-          // Si no tiene ficha (ej. SuperUser nuevo), usamos datos básicos del token
-          this.empleado = user; 
-        }
-        
-        this.cargarDatosAdicionales();
+  cargarDashboard() {
+    // Llamada directa sin activar spinners
+    this.api.getStats().subscribe({
+      next: (res) => {
+        this.stats = res;
+        this.cdr.detectChanges(); // Forzamos actualización visual inmediata
       },
       error: (e) => {
-        console.error('Error cargando perfil', e);
-        this.loading = false;
+        console.error('Error dashboard:', e);
+        this.cdr.detectChanges(); // Actualizamos aunque falle
       }
     });
   }
 
-  cargarDatosAdicionales() {
-    // Si es Gerente, buscamos si tiene solicitudes pendientes de aprobar
-    if (this.auth.isManagement()) {
-      this.api.getSolicitudes().subscribe({
-        next: (res: any) => {
-          const todas = res.results || res;
-          // Filtramos: Pendientes que NO son mías
-          this.pendientesEquipo = todas.filter((s: any) => 
-            s.estado === 'PENDIENTE' && s.empleado?.id !== this.empleado?.id
-          ).length;
-          this.loading = false;
+  marcarAsistencia(tipo: 'ENTRADA' | 'SALIDA') {
+    if (!confirm(`¿Confirmar registro de ${tipo}?`)) return;
+
+    // Obtenemos ubicación
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const payload = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            tipo: tipo 
+        };
+        this.enviarMarcaje(payload);
+      },
+      (err) => {
+        // Si falla GPS, enviamos 0,0
+        this.enviarMarcaje({ lat: 0, lng: 0, tipo: tipo });
+      }
+    );
+  }
+
+  enviarMarcaje(data: any) {
+    // Llamada al API
+    this.api.registrarAsistencia(data).subscribe({
+        next: (res) => {
+            alert(`✅ ${res.mensaje || 'Asistencia registrada.'}`);
         },
-        error: () => this.loading = false
-      });
-    } else {
-      this.loading = false;
-    }
+        error: (e) => {
+            alert('⛔ Error: ' + (e.error?.error || e.message));
+        }
+    });
   }
 }

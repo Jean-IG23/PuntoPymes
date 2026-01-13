@@ -37,22 +37,25 @@ export class ApiService {
   
   // Empresas
   getEmpresas(): Observable<any> { return this.http.get(this.apiUrl + 'empresas/', this.getHeaders()); }
+  
   createEmpresa(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'empresas/', data);
+    return this.http.post(this.apiUrl + 'empresas/', data, this.getHeaders());
   }
 
   getEmpresaById(id: number): Observable<any> { 
     return this.http.get(this.apiUrl + 'empresas/' + id + '/', this.getHeaders()); 
   }
+  
   saveEmpresa(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empresas/', data, this.getHeaders()); }
-updateEmpresa(id: number, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}empresas/${id}/`, data);
+  
+  updateEmpresa(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}empresas/${id}/`, data, this.getHeaders());
   }
 
-  // ELIMINAR EMPRESA
   deleteEmpresa(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}empresas/${id}/`);
+    return this.http.delete(`${this.apiUrl}empresas/${id}/`, this.getHeaders());
   }
+  
   // Sucursales
   getSucursales(empresaId?: number): Observable<any> {
     let params = new HttpParams();
@@ -97,11 +100,6 @@ updateEmpresa(id: number, data: any): Observable<any> {
   // ==========================================
 
   // Empleados (Lista)
-  createEmpleado(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'empleados/', data);
-  }
-
-  // 2. Actualizar empleado existente (PUT)
   getEmpleados(empresaId?: number | null, deptoId?: number | null): Observable<any> {
     let params = new HttpParams();
     if (empresaId) params = params.set('empresa', empresaId.toString());
@@ -109,9 +107,14 @@ updateEmpresa(id: number, data: any): Observable<any> {
     
     return this.http.get(this.apiUrl + 'empleados/', { headers: this.getHeaders().headers, params });
   }
+  
   // Empleado (Individual)
   getEmpleado(id: number): Observable<any> {
     return this.http.get(`${this.apiUrl}empleados/${id}/`, this.getHeaders());
+  }
+
+  createEmpleado(data: any): Observable<any> {
+    return this.http.post(this.apiUrl + 'empleados/', data, this.getHeaders());
   }
 
   saveEmpleado(data: any): Observable<any> {
@@ -132,21 +135,56 @@ updateEmpresa(id: number, data: any): Observable<any> {
     });
     return this.http.post(this.apiUrl + 'empleados/importar_excel/', formData, { headers });
   }
+  downloadPlantilla(): void {
+    // Truco para descargar archivo con Auth Header
+    this.http.get(this.apiUrl + 'empleados/download_template/', { 
+      headers: this.getHeaders().headers, 
+      responseType: 'blob' 
+    }).subscribe(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'plantilla_empleados.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+  }
 
-  // Solicitudes (Vacaciones)
-  getSolicitudes(): Observable<any> { return this.http.get(this.apiUrl + 'solicitudes/', this.getHeaders()); }
+  // --- SOLICITUDES (VACACIONES) ---
+  // Aquí corregí: agregué getHeaders() y eliminé los duplicados
+  
+  getSolicitudes(): Observable<any> { 
+      return this.http.get(this.apiUrl + 'solicitudes/', this.getHeaders()); 
+  }
+  
+  createSolicitud(data: any): Observable<any> {
+    // CORRECCIÓN IMPORTANTE: Agregado this.getHeaders()
+    return this.http.post(this.apiUrl + 'solicitudes/', data, this.getHeaders());
+  }
+
   saveSolicitud(data: any): Observable<any> { return this.http.post(this.apiUrl + 'solicitudes/', data, this.getHeaders()); }
+  
   updateSolicitud(id: number, data: any): Observable<any> { return this.http.patch(this.apiUrl + 'solicitudes/' + id + '/', data, this.getHeaders()); }
+  
+  gestionarSolicitud(id: number, estado: 'APROBADA' | 'RECHAZADA', comentario: string): Observable<any> {
+    // CORRECCIÓN IMPORTANTE: Agregado this.getHeaders()
+    return this.http.post(this.apiUrl + `solicitudes/${id}/gestionar/`, {
+        estado: estado,
+        comentario_jefe: comentario
+    }, this.getHeaders());
+  }
 
   // Tipos de Ausencia
   getTiposAusencia(): Observable<any> { return this.http.get(this.apiUrl + 'tipos-ausencia/', this.getHeaders()); }
+  
   createTipoAusencia(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'tipos-ausencia/', data);
+    return this.http.post(this.apiUrl + 'tipos-ausencia/', data, this.getHeaders());
   }
 
   deleteTipoAusencia(id: number): Observable<any> {
-    return this.http.delete(this.apiUrl + `tipos-ausencia/${id}/`);
+    return this.http.delete(this.apiUrl + `tipos-ausencia/${id}/`, this.getHeaders());
   }
+
   // ==========================================
   // 3. MÓDULO ASISTENCIA (Reloj)
   // ==========================================
@@ -195,7 +233,7 @@ updateEmpresa(id: number, data: any): Observable<any> {
   saveKPI(data: any): Observable<any> { return this.http.post(this.apiUrl + 'kpis/', data, this.getHeaders()); }
   deleteKPI(id: number): Observable<any> { return this.http.delete(this.apiUrl + 'kpis/' + id + '/', this.getHeaders()); }
   
-  // RESULTADOS KPI (EL QUE FALTABA) ⬇️
+  // RESULTADOS KPI
   saveResultadoKPI(data: any): Observable<any> {
     return this.http.post(this.apiUrl + 'resultados-kpi/', data, this.getHeaders());
   }
@@ -214,16 +252,40 @@ updateEmpresa(id: number, data: any): Observable<any> {
       anio: anio
     }, this.getHeaders());
   }
+  // --- ÁREAS ---
+updateArea(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}areas/${id}/`, data, this.getHeaders());
+}
+deleteArea(id: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}areas/${id}/`, this.getHeaders());
+}
 
-  // 2. Create a new request
-  createSolicitud(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'solicitudes/', data);
-  }
+// --- SUCURSALES ---
+updateSucursal(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}sucursales/${id}/`, data, this.getHeaders());
+}
+deleteSucursal(id: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}sucursales/${id}/`, this.getHeaders());
+}
 
-  // 3. Approve/Reject a request (Manager/HR action)
-  gestionarSolicitud(id: number, data: { estado: string, comentario_jefe?: string }): Observable<any> {
-    return this.http.post(this.apiUrl + `solicitudes/${id}/gestionar/`, data);
-  }
+// --- DEPARTAMENTOS ---
+updateDepartamento(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}departamentos/${id}/`, data, this.getHeaders());
+}
+deleteDepartamento(id: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}departamentos/${id}/`, this.getHeaders());
+}
 
-  
+// --- PUESTOS ---
+updatePuesto(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}puestos/${id}/`, data, this.getHeaders());
+}
+deletePuesto(id: number): Observable<any> {
+    return this.http.delete(`${this.apiUrl}puestos/${id}/`, this.getHeaders());
+}
+
+// --- TURNOS ---
+updateTurno(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}turnos/${id}/`, data, this.getHeaders());
+}
 }

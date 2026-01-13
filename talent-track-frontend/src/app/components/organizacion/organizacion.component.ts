@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormsModule, FormArray, FormControl } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { forkJoin } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-organizacion',
@@ -14,27 +15,17 @@ import { forkJoin } from 'rxjs';
 })
 export class OrganizacionComponent implements OnInit {
   
-  // --- 1. ESTADO Y CONTROL ---
+  // --- CONTROL DE VISTA Y ROLES ---
   isSuperAdmin = false;
   empresaId: number | null = null;
-  loading = true;
-  activeTab: 'AREAS' | 'TURNOS' | 'ESTRUCTURA' | 'PUESTOS' | 'EMPRESAS' = 'EMPRESAS'; // Agregué EMPRESAS por defecto si es Admin
+  loading = false;
+  activeTab: 'EMPRESAS' | 'ESTRUCTURA' = 'ESTRUCTURA';
+  activeSubTab: 'SUCURSALES' | 'AREAS' | 'DEPARTAMENTOS' | 'PUESTOS' | 'TURNOS' = 'SUCURSALES';
 
-  // Modales
-  showModalEmpresa = false;
-  empresaSeleccionadaId: number | null = null; 
-
-  // Modales de Configuración Interna
-  showAreaForm = false;
-  showSucursalForm = false;
-  showDeptoForm = false;
-  showPuestoModal = false;
-  showTurnoModal = false;
-
-  // --- 2. DATOS ---
+  // --- DATOS ---
   empresas: any[] = [];
-  areas: any[] = [];
   sucursales: any[] = [];
+  areas: any[] = [];
   departamentos: any[] = [];
   puestos: any[] = [];
   turnos: any[] = [];
@@ -44,42 +35,82 @@ export class OrganizacionComponent implements OnInit {
     { id: 3, nombre: 'Jueves' }, { id: 4, nombre: 'Viernes' }, { id: 5, nombre: 'Sábado' }, { id: 6, nombre: 'Domingo' }
   ];
 
-  // --- 3. FORMULARIOS ---
-  formEmpresa: FormGroup; // Unificado (antes tenías empresaForm y formEmpresa)
-  areaForm: FormGroup;
+  // --- FORMULARIOS ---
+  formEmpresa: FormGroup;
   sucursalForm: FormGroup;
+  areaForm: FormGroup;
   deptoForm: FormGroup;
   puestoForm: FormGroup;
   turnoForm: FormGroup;
 
+  // --- CONTROL DE MODALES ---
+  // ID seleccionado: null = Crear, Numero = Editar
+  selectedId: number | null = null;
+
+  showModalEmpresa = false;
+  showModalSucursal = false;
+  showModalArea = false;
+  showModalDepto = false;
+  showModalPuesto = false;
+  showModalTurno = false;
+
+  esModoCliente = false; // Para creación de empresa (si es cliente nuevo)
+
   constructor(
     private api: ApiService,
     public auth: AuthService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private cdr: ChangeDetectorRef
   ) {
-    // A. Formulario de Empresas (SaaS)
+    // 1. Empresa (SaaS)
     this.formEmpresa = this.fb.group({
-      nombre: ['', Validators.required], // Cambiado a 'nombre' para coincidir con tu HTML anterior
-      direccion: [''],
-      telefono: [''],
+      nombre: ['', Validators.required],
       razon_social: ['', Validators.required],
       ruc: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(13)]],
+      direccion: [''],
+      telefono: [''],
       admin_nombre: [''],
       admin_email: [''],
       admin_password: ['']
     });
 
-    // B. Formularios de Estructura Organizacional
-    this.areaForm = this.fb.group({ nombre: ['', Validators.required], descripcion: [''], empresa: [null] });
-    this.sucursalForm = this.fb.group({ nombre: ['', Validators.required], direccion: ['', Validators.required], telefono: [''], empresa: [null] });
-    this.deptoForm = this.fb.group({ nombre: ['', Validators.required], sucursal: [null, Validators.required], area: [null, Validators.required], empresa: [null] });
-    this.puestoForm = this.fb.group({ nombre: ['', Validators.required], es_supervisor: [false], area: [null], salario_minimo: [460], salario_maximo: [1000], empresa: [null] });
+    // 2. Sucursal
+    this.sucursalForm = this.fb.group({
+      nombre: ['', Validators.required],
+      direccion: ['', Validators.required],
+      telefono: [''],
+      es_matriz: [false],
+      empresa: [null]
+    });
 
-    // C. Formulario de Turnos
+    // 3. Área
+    this.areaForm = this.fb.group({
+      nombre: ['', Validators.required],
+      descripcion: [''],
+      sucursal: [null, Validators.required],
+      empresa: [null]
+    });
+
+    // 4. Departamento
+    this.deptoForm = this.fb.group({
+      nombre: ['', Validators.required],
+      area: [null, Validators.required], 
+      empresa: [null]
+    });
+
+    // 5. Puesto
+    this.puestoForm = this.fb.group({
+      nombre: ['', Validators.required],
+      es_supervision: [false],
+      area: [null], // Relación opcional
+      empresa: [null]
+    });
+
+    // 6. Turno
     this.turnoForm = this.fb.group({
       nombre: ['', Validators.required],
       tipo_jornada: ['RIGIDO', Validators.required],
-      hora_entrada: ['09:00'], 
+      hora_entrada: ['09:00'],
       hora_salida: ['18:00'],
       min_tolerancia: [10],
       horas_semanales_meta: [40],
@@ -93,283 +124,253 @@ export class OrganizacionComponent implements OnInit {
     this.isSuperAdmin = this.auth.isSuperAdmin();
     this.empresaId = this.auth.getEmpresaId();
 
-    // Si es SuperAdmin, por defecto mostramos la gestión de empresas
     if (this.isSuperAdmin) {
-        this.activeTab = 'EMPRESAS';
-        this.cargarEmpresas();
+      this.activeTab = 'EMPRESAS';
+      this.cargarEmpresas();
     } else {
-        // Si es un cliente normal, va directo a su estructura
-        this.activeTab = 'ESTRUCTURA';
-        this.cargarDatosEstructura();
+      this.activeTab = 'ESTRUCTURA';
+      this.cargarEstructura();
     }
   }
 
-  // --- LÓGICA DE SUPER ADMIN (GESTIÓN EMPRESAS) ---
-
+  // ==========================================
+  // 1. GESTIÓN DE EMPRESAS (SUPERADMIN)
+  // ==========================================
   cargarEmpresas() {
     this.loading = true;
-    this.api.getEmpresas().subscribe((res: any) => {
-      this.empresas = res.results || res;
-      this.loading = false;
-    });
+    this.api.getEmpresas().pipe(finalize(() => this.loading = false))
+      .subscribe(res => this.empresas = res.results || res);
   }
 
-  abrirModalEmpresa(modoCliente: boolean) {
-    this.esModoCliente = modoCliente;
-    this.empresaSeleccionadaId = null;
+  abrirModalEmpresa(empresa: any = null) {
     this.showModalEmpresa = true;
-    this.formEmpresa.reset();
-  this.configurarValidadores(modoCliente);
-    const emailControl = this.formEmpresa.get('admin_email');
-    const passControl = this.formEmpresa.get('admin_password');
-    const nombreControl = this.formEmpresa.get('admin_nombre');
+    this.esModoCliente = false; // Reset
 
-    if (this.esModoCliente) {
-      // Validaciones para CLIENTE (requiere crear usuario)
-      emailControl?.setValidators([Validators.required, Validators.email]);
-      passControl?.setValidators([Validators.required, Validators.minLength(6)]);
-      nombreControl?.setValidators([Validators.required]);
+    if (empresa) {
+      this.selectedId = empresa.id;
+      this.formEmpresa.patchValue(empresa);
+      // Al editar, quitamos validación de password/email admin
+      this.formEmpresa.get('admin_email')?.clearValidators();
+      this.formEmpresa.get('admin_password')?.clearValidators();
     } else {
-      // Validaciones para MI EMPRESA (se vincula a mi usuario actual)
-      emailControl?.clearValidators();
-      passControl?.clearValidators();
-      nombreControl?.clearValidators();
+      this.selectedId = null;
+      this.formEmpresa.reset();
+      this.esModoCliente = true; // Asumimos creación de cliente nuevo
+      this.formEmpresa.get('admin_email')?.setValidators([Validators.required, Validators.email]);
+      this.formEmpresa.get('admin_password')?.setValidators([Validators.required, Validators.minLength(6)]);
     }
-    
-    emailControl?.updateValueAndValidity();
-    passControl?.updateValueAndValidity();
-    nombreControl?.updateValueAndValidity();
+    this.formEmpresa.get('admin_email')?.updateValueAndValidity();
+    this.formEmpresa.get('admin_password')?.updateValueAndValidity();
   }
 
   guardarEmpresa() {
     if (this.formEmpresa.invalid) return;
+    const data = this.formEmpresa.value;
 
-    this.api.createEmpresa(this.formEmpresa.value).subscribe({
-      next: (res) => {
-        const tipo = this.esModoCliente ? 'Cliente' : 'Propia';
-        alert(`✅ Empresa ${tipo} "${res.nombre}" creada exitosamente.`);
-        
-        this.showModalEmpresa = false;
-        this.cargarEmpresas();
-
-        // Si creé mi propia empresa, recargo para actualizar mi perfil
-        if (!this.esModoCliente) {
-             window.location.reload(); 
-        }
-      },
-      error: (e) => {
-        const msg = e.error?.error || e.message || 'Error al guardar';
-        alert('⛔ Error: ' + msg);
-      }
-    });
-  }
-  eliminarEmpresa(empresa: any) {
-    if (!confirm(`¿Estás seguro de ELIMINAR la empresa "${empresa.nombre}"?\nEsta acción borrará sus sucursales y empleados.`)) {
-        return;
-    }
-
-    this.api.deleteEmpresa(empresa.id).subscribe({
-        next: () => {
-            alert('🗑️ Empresa eliminada.');
-            this.cargarEmpresas();
-            // Si borré mi propia empresa, recargo para evitar inconsistencias
-            if (this.esMiEmpresa(empresa.id)) window.location.reload();
-        },
-        error: (e) => alert('Error al eliminar: ' + e.message)
-    });
-  }
-
-  // AUXILIAR (Para no repetir código en abrir y editar)
-  configurarValidadores(esCliente: boolean) {
-    const emailControl = this.formEmpresa.get('admin_email');
-    const passControl = this.formEmpresa.get('admin_password');
-    const nombreControl = this.formEmpresa.get('admin_nombre');
-
-    if (esCliente) {
-      emailControl?.setValidators([Validators.required, Validators.email]);
-      passControl?.setValidators([Validators.required, Validators.minLength(6)]);
-      nombreControl?.setValidators([Validators.required]);
+    if (this.selectedId) {
+      this.api.updateEmpresa(this.selectedId, data).subscribe(() => {
+        this.cargarEmpresas(); this.showModalEmpresa = false;
+      });
     } else {
-      emailControl?.clearValidators();
-      passControl?.clearValidators();
-      nombreControl?.clearValidators();
-    }
-    emailControl?.updateValueAndValidity();
-    passControl?.updateValueAndValidity();
-    nombreControl?.updateValueAndValidity();
-  }
-
-  esMiEmpresa(empresaId: number): boolean {
-    const user = this.auth.getUser();
-    if (!user || !user.empresa) return false;
-    const miEmpresaId = user.empresa.id || user.empresa; 
-    return miEmpresaId == empresaId;
-
-  }
-  // --- LÓGICA DE CLIENTE (ESTRUCTURA ORGANIZACIONAL) ---
-editarEmpresa(empresa: any) {
-    this.empresaSeleccionadaId = empresa.id;
-    this.esModoCliente = !this.esMiEmpresa(empresa.id); // Detecta si es cliente o propia
-    this.showModalEmpresa = true;
-
-    // Llenamos el formulario con los datos existentes
-    this.formEmpresa.patchValue({
-        nombre: empresa.nombre,
-        razon_social: empresa.razon_social,
-        ruc: empresa.ruc,
-        direccion: empresa.direccion,
-        telefono: empresa.telefono,
-        // No llenamos password/email admin al editar para no sobreescribir
-    });
-
-    this.configurarValidadores(this.esModoCliente);
-    
-    // Al editar, el password no es obligatorio (si lo dejan vacío, no se cambia)
-    this.formEmpresa.get('admin_password')?.clearValidators();
-    this.formEmpresa.get('admin_password')?.updateValueAndValidity();
-    this.formEmpresa.get('admin_email')?.clearValidators(); // El email usualmente no se edita aquí
-    this.formEmpresa.get('admin_email')?.updateValueAndValidity();
-  }
-  cargarDatosEstructura() {
-    if (!this.empresaId) return;
-    this.loading = true;
-
-    forkJoin({
-        areas: this.api.getAreas(this.empresaId),
-        sucursales: this.api.getSucursales(this.empresaId),
-        departamentos: this.api.getDepartamentos(), // Backend ya debe filtrar por usuario/empresa
-        puestos: this.api.getPuestos(undefined, this.empresaId),
-        turnos: this.api.getTurnos()
-    }).subscribe({
-        next: (res: any) => {
-            this.areas = res.areas.results || res.areas;
-            this.sucursales = res.sucursales.results || res.sucursales;
-            this.departamentos = res.departamentos.results || res.departamentos;
-            this.puestos = res.puestos.results || res.puestos;
-            this.turnos = res.turnos.results || res.turnos;
-            this.loading = false;
-        },
-        error: (e) => { 
-            console.error(e); 
-            this.loading = false; 
-        }
-    });
-  }
-
-  // --- GESTIÓN DE TURNOS (DÍAS) ---
-
-  initDiasLaborables() {
-    const checkArray: FormArray = this.turnoForm.get('dias_seleccionados') as FormArray;
-    checkArray.clear();
-    // Por defecto Lunes(0) a Viernes(4)
-    [0, 1, 2, 3, 4].forEach(dia => checkArray.push(new FormControl(dia)));
-  }
-
-  onDiaChange(e: any, diaId: number) {
-    const checkArray: FormArray = this.turnoForm.get('dias_seleccionados') as FormArray;
-    if (e.target.checked) {
-      checkArray.push(new FormControl(diaId));
-    } else {
-      let i = 0;
-      checkArray.controls.forEach((item: any) => {
-        if (item.value == diaId) {
-          checkArray.removeAt(i);
-          return;
-        }
-        i++;
+      this.api.createEmpresa(data).subscribe(() => {
+        this.cargarEmpresas(); this.showModalEmpresa = false;
       });
     }
   }
 
-  isDiaChecked(diaId: number): boolean {
-    const checkArray: FormArray = this.turnoForm.get('dias_seleccionados') as FormArray;
-    return checkArray.value.includes(diaId);
-  }
-
-  getDiasStr(dias: number[]) {
-    if (!dias || dias.length === 0) return 'Sin días';
-    if (dias.length === 5 && dias.includes(0) && dias.includes(4)) return 'L-V';
-    const names = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-    return dias.map(d => names[d]).join(', ');
-  }
-
-  // --- CRUD FUNCTIONS (MODALES INTERNOS) ---
-
-  guardarTurno() {
-    if (this.turnoForm.invalid) return;
-    
-    const fValue = this.turnoForm.value;
-    const payload: any = {
-        nombre: fValue.nombre,
-        tipo_jornada: fValue.tipo_jornada,
-        dias_laborables: fValue.dias_seleccionados,
-        empresa: this.empresaId
-    };
-
-    if (fValue.tipo_jornada === 'RIGIDO') {
-        payload.hora_entrada = fValue.hora_entrada;
-        payload.hora_salida = fValue.hora_salida;
-        payload.min_tolerancia = fValue.min_tolerancia;
-    } else {
-        payload.horas_semanales_meta = fValue.horas_semanales_meta;
-        // Limpiamos datos de rígido
-        payload.hora_entrada = null;
-        payload.hora_salida = null;
+  eliminarEmpresa(emp: any) {
+    if (confirm(`¿Eliminar empresa ${emp.nombre}?`)) {
+      this.api.deleteEmpresa(emp.id).subscribe(() => this.cargarEmpresas());
     }
-
-    this.api.saveTurno(payload).subscribe(() => {
-        this.cargarDatosEstructura();
-        this.showTurnoModal = false;
-        this.turnoForm.reset({ 
-            tipo_jornada: 'RIGIDO', 
-            hora_entrada: '09:00', 
-            hora_salida: '18:00',
-            min_tolerancia: 10,
-            horas_semanales_meta: 40 
-        });
-        this.initDiasLaborables();
-    });
   }
 
-  guardarArea() {
-    if (this.areaForm.invalid) return;
-    this.api.saveArea({ ...this.areaForm.value, empresa: this.empresaId }).subscribe(() => {
-      this.cargarDatosEstructura(); this.showAreaForm = false; this.areaForm.reset();
-    });
+  // ==========================================
+  // 2. ESTRUCTURA ORGANIZACIONAL (CLIENTE)
+  // ==========================================
+  cargarEstructura() {
+    if (!this.empresaId && !this.isSuperAdmin) return;
+    this.loading = true;
+    
+    // Si soy SuperAdmin gestionando otra empresa, usaría un ID específico
+    const targetId = this.empresaId; 
+
+    forkJoin({
+      sucursales: this.api.getSucursales(targetId || undefined),
+      areas: this.api.getAreas(targetId || undefined),
+      deptos: this.api.getDepartamentos(),
+      puestos: this.api.getPuestos(undefined, targetId || undefined),
+      turnos: this.api.getTurnos()
+    }).pipe(finalize(() => { this.loading = false; this.cdr.detectChanges(); }))
+      .subscribe((res: any) => {
+        this.sucursales = res.sucursales.results || res.sucursales;
+        this.areas = res.areas.results || res.areas;
+        this.departamentos = res.deptos.results || res.deptos;
+        this.puestos = res.puestos.results || res.puestos;
+        this.turnos = res.turnos.results || res.turnos;
+      });
   }
 
+  // --- SUCURSALES ---
+  abrirModalSucursal(suc: any = null) {
+    this.showModalSucursal = true;
+    if (suc) { this.selectedId = suc.id; this.sucursalForm.patchValue(suc); }
+    else { this.selectedId = null; this.sucursalForm.reset({es_matriz: false}); }
+  }
   guardarSucursal() {
     if (this.sucursalForm.invalid) return;
-    this.api.saveSucursal({ ...this.sucursalForm.value, empresa: this.empresaId }).subscribe(() => {
-      this.cargarDatosEstructura(); this.showSucursalForm = false; this.sucursalForm.reset();
-    });
+    const data = { ...this.sucursalForm.value, empresa: this.empresaId };
+    const req = this.selectedId ? this.api.updateSucursal(this.selectedId, data) : this.api.saveSucursal(data);
+    req.subscribe(() => { this.cargarEstructura(); this.showModalSucursal = false; });
+  }
+  eliminarSucursal(suc: any) {
+    if(confirm('¿Borrar sucursal?')) this.api.deleteSucursal(suc.id).subscribe(() => this.cargarEstructura());
   }
 
+  // --- ÁREAS ---
+  abrirModalArea(area: any = null) {
+    this.showModalArea = true;
+    if (area) { 
+        this.selectedId = area.id; 
+        this.areaForm.patchValue({
+            nombre: area.nombre, 
+            descripcion: area.descripcion,
+            sucursal: area.sucursal?.id || area.sucursal // Mapeo seguro
+        }); 
+    }
+    else { this.selectedId = null; this.areaForm.reset(); }
+  }
+  guardarArea() {
+    if (this.areaForm.invalid) return;
+    const data = { ...this.areaForm.value, empresa: this.empresaId };
+    const req = this.selectedId ? this.api.updateArea(this.selectedId, data) : this.api.saveArea(data);
+    req.subscribe(() => { this.cargarEstructura(); this.showModalArea = false; });
+  }
+  eliminarArea(area: any) {
+    if(confirm('¿Borrar área?')) this.api.deleteArea(area.id).subscribe(() => this.cargarEstructura());
+  }
+
+  // --- DEPARTAMENTOS ---
+  abrirModalDepto(dep: any = null) {
+    this.showModalDepto = true;
+    if (dep) { 
+        this.selectedId = dep.id; 
+        this.deptoForm.patchValue({
+            nombre: dep.nombre,
+            area: dep.area?.id || dep.area
+        });
+    }
+    else { this.selectedId = null; this.deptoForm.reset(); }
+  }
   guardarDepto() {
     if (this.deptoForm.invalid) return;
-    this.api.saveDepartamento({ ...this.deptoForm.value, empresa: this.empresaId }).subscribe(() => {
-      this.cargarDatosEstructura(); this.showDeptoForm = false; this.deptoForm.reset();
-    });
+    // Buscamos la sucursal del área seleccionada para mantener consistencia, o dejamos que el backend lo resuelva
+    const data = { ...this.deptoForm.value, empresa: this.empresaId };
+    const req = this.selectedId ? this.api.updateDepartamento(this.selectedId, data) : this.api.saveDepartamento(data);
+    req.subscribe(() => { this.cargarEstructura(); this.showModalDepto = false; });
+  }
+  eliminarDepto(dep: any) {
+    if(confirm('¿Borrar departamento?')) this.api.deleteDepartamento(dep.id).subscribe(() => this.cargarEstructura());
   }
 
+  // --- PUESTOS ---
+  abrirModalPuesto(pto: any = null) {
+    this.showModalPuesto = true;
+    if (pto) {
+        this.selectedId = pto.id;
+        this.puestoForm.patchValue({
+            nombre: pto.nombre,
+            es_supervision: pto.es_supervision,
+            area: pto.area?.id || pto.area
+        });
+    } else { this.selectedId = null; this.puestoForm.reset({es_supervision: false}); }
+  }
   guardarPuesto() {
     if (this.puestoForm.invalid) return;
-    this.api.savePuesto({ ...this.puestoForm.value, empresa: this.empresaId }).subscribe(() => {
-      this.cargarDatosEstructura(); this.showPuestoModal = false; this.puestoForm.reset({es_supervisor: false, salario_minimo: 460});
-    });
+    const data = { ...this.puestoForm.value, empresa: this.empresaId };
+    const req = this.selectedId ? this.api.updatePuesto(this.selectedId, data) : this.api.savePuesto(data);
+    req.subscribe(() => { this.cargarEstructura(); this.showModalPuesto = false; });
+  }
+  eliminarPuesto(pto: any) {
+    if(confirm('¿Borrar puesto?')) this.api.deletePuesto(pto.id).subscribe(() => this.cargarEstructura());
   }
 
-  // Helpers de UI
-  abrirModalDepto(sucursalId: number) { 
-      this.showDeptoForm = true; 
-      this.deptoForm.patchValue({ sucursal: sucursalId }); 
+  // --- TURNOS ---
+  abrirModalTurno(t: any = null) {
+    this.showModalTurno = true;
+    this.initDiasLaborables();
+    if (t) {
+        this.selectedId = t.id;
+        this.turnoForm.patchValue({
+            nombre: t.nombre,
+            tipo_jornada: t.tipo_jornada,
+            hora_entrada: t.hora_entrada,
+            hora_salida: t.hora_salida,
+            min_tolerancia: t.min_tolerancia,
+            horas_semanales_meta: t.horas_semanales_meta
+        });
+        const checkArray: FormArray = this.turnoForm.get('dias_seleccionados') as FormArray;
+        checkArray.clear();
+        if (t.dias_laborables) t.dias_laborables.forEach((d: number) => checkArray.push(new FormControl(d)));
+    } else {
+        this.selectedId = null;
+        this.turnoForm.reset({ tipo_jornada: 'RIGIDO', hora_entrada: '09:00', hora_salida: '18:00', min_tolerancia: 10, horas_semanales_meta: 40 });
+        this.initDiasLaborables();
+    }
   }
-  
-  getDeptosBySucursal(sucId: number) { 
-      return this.departamentos.filter(d => d.sucursal === sucId); 
+  guardarTurno() {
+    if (this.turnoForm.invalid) return;
+    const fVal = this.turnoForm.value;
+    const data: any = { 
+        nombre: fVal.nombre, tipo_jornada: fVal.tipo_jornada, dias_laborables: fVal.dias_seleccionados, empresa: this.empresaId 
+    };
+    if (fVal.tipo_jornada === 'RIGIDO') {
+        data.hora_entrada = fVal.hora_entrada; data.hora_salida = fVal.hora_salida; data.min_tolerancia = fVal.min_tolerancia;
+    } else {
+        data.horas_semanales_meta = fVal.horas_semanales_meta;
+    }
+    const req = this.selectedId ? this.api.updateTurno(this.selectedId, data) : this.api.saveTurno(data);
+    req.subscribe(() => { this.cargarEstructura(); this.showModalTurno = false; });
   }
-  
-  getNombreArea(areaId: number) { 
-      return this.areas.find(a => a.id === areaId)?.nombre || '---'; 
+  eliminarTurno(t: any) {
+    if(confirm('¿Borrar turno?')) this.api.deleteTurno(t.id).subscribe(() => this.cargarEstructura());
+  }
+
+  // --- HELPERS TURNOS ---
+  initDiasLaborables() {
+    const arr = this.turnoForm.get('dias_seleccionados') as FormArray;
+    arr.clear();
+    [0, 1, 2, 3, 4].forEach(d => arr.push(new FormControl(d)));
+  }
+  onDiaChange(e: any, id: number) {
+    const arr = this.turnoForm.get('dias_seleccionados') as FormArray;
+    if (e.target.checked) arr.push(new FormControl(id));
+    else { let i=0; arr.controls.forEach((c: any) => { if (c.value == id) arr.removeAt(i); i++; }); }
+  }
+  isDiaChecked(id: number) { return (this.turnoForm.get('dias_seleccionados') as FormArray).value.includes(id); }
+  getDiasStr(dias: number[]) {
+    if(!dias || dias.length === 0) return 'Ninguno';
+    if(dias.length === 5 && dias.includes(0) && dias.includes(4)) return 'L-V';
+    const n = ['L','M','X','J','V','S','D'];
+    return dias.map(d => n[d]).join(', ');
+  }
+
+  getNombreSucursal(idOrObj: any) { 
+      // Si viene null o undefined
+      if (!idOrObj) return '---';
+      
+      // Si viene el objeto completo, devolvemos su nombre directo
+      if (typeof idOrObj === 'object' && idOrObj.nombre) return idOrObj.nombre;
+
+      // Si viene el ID (número), buscamos en el array
+      const id = typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
+      return this.sucursales.find(s => s.id == id)?.nombre || '---'; 
+  }
+
+  getNombreArea(idOrObj: any) { 
+      if (!idOrObj) return '---';
+      if (typeof idOrObj === 'object' && idOrObj.nombre) return idOrObj.nombre;
+
+      const id = typeof idOrObj === 'object' ? idOrObj.id : idOrObj;
+      return this.areas.find(a => a.id == id)?.nombre || '---'; 
   }
 }

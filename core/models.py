@@ -42,15 +42,20 @@ class Area(models.Model):
 
 # 4. DEPARTAMENTO (Unidad Operativa Local)
 class Departamento(models.Model):
-    nombre = models.CharField(max_length=100) # Ej: Ventas Mostrador
-    
-    # RELACIÓN FÍSICA (¿Dónde está?)
+    nombre = models.CharField(max_length=100) 
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='departamentos')
-    
-    # ¡NUEVO! RELACIÓN FUNCIONAL (¿A qué área pertenece?)
-    # Usamos null=True temporalmente para no romper datos viejos si tienes
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, related_name='departamentos')
-    
+    @property
+    def jefe_actual(self):
+        # Busca un empleado de este departamento cuyo puesto sea de supervisor
+        # Asumiendo que has importado el modelo Empleado o usas apps.get_model
+        from personal.models import Empleado 
+        return Empleado.objects.filter(
+            departamento=self, 
+            puesto__es_supervisor=True,
+            estado='ACTIVO'
+        ).first()
+
     def __str__(self):
         return f"{self.nombre} ({self.sucursal.nombre})"
 
@@ -58,13 +63,8 @@ class Departamento(models.Model):
 class Puesto(models.Model):
     nombre = models.CharField(max_length=100)
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
-    
-    # Opcional: Vincular puesto a un Área para filtrar (Ej: Solo mostrar puestos de Ventas en el área de Ventas)
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True)
-    
     es_supervisor = models.BooleanField(default=False)
-    salario_minimo = models.DecimalField(max_digits=10, decimal_places=2, default=460)
-    salario_maximo = models.DecimalField(max_digits=10, decimal_places=2, default=1000)
 
     def __str__(self):
         return self.nombre

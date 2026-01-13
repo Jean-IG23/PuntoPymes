@@ -1,5 +1,7 @@
 from rest_framework import viewsets, serializers
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -18,6 +20,7 @@ from .serializers import (
     EmpresaSerializer, SucursalSerializer, DepartamentoSerializer, 
     PuestoSerializer, TurnoSerializer, AreaSerializer, NotificacionSerializer
 )
+
 
 # Helper para obtener empresa del usuario logueado
 def get_empresa_usuario(user):
@@ -317,3 +320,43 @@ class NotificacionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Cada usuario solo ve SUS notificaciones
         return Notificacion.objects.filter(usuario_destino=self.request.user)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    user = request.user
+    data = {
+        'nombres': user.first_name or user.username,
+        'rol': 'Usuario',
+        'puesto': 'General',
+        'saldo_vacaciones': 0,
+        'solicitudes_pendientes': 0,
+        'es_lider': False,
+        'estado': 'Activo'
+    }
+
+    try:
+        perfil = Empleado.objects.get(usuario=user)
+        data['nombres'] = f"{perfil.nombres} {perfil.apellidos}".split()[0] # Solo primer nombre
+        data['rol'] = perfil.get_rol_display()
+        data['puesto'] = perfil.puesto.nombre if perfil.puesto else "Sin puesto"
+        data['saldo_vacaciones'] = perfil.saldo_vacaciones or 0
+        data['estado'] = perfil.estado
+        data['es_lider'] = perfil.rol in ['GERENTE', 'RRHH', 'ADMIN', 'SUPERADMIN']
+
+        # Contar pendientes
+        if perfil.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
+            data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
+                estado='PENDIENTE'
+            ).exclude(empleado=perfil).count()
+        elif perfil.rol == 'GERENTE':
+            data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
+                estado='PENDIENTE',
+                empleado__departamento=perfil.departamento
+            ).exclude(empleado=perfil).count()
+
+    except Empleado.DoesNotExist:
+        if user.is_superuser:
+            data['rol'] = 'Super Administrador'
+            data['es_lider'] = True
+
+    return Response(data)

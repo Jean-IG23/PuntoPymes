@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from core.models import Empresa, Sucursal, Departamento, Puesto, Area
+from core.utils import calcular_dias_habiles
 # 1. FICHA DEL EMPLEADO
 class Empleado(models.Model):
     # --- ROLES DEL SISTEMA (Simplificados y Jerárquicos) ---
@@ -27,7 +28,13 @@ class Empleado(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='empleados')
     
     # Estructura (Aquí se asigna el lugar y función)
-    departamento = models.ForeignKey(Departamento, on_delete=models.SET_NULL, null=True, blank=True)
+    departamento = models.ForeignKey(
+        'core.Departamento', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='empleados' # Esto ayuda a hacer consultas inversas más limpias
+    )
     puesto = models.ForeignKey(Puesto, on_delete=models.SET_NULL, null=True, blank=True)
     
     # --- JERARQUÍA Y ACCESO ---
@@ -65,16 +72,21 @@ class DocumentoEmpleado(models.Model):
 class Contrato(models.Model):
     TIPOS = [('INDEFINIDO', 'Indefinido'), ('PLAZO_FIJO', 'Plazo Fijo'), ('PASANTIA', 'Pasantía')]
     
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE) # Agregado para integridad
-    empleado = models.OneToOneField(Empleado, on_delete=models.CASCADE)
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE) 
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='contratos')
     tipo = models.CharField(max_length=50, choices=TIPOS, default='INDEFINIDO')
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField(null=True, blank=True)
     salario_mensual = models.DecimalField(max_digits=10, decimal_places=2)
     archivo_adjunto = models.FileField(upload_to='contratos/', null=True, blank=True)
-    
+    activo = models.BooleanField(default=True)
     def __str__(self): return f"Contrato - {self.empleado.nombres}"
-
+    def save(self, *args, **kwargs):
+        if self.activo:
+            Contrato.objects.filter(empleado=self.empleado, activo=True).exclude(pk=self.pk).update(activo=False)
+            self.empleado.sueldo = self.salario_mensual
+            self.empleado.save()
+        super().save(*args, **kwargs)
 # 4. GESTIÓN DE VACACIONES (Se mantiene aquí por ser parte del perfil)
 class TipoAusencia(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
@@ -89,7 +101,7 @@ class SolicitudAusencia(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE)
     tipo_ausencia = models.ForeignKey(TipoAusencia, on_delete=models.PROTECT, null=True)
-    
+    dias_solicitados = models.IntegerField(default=0)
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField()
     motivo = models.TextField(null=True, blank=True)
@@ -101,3 +113,4 @@ class SolicitudAusencia(models.Model):
     aprobado_por = models.ForeignKey(Empleado, related_name='ausencias_aprobadas', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self): return f"Solicitud {self.empleado} ({self.estado})"
+    

@@ -7,7 +7,7 @@ from drf_yasg import openapi
 from django.conf import settings
 from django.conf.urls.static import static
 
-# Vistas de Core
+# IMPORTANTE: Importamos la función simple, no la clase inexistente
 from core.views import (
     NotificacionViewSet,
     AreaViewSet, 
@@ -16,11 +16,10 @@ from core.views import (
     DepartamentoViewSet, 
     PuestoViewSet, 
     TurnoViewSet,
-    DashboardStatsView, 
+    dashboard_stats, # <--- ESTA ES LA FUNCIÓN CORRECTA
     CustomLoginView
 )
 
-# Vistas de Personal
 from personal.views import (
     EmpleadoViewSet, 
     ContratoViewSet, 
@@ -29,17 +28,15 @@ from personal.views import (
     TipoAusenciaViewSet,
 )
 
-# Vistas de Asistencia
 from asistencia.views import AsistenciaViewSet, JornadaViewSet
 
-# Vistas de KPI
 from kpi.views import (
     KPIViewSet, 
     EvaluacionViewSet, 
     ObjetivoViewSet
 )
 
-# Configuración de la Documentación (Swagger)
+# Configuración Swagger
 schema_view = get_schema_view(
    openapi.Info(
       title="API Talent Track V2",
@@ -70,7 +67,7 @@ router.register(r'documentos', DocumentoViewSet)
 router.register(r'tipos-ausencia', TipoAusenciaViewSet)
 router.register(r'solicitudes', SolicitudViewSet)
 
-# 3. ASISTENCIA (¡CORREGIDO AQUÍ!)
+# 3. ASISTENCIA
 router.register(r'asistencia', AsistenciaViewSet, basename='asistencia')
 router.register(r'jornadas', JornadaViewSet, basename='jornada')
 
@@ -85,9 +82,7 @@ urlpatterns = [
     
     # Login Personalizado
     path('api/login/', CustomLoginView.as_view(), name='api_login'), 
-    
-    # Dashboard Stats
-    path('api/dashboard/stats/', DashboardStatsView.as_view(), name='dashboard_stats'),
+    path('api/dashboard/stats/', dashboard_stats, name='dashboard_stats'),
 
     # Rutas del Router (API)
     path('api/', include(router.urls)),

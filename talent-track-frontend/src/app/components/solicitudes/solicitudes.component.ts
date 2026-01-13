@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { forkJoin } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-solicitudes',
@@ -12,128 +14,175 @@ import { AuthService } from '../../services/auth.service';
 })
 export class SolicitudesComponent implements OnInit {
   
-  // Listas de Datos
+  // Datos
   misSolicitudes: any[] = [];
-  solicitudesEquipo: any[] = []; // Bandeja de entrada del Jefe
+  pendientesDeAprobar: any[] = [];
   tiposAusencia: any[] = [];
   
-  // Estado de la Interfaz
+  // Estados de Vista
   activeTab: 'MIS_SOLICITUDES' | 'EQUIPO' = 'MIS_SOLICITUDES';
   showModal = false;
-  loading = false;
+  showModalTipos = false;
+  isJefeOrRRHH = false;
+  usuarioActualId: number | null = null;
+  nuevoTipo = { nombre: '', afecta_sueldo: false };
+
+  // --- ESTADOS DE CARGA ---
+  loadingInit = true;       // Carga inicial de la página
+  loadingAction = false;    // Para botones generales
+  procesandoTipo = false;   // <--- AQUÍ ESTÁ LA VARIABLE QUE FALTABA
   
-  // Formulario
-  solicitudForm: FormGroup;
+  formSolicitud: FormGroup;
 
   constructor(
     private api: ApiService,
-    public auth: AuthService, // Public para usar en el HTML
-    private fb: FormBuilder
+    public auth: AuthService,
+    private fb: FormBuilder,
+    private cdr: ChangeDetectorRef
   ) {
-    // Definimos el formulario con validaciones
-    this.solicitudForm = this.fb.group({
-      tipo_ausencia: [null, Validators.required],
+    this.formSolicitud = this.fb.group({
+      tipo_ausencia: ['', Validators.required],
       fecha_inicio: ['', Validators.required],
       fecha_fin: ['', Validators.required],
-      motivo: [''] // Opcional
+      motivo: ['', [Validators.required, Validators.minLength(5)]]
     });
   }
 
   ngOnInit() {
-    this.cargarDatos();
-    
-    // Si es Jefe o RRHH, cargamos también la bandeja de entrada
-    if (this.auth.isManagement()) {
-      this.cargarSolicitudesEquipo();
-    }
+    const user = this.auth.getUser();
+    this.usuarioActualId = user ? user.id : null;
+    this.isJefeOrRRHH = this.auth.isManagement() || this.auth.isSuperAdmin();
+    this.cargarDatosCompletos();
   }
 
   // --- 1. CARGA DE DATOS ---
-  cargarDatos() {
-    this.loading = true;
-    
-    // A. Mis Solicitudes (Historial)
-    this.api.getSolicitudes().subscribe({
-      next: (res: any) => {
-        // Soporte para paginación de Django (si devuelve .results) o array directo
-        this.misSolicitudes = res.results || res;
-        this.loading = false;
-      },
-      error: (e) => {
-        console.error("Error cargando solicitudes", e);
-        this.loading = false;
-      }
-    });
-
-    // B. Catálogo de Tipos (Vacaciones, Permiso, etc)
-    this.api.getTiposAusencia().subscribe((res: any) => {
-      this.tiposAusencia = res.results || res;
-    });
-  }
-
-  cargarSolicitudesEquipo() {
-    // Nota: Reutilizamos el endpoint. El Backend ya filtra qué puedo ver.
-    // Aquí en el frontend filtramos visualmente solo las "PENDIENTE" para la bandeja de entrada.
-    this.api.getSolicitudes().subscribe((res: any) => {
-      const todas = res.results || res;
-      
-      // Filtramos: Estado PENDIENTE y que NO sea mía (para no aprobarme a mí mismo)
-      const miIdUsuario = this.auth.getUser()?.id; // ID del user logueado (referencial)
-      
-      this.solicitudesEquipo = todas.filter((s: any) => {
-         // Lógica visual: Mostrar solo pendientes.
-         // El backend ya impide aprobar las propias, pero visualmente ayuda ocultarlas aquí.
-         return s.estado === 'PENDIENTE';
-      });
-    });
-  }
-
-  // --- 2. CREAR NUEVA SOLICITUD ---
-  nuevaSolicitud() {
-    // Validación Visual
-    if (this.solicitudForm.invalid) {
-      alert('⚠️ Por favor completa el Tipo de Ausencia y las Fechas.');
-      this.solicitudForm.markAllAsTouched(); // Marca los campos en rojo
-      return;
+  cargarDatosCompletos() {
+    if (this.misSolicitudes.length === 0) {
+        this.loadingInit = true; 
     }
     
-    // Enviar al Backend
-    this.api.createSolicitud(this.solicitudForm.value).subscribe({
-      next: () => {
-        alert('✅ Solicitud enviada correctamente.');
-        this.showModal = false;
-        this.solicitudForm.reset(); // Limpiar form
-        this.cargarDatos(); // Recargar lista
-      },
-      error: (e) => {
-        console.error(e);
-        // Mensaje de error amigable (ej: "Saldo insuficiente")
-        const errorMsg = e.error?.error || 'Ocurrió un error al enviar la solicitud.';
-        alert('⛔ ' + errorMsg);
-      }
+    forkJoin({
+        tipos: this.api.getTiposAusencia(),
+        solicitudes: this.api.getSolicitudes()
+    })
+    .pipe(
+        finalize(() => {
+            this.loadingInit = false;
+            this.cdr.detectChanges();
+        })
+    )
+    .subscribe({
+        next: (res: any) => {
+            this.tiposAusencia = res.tipos.results || res.tipos;
+            const todas = res.solicitudes.results || res.solicitudes;
+            
+            // FILTRO 1: MIS SOLICITUDES
+            // Usamos el nuevo campo 'usuario_id' que viene del backend
+            this.misSolicitudes = todas.filter((s: any) => {
+                return s.usuario_id == this.usuarioActualId;
+            });
+
+            // FILTRO 2: BANDEJA DE ENTRADA (EQUIPO)
+            if (this.isJefeOrRRHH) {
+                this.pendientesDeAprobar = todas.filter((s: any) => {
+                    // Es pendiente Y NO es mía
+                    return s.usuario_id != this.usuarioActualId && s.estado === 'PENDIENTE';
+                });
+
+                // 🔥 LOGICA AUTOMÁTICA DE PESTAÑAS 🔥
+                // Si tengo pendientes que aprobar, muéstrame esa pestaña primero
+                if (this.pendientesDeAprobar.length > 0) {
+                    this.activeTab = 'EQUIPO';
+                }
+            }
+        },
+        error: (e) => console.error('Error cargando datos:', e)
     });
   }
 
-  // --- 3. GESTIONAR (APROBAR/RECHAZAR) ---
-  gestionar(id: number, estado: 'APROBADA' | 'RECHAZADA') {
-    // Prompt seguro: Si cancela devuelve null, lo convertimos a string vacío
-    const comentario = prompt("¿Deseas agregar un comentario para el colaborador?") || ''; 
+  // --- 2. CREAR SOLICITUD ---
+  crearSolicitud() {
+    if (this.formSolicitud.invalid) return;
     
-    this.api.gestionarSolicitud(id, { 
-      estado: estado, 
-      comentario_jefe: comentario 
-    }).subscribe({
-      next: () => {
-        alert(`Solicitud ${estado} con éxito.`);
-        // Recargamos ambas listas para actualizar estados y contadores
-        this.cargarDatos(); 
-        this.cargarSolicitudesEquipo();
-      },
-      error: (e) => {
-        console.error(e);
-        const errorMsg = e.error?.error || 'Error al procesar la solicitud.';
-        alert('⛔ ' + errorMsg);
-      }
+    this.loadingAction = true; 
+    
+    this.api.createSolicitud(this.formSolicitud.value)
+      .pipe(finalize(() => {
+          this.loadingAction = false;
+          this.cdr.detectChanges();
+      }))
+      .subscribe({
+        next: () => {
+          alert('✅ Solicitud enviada correctamente.');
+          this.showModal = false;
+          this.formSolicitud.reset();
+          this.cargarDatosCompletos();
+        },
+        error: (e) => {
+          let msg = 'Error desconocido';
+          if (e.error) {
+              if (e.error.non_field_errors) msg = e.error.non_field_errors[0];
+              else if (e.error.detail) msg = e.error.detail;
+              else msg = JSON.stringify(e.error);
+          }
+          alert('⛔ Error: ' + msg);
+        }
+      });
+  }
+
+  // --- 3. GESTIONAR ---
+  gestionar(solicitud: any, estado: 'APROBADA' | 'RECHAZADA') {
+    const accion = estado === 'APROBADA' ? 'aprobar' : 'rechazar';
+    let comentario = '';
+
+    if (estado === 'RECHAZADA') {
+        comentario = prompt('Motivo del rechazo:') || '';
+        if (!comentario) return; 
+    }
+
+    if (!confirm(`¿Estás seguro de ${accion} esta solicitud?`)) return;
+
+    this.loadingAction = true;
+
+    this.api.gestionarSolicitud(solicitud.id, estado, comentario)
+      .pipe(finalize(() => {
+          this.loadingAction = false;
+          this.cdr.detectChanges();
+      }))
+      .subscribe({
+        next: () => {
+            this.cargarDatosCompletos();
+        },
+        error: (e) => alert('Error: ' + (e.error?.error || e.message))
+      });
+  }
+
+  // --- 4. GESTIÓN DE TIPOS (Aquí usamos procesandoTipo) ---
+  guardarTipo() {
+    if (!this.nuevoTipo.nombre.trim()) return;
+    
+    this.procesandoTipo = true; // Usamos la variable específica
+    
+    this.api.createTipoAusencia(this.nuevoTipo)
+      .pipe(finalize(() => { 
+          this.procesandoTipo = false; 
+          this.cdr.detectChanges(); 
+      }))
+      .subscribe({
+        next: () => {
+            alert('✅ Tipo creado.');
+            this.nuevoTipo = { nombre: '', afecta_sueldo: false };
+            this.cargarDatosCompletos();
+        },
+        error: (e) => alert('⛔ Error: ' + (e.error?.error || e.message))
+      });
+  }
+
+  eliminarTipo(id: number) {
+    if(!confirm('¿Eliminar este tipo?')) return;
+    this.api.deleteTipoAusencia(id).subscribe({
+      next: () => this.cargarDatosCompletos(),
+      error: () => alert('No se puede eliminar.')
     });
   }
 }

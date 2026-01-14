@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
+import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-carga-masiva',
@@ -14,50 +15,63 @@ export class CargaMasivaComponent {
 
   archivoSeleccionado: File | null = null;
   loading = false;
-  resultado: any = null; // Aquí guardamos lo que responda Django (creados, errores)
+  
+  // Estado del resultado
+  reporte: any = null; // { total: 10, creados: 8, errores: ['Fila 3: Email inválido'] }
   errorGeneral = '';
 
   constructor(private api: ApiService, private router: Router) {}
 
+  // 1. Selección de Archivo con Validación
   onFileSelected(event: any) {
     const file: File = event.target.files[0];
+    
     if (file) {
-      // Validar que sea Excel
-      if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.name.endsWith('.xlsx')) {
-        this.archivoSeleccionado = file;
-        this.errorGeneral = '';
-      } else {
-        this.errorGeneral = 'Por favor selecciona un archivo Excel (.xlsx)';
+      // Validar extensión
+      const validExtensions = ['.xlsx', '.xls', '.csv'];
+      const extension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+
+      if (!validExtensions.includes(extension)) {
+        this.errorGeneral = '⚠️ Formato no válido. Solo se aceptan archivos Excel (.xlsx)';
         this.archivoSeleccionado = null;
+        return;
       }
+
+      this.archivoSeleccionado = file;
+      this.errorGeneral = '';
+      this.reporte = null; // Limpiar reporte anterior
     }
   }
 
+  // 2. Descargar Plantilla (Vital para UX)
+  descargarPlantilla() {
+    this.api.downloadPlantilla();
+  }
+
+  // 3. Subir y Procesar
   subirArchivo() {
     if (!this.archivoSeleccionado) return;
 
     this.loading = true;
-    this.resultado = null;
+    this.reporte = null;
     this.errorGeneral = '';
 
-    this.api.uploadEmpleados(this.archivoSeleccionado).subscribe({
-      next: (res: any) => {
-        this.loading = false;
-        this.resultado = res; // { status: 'OK', creados: 10, errores: [] }
-      },
-      error: (err) => {
-        console.error(err);
-        this.loading = false;
-        this.errorGeneral = 'Error al procesar el archivo. Revisa que el formato sea correcto.';
-      }
-    });
-  }
-
-  descargarPlantilla() {
-    // Puedes crear un link a un archivo estático en assets
-    const link = document.createElement('a');
-    link.href = 'assets/plantilla_empleados.xlsx';
-    link.download = 'plantilla_empleados.xlsx';
-    link.click();
+    this.api.uploadEmpleados(this.archivoSeleccionado)
+      .pipe(finalize(() => this.loading = false))
+      .subscribe({
+        next: (res: any) => {
+          // Asumimos que Django devuelve: { mensaje: '...', creados: 5, errores: [] }
+          this.reporte = res;
+          
+          if (res.creados > 0 && (!res.errores || res.errores.length === 0)) {
+             // Si fue perfecto, opcionalmente redirigir o mostrar éxito total
+             // setTimeout(() => this.router.navigate(['/empleados']), 3000);
+          }
+        },
+        error: (e) => {
+          console.error(e);
+          this.errorGeneral = e.error?.error || 'Ocurrió un error inesperado al procesar el archivo.';
+        }
+      });
   }
 }

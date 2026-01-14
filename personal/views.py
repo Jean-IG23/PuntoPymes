@@ -136,12 +136,7 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
     def upload_excel(self, request):
         file = request.FILES.get('file')
         if not file: return Response({'error': 'Falta archivo.'}, 400)
-
-        # 1. Determinar Empresa (Igual que antes...)
-        # ... (Tu código de validación de empresa aquí) ...
-        # Supongamos que ya tenemos 'empresa_obj'
-
-        # 2. Cargar Catálogos en Memoria (Optimización)
+        
         sucursales = {s.nombre.strip().upper(): s for s in Sucursal.objects.filter(empresa=empresa_obj)}
         deptos = {d.nombre.strip().upper(): d for d in Departamento.objects.filter(sucursal__empresa=empresa_obj)}
         puestos = {p.nombre.strip().upper(): p for p in Puesto.objects.filter(empresa=empresa_obj)}

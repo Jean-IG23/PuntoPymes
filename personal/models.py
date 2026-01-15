@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from core.models import Empresa, Sucursal, Departamento, Puesto, Area
+from core.models import Empresa, Sucursal, Departamento, Puesto, Area, Turno
 from core.utils import calcular_dias_habiles
 # 1. FICHA DEL EMPLEADO
 class Empleado(models.Model):
@@ -20,13 +20,13 @@ class Empleado(models.Model):
     nombres = models.CharField(max_length=150)
     apellidos = models.CharField(max_length=150)
     email = models.EmailField(unique=True)
-    telefono = models.CharField(max_length=20, blank=True)
+    telefono = models.CharField(max_length=100, blank=True)
     direccion = models.TextField(blank=True)
     foto = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
-
+    documento = models.CharField(max_length=100, null=True, blank=True, verbose_name="Cédula/DNI")
     # --- VINCULACIÓN EMPRESARIAL ---
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='empleados')
-    
+    sucursal = models.ForeignKey(Sucursal, on_delete=models.SET_NULL, null=True, blank=True)
     # Estructura (Aquí se asigna el lugar y función)
     departamento = models.ForeignKey(
         'core.Departamento', 
@@ -38,7 +38,7 @@ class Empleado(models.Model):
     puesto = models.ForeignKey(Puesto, on_delete=models.SET_NULL, null=True, blank=True)
     
     # --- JERARQUÍA Y ACCESO ---
-    rol = models.CharField(max_length=20, choices=ROLES, default='EMPLEADO')
+    rol = models.CharField(max_length=100, choices=ROLES, default='EMPLEADO')
     
     # Campo opcional: Si es GERENTE, ¿de qué Área es responsable?
     # Esto permite que un Gerente vea a TODOS los empleados de "Ventas", 
@@ -49,8 +49,8 @@ class Empleado(models.Model):
     fecha_ingreso = models.DateField()
     sueldo = models.DecimalField(max_digits=10, decimal_places=2, default=460)
     saldo_vacaciones = models.IntegerField(default=15)
-    
-    estado = models.CharField(max_length=20, default='ACTIVO', choices=[('ACTIVO', 'Activo'), ('INACTIVO', 'Inactivo')])
+    turno_asignado = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Turno Fijo")
+    estado = models.CharField(max_length=100, default='ACTIVO', choices=[('ACTIVO', 'Activo'), ('INACTIVO', 'Inactivo')])
 
     def __str__(self):
         return f"{self.nombres} {self.apellidos} ({self.rol})"

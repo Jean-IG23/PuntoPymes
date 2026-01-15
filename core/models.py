@@ -80,7 +80,7 @@ class Turno(models.Model):
     nombre = models.CharField(max_length=50) # Ej: "Administrativo L-V"
     
     # Configuración Híbrida
-    tipo_jornada = models.CharField(max_length=20, choices=TIPOS_JORNADA, default='RIGIDO')
+    tipo_jornada = models.CharField(max_length=50, choices=TIPOS_JORNADA, default='RIGIDO')
     
     # Para horario RIGIDO
     hora_entrada = models.TimeField(null=True, blank=True)
@@ -100,13 +100,13 @@ class Turno(models.Model):
 class Notificacion(models.Model):
     TIPOS = [
         ('VACACION', 'Solicitud de Vacaciones'),
-        ('OBJETIVO', 'Asignación de Objetivo'), # Agregué este por tu módulo de KPIs
+        ('OBJETIVO', 'Asignación de Objetivo'), 
         ('SISTEMA', 'Mensaje del Sistema'),
     ]
     usuario_destino = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notificaciones')
     titulo = models.CharField(max_length=100)
     mensaje = models.TextField()
-    tipo = models.CharField(max_length=20, choices=TIPOS, default='SISTEMA')
+    tipo = models.CharField(max_length=50, choices=TIPOS, default='SISTEMA')
     leida = models.BooleanField(default=False)
     creada_el = models.DateTimeField(auto_now_add=True)
     link_accion = models.CharField(max_length=200, blank=True, null=True)

@@ -1,47 +1,41 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.contrib.auth.models import User
-from .models import SolicitudAusencia
+from .models import SolicitudAusencia, Empleado
 from core.models import Notificacion
 
-# Cada vez que se GUARDA una Solicitud de Ausencia...
 @receiver(post_save, sender=SolicitudAusencia)
 def notificar_solicitud(sender, instance, created, **kwargs):
+    emp = instance.empleado
+    
     if created:
-        # CASO 1: Nueva Solicitud -> Avisar al Jefe (o al Admin de la empresa)
-        empleado = instance.empleado
-        
-        # Lógica simplificada: Notificar al usuario dueño de la empresa
-        # (Aquí podrías buscar al manager específico si quisieras)
-        try:
-            # Buscamos al usuario que es Staff y tiene el mismo email que el dueño de la empresa (simplificado)
-            # O mejor, buscamos todos los administradores de esa empresa
-            admins = User.objects.filter(is_staff=True) 
-            # Nota: Esto es un ejemplo, en producción filtrarías por la empresa del empleado
-            
-            for admin in admins:
+        # --- CASO 1: Nueva Solicitud ---
+        # Avisar SOLO a los encargados de SU MISMA EMPRESA
+        # Buscamos empleados con rol ADMIN, RRHH o GERENTE de esa empresa
+        encargados = Empleado.objects.filter(
+            empresa=emp.empresa, 
+            rol__in=['ADMIN', 'RRHH', 'GERENTE'],
+            estado='ACTIVO'
+        ).exclude(id=emp.id) # No notificarse a sí mismo si es gerente
+
+        for jefe in encargados:
+            if jefe.usuario: # Solo si tiene usuario de sistema
                 Notificacion.objects.create(
-                    usuario_destino=admin,
-                    titulo=f"🏖️ Nueva Solicitud: {empleado.nombres}",
-                    mensaje=f"{empleado.nombres} ha solicitado vacaciones del {instance.fecha_inicio} al {instance.fecha_fin}.",
+                    usuario_destino=jefe.usuario,
+                    titulo=f"🏖️ Nueva Solicitud: {emp.nombres}",
+                    mensaje=f"Solicitud de vacaciones del {instance.fecha_inicio} al {instance.fecha_fin}.",
                     tipo='VACACION',
-                    link_accion='/solicitudes' # Link al panel de aprobación
+                    link_accion='/solicitudes'
                 )
-        except Exception as e:
-            print("Error creando notificación:", e)
 
     else:
-        # CASO 2: Se actualizó el estado (Aprobada/Rechazada) -> Avisar al Empleado
+        # --- CASO 2: Cambio de Estado ---
         if instance.estado in ['APROBADA', 'RECHAZADA']:
-            # Buscamos el usuario del empleado (por email)
-            try:
-                usuario_empleado = User.objects.get(username=instance.empleado.email)
+            # Usamos la relación directa (sin buscar por string)
+            if emp.usuario:
                 Notificacion.objects.create(
-                    usuario_destino=usuario_empleado,
-                    titulo=f"Respuesta a tu Solicitud: {instance.estado}",
-                    mensaje=f"Tu solicitud ha sido {instance.estado.lower()}.",
+                    usuario_destino=emp.usuario,
+                    titulo=f"Solicitud {instance.estado}",
+                    mensaje=f"Tu solicitud de vacaciones ha sido {instance.estado.lower()}.",
                     tipo='VACACION',
-                    link_accion='/portal'
+                    link_accion='/mi-perfil'
                 )
-            except User.DoesNotExist:
-                pass

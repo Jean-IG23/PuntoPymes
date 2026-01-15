@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
@@ -20,7 +20,7 @@ export class CargaMasivaComponent {
   reporte: any = null; // { total: 10, creados: 8, errores: ['Fila 3: Email inválido'] }
   errorGeneral = '';
 
-  constructor(private api: ApiService, private router: Router) {}
+  constructor(private api: ApiService, private router: Router, private cdr: ChangeDetectorRef) {}
 
   // 1. Selección de Archivo con Validación
   onFileSelected(event: any) {
@@ -52,25 +52,40 @@ export class CargaMasivaComponent {
   subirArchivo() {
     if (!this.archivoSeleccionado) return;
 
-    this.loading = true;
+    // 1. YA NO ACTIVAMOS EL LOADING (Pantalla desbloqueada)
+    // this.loading = true;  <-- Comentado o borrado
+    
+    // 2. Avisamos que empezó (opcional, una alerta rápida)
+    console.log("Subida iniciada en segundo plano...");
+    alert("El archivo se está procesando en segundo plano. Puedes seguir trabajando. Te avisaremos al terminar.");
+
     this.reporte = null;
     this.errorGeneral = '';
 
     this.api.uploadEmpleados(this.archivoSeleccionado)
-      .pipe(finalize(() => this.loading = false))
+      .pipe(finalize(() => {
+          // Ya no hace falta apagar loading porque nunca lo prendimos
+          this.cdr.detectChanges(); 
+      }))
       .subscribe({
         next: (res: any) => {
-          // Asumimos que Django devuelve: { mensaje: '...', creados: 5, errores: [] }
+          console.log("Respuesta recibida:", res);
           this.reporte = res;
           
-          if (res.creados > 0 && (!res.errores || res.errores.length === 0)) {
-             // Si fue perfecto, opcionalmente redirigir o mostrar éxito total
-             // setTimeout(() => this.router.navigate(['/empleados']), 3000);
+          // 3. AVISO FINAL (Cuando Django termine)
+          if (res.creados > 0) {
+             alert(`¡Proceso terminado! Se crearon ${res.creados} empleados correctamente.`);
+          } else if (res.errores.length > 0) {
+             alert(`Proceso terminado con ${res.errores.length} errores. Revisa la lista.`);
           }
+          this.cdr.detectChanges();
         },
         error: (e) => {
           console.error(e);
-          this.errorGeneral = e.error?.error || 'Ocurrió un error inesperado al procesar el archivo.';
+          // Si da error (incluso Broken Pipe), avisamos
+          alert('Hubo un error en la carga o se perdió la conexión.');
+          this.errorGeneral = 'Error de conexión o timeout.';
+          this.cdr.detectChanges();
         }
       });
   }

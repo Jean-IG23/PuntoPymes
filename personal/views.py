@@ -11,7 +11,8 @@ from django.shortcuts import get_object_or_404
 from django.db.models import F
 from asistencia import serializers
 from .utils import notificar_solicitud
-# Imports de tus apps
+import io
+from django.http import HttpResponse
 from core.models import Sucursal, Departamento, Puesto, Turno, Empresa
 from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia
 from .serializers import (
@@ -131,12 +132,21 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename=plantilla_empleados.xlsx'
         return response
 
-    # 2. CARGA MASIVA (ROBUSTA)
-    @action(detail=False, methods=['post'], url_path='upload')
+    # 2. CARGA MASIVA 
+    @action(detail=False, methods=['POST'], url_path='importar_excel') 
     def upload_excel(self, request):
+        print("--- CARGA MASIVA: VERSIÓN BLINDADA (SIN BASURA) ---")
+
+        try:
+            empleado_uploader = Empleado.objects.get(usuario=request.user)
+            empresa_obj = empleado_uploader.empresa
+        except Empleado.DoesNotExist:
+            return Response({'error': 'Usuario sin perfil.'}, status=403)
+
         file = request.FILES.get('file')
         if not file: return Response({'error': 'Falta archivo.'}, 400)
-        
+
+        # Cargar catálogos
         sucursales = {s.nombre.strip().upper(): s for s in Sucursal.objects.filter(empresa=empresa_obj)}
         deptos = {d.nombre.strip().upper(): d for d in Departamento.objects.filter(sucursal__empresa=empresa_obj)}
         puestos = {p.nombre.strip().upper(): p for p in Puesto.objects.filter(empresa=empresa_obj)}
@@ -144,111 +154,192 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         matriz = Sucursal.objects.filter(empresa=empresa_obj, es_matriz=True).first()
 
         try:
-            if file.name.endswith('.csv'): df = pd.read_csv(file)
-            else: df = pd.read_excel(file)
+            # --- 1. DETECCIÓN DE FORMATO ---
+            sep = ',' 
+            if file.name.endswith('.csv'):
+                try:
+                    df_test = pd.read_csv(file, header=None, nrows=5, sep=';')
+                    if len(df_test.columns) > 1: sep = ';'
+                except: pass
             
-            df.columns = df.columns.str.strip().str.upper() # Todo mayúsculas para estandarizar
+            # --- 2. LEER DATOS ---
+            # Leemos TODO como string para evitar conversiones raras
+            if file.name.endswith('.csv'):
+                df_preview = pd.read_csv(file, header=None, nrows=10, sep=sep, dtype=str)
+            else:
+                df_preview = pd.read_excel(file, header=None, nrows=10, dtype=str)
+
+            # Buscar cabecera
+            keywords = ['CEDULA', 'CÉDULA', 'DNI', 'DOCUMENTO', 'NOMBRES', 'NOMBRE']
+            header_idx = 0
+            for i, row in df_preview.iterrows():
+                row_str = str(row.values).upper()
+                if any(k in row_str for k in keywords):
+                    header_idx = i
+                    break
+            
+            file.seek(0)
+            if file.name.endswith('.csv'):
+                df = pd.read_csv(file, header=header_idx, sep=sep, dtype=str)
+            else:
+                df = pd.read_excel(file, header=header_idx, dtype=str)
+
+            df.dropna(how='all', inplace=True)
+            # Limpiamos nombres de columnas
+            df.columns = df.columns.astype(str).str.strip().str.upper()
+
+            # --- 3. MAPEO INTELIGENTE (EVITANDO DUPLICADOS) ---
+            mapa = {
+                'CEDULA': ['CEDULA', 'CÉDULA', 'DNI', 'DOCUMENTO', 'ID', 'IDENTIFICACION', 'CED'],
+                'NOMBRES': ['NOMBRES', 'NOMBRE', 'NAME'],
+                'APELLIDOS': ['APELLIDOS', 'APELLIDO', 'LAST NAME'],
+                'EMAIL': ['EMAIL', 'CORREO', 'MAIL'],
+                'SUCURSAL': ['SUCURSAL', 'SEDE', 'OFICINA'],
+                'DEPARTAMENTO': ['DEPARTAMENTO', 'DEPTO', 'AREA'],
+                'CARGO': ['CARGO', 'PUESTO', 'ROL'],
+                'TURNO': ['TURNO', 'HORARIO'],
+                'SUELDO': ['SUELDO', 'SALARIO'],
+                'ES_LIDER_DEPTO': ['ES_LIDER_DEPTO', 'LIDER', 'JEFE']
+            }
+
+            cols_found = {}
+            used_standards = set() # <--- NUEVO: Para no repetir columnas destino
+
+            for col in df.columns:
+                clean_col = col.replace('"', '').replace(';', '').strip()
+                match = None
+                for std, variants in mapa.items():
+                    # Si ya encontramos una columna para este campo, saltamos (Evita duplicados)
+                    if std in used_standards: continue 
+                    
+                    if clean_col in variants or any(v in clean_col for v in variants):
+                        match = std
+                        break
+                
+                if match:
+                    cols_found[col] = match
+                    used_standards.add(match)
+            
+            df.rename(columns=cols_found, inplace=True)
+
+            if 'CEDULA' not in df.columns or 'NOMBRES' not in df.columns:
+                 return Response({'error': f'Columnas no reconocidas. Detectadas: {df.columns.tolist()}'}, status=400)
+
+            # --- 4. PROCESAR FILAS (CON LIMPIEZA DE BASURA PANDAS) ---
             reporte = {'total': 0, 'creados': 0, 'errores': []}
 
             for index, row in df.iterrows():
                 reporte['total'] += 1
-                fila = index + 2
+                fila_num = index + header_idx + 2
                 
-                # --- A. Extracción Segura de Datos ---
-                cedula = str(row.get('CEDULA', '')).strip()
-                email = str(row.get('EMAIL', '')).strip()
-                nombres = str(row.get('NOMBRES', '')).strip()
-                
-                if not cedula or not email or not nombres:
-                    reporte['errores'].append(f"Fila {fila}: Datos obligatorios incompletos.")
+                # --- FUNCIÓN DE EXTRACCIÓN SEGURA ---
+                def get_val(col):
+                    val = row.get(col, '')
+                    
+                    # 1. Si Pandas devuelve una Serie (duplicados), tomamos el primero
+                    if isinstance(val, pd.Series):
+                        val = val.iloc[0]
+                    
+                    val = str(val).strip()
+                    
+                    # 2. Limpieza de "Basura Pandas" (dtype: object...)
+                    if 'dtype:' in val or 'Name:' in val:
+                        # Intentamos recuperar el valor real si se mezcló
+                        # Esto suele pasar si se convirtió a string una Serie completa
+                        return '' 
+
+                    return '' if val.lower() in ['nan', 'none', 'nat'] else val
+                # ------------------------------------
+
+                cedula = get_val('CEDULA')[:20] # Cortar por seguridad
+                nombres = get_val('NOMBRES')
+
+                if not cedula or not nombres:
+                    continue # Saltar filas vacías sin reportar error masivo
+
+                if Empleado.objects.filter(documento=cedula, empresa=empresa_obj).exists():
+                    reporte['errores'].append(f"Fila {fila_num}: Cédula {cedula} ya existe.")
                     continue
 
-                if User.objects.filter(username=email).exists():
-                    reporte['errores'].append(f"Fila {fila}: Email {email} ya registrado.")
-                    continue
+                email = get_val('EMAIL')
+                if not email:
+                     clean_name = nombres.split()[0].lower()
+                     clean_doc = cedula[-4:] if len(cedula)>4 else '0000'
+                     email = f"{clean_name}.{clean_doc}@empresa.com"
 
-                # --- B. Resolución de Relaciones (Inteligencia) ---
-                suc_txt = str(row.get('SUCURSAL', '')).strip().upper()
-                dep_txt = str(row.get('DEPARTAMENTO', '')).strip().upper()
-                pto_txt = str(row.get('CARGO', '')).strip().upper()
-                tur_txt = str(row.get('TURNO', '')).strip().upper()
+                # Relaciones
+                suc_obj = sucursales.get(get_val('SUCURSAL').upper(), matriz)
                 
-                suc_obj = sucursales.get(suc_txt, matriz)
-                dep_obj = deptos.get(dep_txt, None) # Si no existe, queda NULL (Empleado sin depto)
-                pto_obj = puestos.get(pto_txt, None)
+                dep_txt = get_val('DEPARTAMENTO').upper() or 'GENERAL'
+                dep_obj = deptos.get(dep_txt)
+                if not dep_obj:
+                     dep_obj = Departamento.objects.create(
+                         sucursal=suc_obj if suc_obj else matriz, 
+                         nombre=dep_txt.title()
+                     )
+                     deptos[dep_txt] = dep_obj
+
+                pto_txt = get_val('CARGO').upper() or 'OPERATIVO'
+                pto_obj = puestos.get(pto_txt)
+                if not pto_obj:
+                     pto_obj = Puesto.objects.create(
+                         empresa=empresa_obj, 
+                         nombre=pto_txt.title()
+                     )
+                     puestos[pto_txt] = pto_obj
+
+                tur_obj = turnos.get(get_val('TURNO').upper())
+                es_lider = get_val('ES_LIDER_DEPTO').upper() in ['SI', 'S', 'TRUE', 'YES']
                 
-                # Lógica Turno: Si ponen algo raro, no asignamos turno (mejor que asignar uno mal)
-                tur_obj = turnos.get(tur_txt, None) 
-
-                # --- C. Datos Avanzados ---
-                # Rol: Validamos que sea uno permitido
-                rol_input = str(row.get('ROL (EMPLEADO/GERENTE/RRHH)', 'EMPLEADO')).strip().upper()
-                # Limpiamos el texto por si el usuario puso "Rol: Gerente"
-                rol_final = 'EMPLEADO'
-                if 'GERENTE' in rol_input: rol_final = 'GERENTE'
-                elif 'RRHH' in rol_input: rol_final = 'RRHH'
-                elif 'ADMIN' in rol_input: rol_final = 'ADMIN'
-
-                # Sueldo
-                try: sueldo_final = float(str(row.get('SUELDO', '460')).replace(',', '.'))
-                except: sueldo_final = 460.00
-
-                # Fecha Ingreso
-                fecha_ingreso = row.get('FECHA_INGRESO (AAAA-MM-DD)')
-                if pd.isna(fecha_ingreso) or str(fecha_ingreso).strip() == '':
-                    fecha_ingreso = timezone.now().date()
-                
-                # Es Líder?
-                es_lider = str(row.get('ES_LIDER_DEPTO (SI/NO)', 'NO')).strip().upper() == 'SI'
+                sueldo = 460.0
+                try: sueldo = float(get_val('SUELDO').replace(',', '.'))
+                except: pass
 
                 try:
                     with transaction.atomic():
-                        # 1. Crear User
+                        if User.objects.filter(username=email).exists():
+                             import random
+                             email = f"{random.randint(10,99)}{email}"
+
                         user = User.objects.create_user(
                             username=email, 
                             email=email, 
-                            password=cedula, # Password inicial
+                            password=cedula, 
                             first_name=nombres.split()[0]
                         )
                         
-                        # 2. Crear Empleado
-                        empleado = Empleado.objects.create(
-                            empresa=empresa_obj,
-                            usuario=user,
-                            nombres=nombres,
-                            apellidos=str(row.get('APELLIDOS', '')),
-                            documento=cedula,
-                            email=email,
-                            telefono=str(row.get('TELEFONO', '')),
-                            sucursal=suc_obj,
-                            departamento=dep_obj,
-                            puesto=pto_obj,
+                        emp = Empleado.objects.create(
+                            empresa=empresa_obj, 
+                            usuario=user, 
+                            nombres=nombres, 
+                            apellidos=get_val('APELLIDOS'),
+                            documento=cedula, 
+                            email=email, 
+                            telefono=get_val('TELEFONO')[:40], # Corte de seguridad
+                            sucursal=suc_obj, 
+                            departamento=dep_obj, 
+                            puesto=pto_obj, 
                             turno_asignado=tur_obj,
-                            rol=rol_final,
-                            sueldo=sueldo_final,
-                            fecha_ingreso=fecha_ingreso,
-                            saldo_vacaciones=15, # Default legal
-                            estado='ACTIVO'
+                            rol='GERENTE' if es_lider else 'EMPLEADO', 
+                            sueldo=sueldo, 
+                            fecha_ingreso=timezone.now().date(), 
+                            estado='ACTIVO', 
+                            saldo_vacaciones=15
                         )
-
-                        # 3. Lógica de Liderazgo (VINCULACIÓN AUTOMÁTICA)
-                        # Si dice que es líder Y tiene departamento asignado
-                        if es_lider and dep_obj:
-                            if empleado.rol != 'GERENTE':
-                                empleado.rol = 'GERENTE'
-                                empleado.save()
-                            dep_obj.jefe = empleado
+                        if es_lider:
+                            dep_obj.jefe = emp
                             dep_obj.save()
-
+                        
                         reporte['creados'] += 1
-
                 except Exception as e:
-                    reporte['errores'].append(f"Fila {fila}: {str(e)}")
+                    reporte['errores'].append(f"Fila {fila_num}: Error BD {str(e)}")
 
             return Response(reporte)
 
         except Exception as e:
-            return Response({'error': f'Error procesando archivo: {str(e)}'}, 400)
+            import traceback
+            traceback.print_exc()
+            return Response({'error': f'Error interno: {str(e)}'}, 400)
 
 # =========================================================================
 # 2. VIEWSET DE CONTRATOS

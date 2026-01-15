@@ -38,8 +38,26 @@ export class ApiService {
   // Empresas
   getEmpresas(): Observable<any> { return this.http.get(this.apiUrl + 'empresas/', this.getHeaders()); }
   
-  createEmpresa(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'empresas/', data, this.getHeaders());
+  createEmpresa(data: any, logo?: File): Observable<any> {
+    const formData = new FormData();
+
+    // 1. Agregamos todos los campos de texto (Nombre, RUC, Dirección...)
+    for (const key in data) {
+      if (data[key] !== null && data[key] !== undefined) {
+        formData.append(key, data[key]);
+      }
+    }
+    if (logo) {
+      formData.append('logo', logo);
+    }
+
+    const token = this.auth.getToken();
+    // Recuerda: NO poner Content-Type manual cuando usas FormData
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`
+    });
+
+    return this.http.post(this.apiUrl + 'empresas/', formData, { headers });
   }
 
   getEmpresaById(id: number): Observable<any> { 
@@ -128,11 +146,18 @@ export class ApiService {
   // Carga Masiva (Excel)
   uploadEmpleados(archivo: File): Observable<any> {
     const formData = new FormData();
-    formData.append('archivo', archivo); 
+    
+    // CORRECCIÓN: Cambiamos 'archivo' por 'file' para que coincida con Django
+    formData.append('file', archivo); 
+    
     const token = this.auth.getToken();
+    
+    // Angular detecta automáticamente que es FormData y pone el Content-Type correcto
     const headers = new HttpHeaders({
         'Authorization': `Bearer ${token}`
     });
+    
+    // La URL debe coincidir con el url_path del backend ('importar_excel')
     return this.http.post(this.apiUrl + 'empleados/importar_excel/', formData, { headers });
   }
   downloadPlantilla(): void {

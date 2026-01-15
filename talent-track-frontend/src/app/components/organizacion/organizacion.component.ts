@@ -20,7 +20,7 @@ export class OrganizacionComponent implements OnInit {
   empresaId: number | null = null;
   loading = false;
   activeTab: 'EMPRESAS' | 'ESTRUCTURA' = 'ESTRUCTURA';
-  activeSubTab: 'SUCURSALES' | 'AREAS' | 'DEPARTAMENTOS' | 'PUESTOS' | 'TURNOS' = 'SUCURSALES';
+  activeSubTab: string = 'SUCURSALES';
 
   // --- DATOS ---
   empresas: any[] = [];
@@ -55,7 +55,7 @@ export class OrganizacionComponent implements OnInit {
   showModalTurno = false;
 
   esModoCliente = false; // Para creación de empresa (si es cliente nuevo)
-
+  logoSeleccionado: File | null = null;
   constructor(
     private api: ApiService,
     public auth: AuthService,
@@ -64,7 +64,7 @@ export class OrganizacionComponent implements OnInit {
   ) {
     // 1. Empresa (SaaS)
     this.formEmpresa = this.fb.group({
-      nombre: ['', Validators.required],
+      nombre_comercial: ['', Validators.required],
       razon_social: ['', Validators.required],
       ruc: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(13)]],
       direccion: [''],
@@ -87,7 +87,7 @@ export class OrganizacionComponent implements OnInit {
     this.areaForm = this.fb.group({
       nombre: ['', Validators.required],
       descripcion: [''],
-      sucursal: [null, Validators.required],
+      sucursal: [null],
       empresa: [null]
     });
 
@@ -133,6 +133,41 @@ export class OrganizacionComponent implements OnInit {
     }
   }
 
+  onLogoSelect(event: any) {
+    if (event.target.files.length > 0) {
+      this.logoSeleccionado = event.target.files[0];
+    }
+  }
+
+  // 4. REEMPLAZA TU FUNCIÓN guardarEmpresa POR ESTA
+  guardarEmpresa() {
+    if (this.formEmpresa.invalid) {
+        this.formEmpresa.markAllAsTouched(); // Para que se vean los errores rojos
+        return;
+    }
+    
+    const data = this.formEmpresa.value;
+
+    if (this.selectedId) {
+      this.api.updateEmpresa(this.selectedId, data).subscribe(() => {
+        this.cargarEmpresas(); 
+        this.showModalEmpresa = false;
+        this.logoSeleccionado = null;
+      });
+    } else {
+      // AQUÍ ENVIAMOS EL LOGO AL SERVICIO
+      this.api.createEmpresa(data, this.logoSeleccionado || undefined).subscribe({
+        next: () => {
+          this.cargarEmpresas(); 
+          this.showModalEmpresa = false;
+          this.logoSeleccionado = null;
+          alert('Empresa creada correctamente');
+        },
+        error: (e) => alert('Error: ' + (e.error?.error || e.message))
+      });
+    }
+  }
+
   // ==========================================
   // 1. GESTIÓN DE EMPRESAS (SUPERADMIN)
   // ==========================================
@@ -162,27 +197,21 @@ export class OrganizacionComponent implements OnInit {
     this.formEmpresa.get('admin_email')?.updateValueAndValidity();
     this.formEmpresa.get('admin_password')?.updateValueAndValidity();
   }
-
-  guardarEmpresa() {
-    if (this.formEmpresa.invalid) return;
-    const data = this.formEmpresa.value;
-
-    if (this.selectedId) {
-      this.api.updateEmpresa(this.selectedId, data).subscribe(() => {
-        this.cargarEmpresas(); this.showModalEmpresa = false;
-      });
-    } else {
-      this.api.createEmpresa(data).subscribe(() => {
-        this.cargarEmpresas(); this.showModalEmpresa = false;
-      });
-    }
-  }
-
   eliminarEmpresa(emp: any) {
-    if (confirm(`¿Eliminar empresa ${emp.nombre}?`)) {
-      this.api.deleteEmpresa(emp.id).subscribe(() => this.cargarEmpresas());
+    if (confirm(`¿Estás seguro de eliminar la empresa ${emp.nombre_comercial || emp.razon_social}?`)) {
+      this.loading = true;
+      this.api.deleteEmpresa(emp.id)
+        .pipe(finalize(() => this.loading = false))
+        .subscribe({
+          next: () => {
+            this.cargarEmpresas();
+            alert('Empresa eliminada correctamente.');
+          },
+          error: (e) => alert('Error al eliminar: ' + (e.error?.detail || e.message))
+        });
     }
   }
+  
 
   // ==========================================
   // 2. ESTRUCTURA ORGANIZACIONAL (CLIENTE)
@@ -240,11 +269,28 @@ export class OrganizacionComponent implements OnInit {
     else { this.selectedId = null; this.areaForm.reset(); }
   }
   guardarArea() {
-    if (this.areaForm.invalid) return;
-    const data = { ...this.areaForm.value, empresa: this.empresaId };
-    const req = this.selectedId ? this.api.updateArea(this.selectedId, data) : this.api.saveArea(data);
-    req.subscribe(() => { this.cargarEstructura(); this.showModalArea = false; });
+  console.log("Estado del Form:", this.areaForm.status); // Ver en consola F12
+  console.log("Errores:", this.areaForm.get('nombre')?.errors);
+
+  if (this.areaForm.invalid) {
+    alert('⚠️ Formulario Inválido: Escribe un nombre para el área.');
+    this.areaForm.markAllAsTouched(); // Pone el campo en rojo
+    return;
   }
+
+  const data = { ...this.areaForm.value, empresa: this.empresaId };
+  const req = this.selectedId ? this.api.updateArea(this.selectedId, data) : this.api.saveArea(data);
+  
+  req.subscribe({
+    next: () => {
+      alert('✅ Área guardada'); 
+      this.cargarEstructura(); 
+      this.showModalArea = false;
+      this.areaForm.reset();
+    },
+    error: (e) => alert('❌ Error servidor: ' + (e.error?.detail || e.message))
+  });
+}
   eliminarArea(area: any) {
     if(confirm('¿Borrar área?')) this.api.deleteArea(area.id).subscribe(() => this.cargarEstructura());
   }

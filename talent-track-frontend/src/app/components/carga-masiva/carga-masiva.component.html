@@ -1,120 +1,189 @@
 <div class="min-h-screen bg-gray-50 py-10 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-4xl mx-auto">
+  <div class="max-w-5xl mx-auto">
     
     <div class="md:flex md:items-center md:justify-between mb-8">
       <div>
-        <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Importación Masiva de Personal</h2>
-        <p class="mt-2 text-sm text-gray-500">Carga múltiples empleados desde una hoja de cálculo.</p>
+        <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Importación Masiva</h2>
+        <p class="mt-2 text-sm text-gray-500">Carga múltiples empleados usando el formato estándar.</p>
       </div>
-      <button routerLink="/empleados" class="mt-4 md:mt-0 text-indigo-600 hover:text-indigo-800 font-medium text-sm flex items-center gap-2">
-        <i class="bi bi-arrow-left"></i> Volver al listado
+      <button routerLink="/empleados" class="mt-4 md:mt-0 text-indigo-600 hover:text-indigo-800 font-medium text-sm flex items-center gap-2 transition">
+        <i class="bi bi-arrow-left"></i> Volver al Directorio
       </button>
     </div>
 
-    <div class="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       
-      <div class="p-6 bg-blue-50 border-b border-blue-100">
-        <div class="flex items-start gap-4">
-          <div class="bg-blue-100 p-3 rounded-full text-blue-600">
-            <i class="bi bi-lightbulb-fill text-xl"></i>
-          </div>
-          <div>
-            <h3 class="text-lg font-bold text-blue-900">Antes de empezar</h3>
-            <p class="text-sm text-blue-700 mt-1 mb-3">
-              Para evitar errores, descarga la plantilla oficial y llénala respetando las columnas.
-              <br>Columnas requeridas: <b>Cédula, Nombres, Apellidos, Email, Cargo</b>.
-            </p>
-            <button (click)="descargarPlantilla()" class="bg-white text-blue-700 border border-blue-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-blue-50 transition flex items-center gap-2">
-              <i class="bi bi-download"></i> Descargar Plantilla Excel
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="p-8">
+      <div class="lg:col-span-1 space-y-6">
         
-        <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition relative group"
-             [class.border-indigo-400]="archivoSeleccionado"
-             [class.bg-indigo-50]="archivoSeleccionado">
+        <div class="bg-white shadow-lg rounded-2xl p-6 border border-gray-100">
+          <h3 class="text-lg font-bold text-gray-900 mb-4">1. Cargar Archivo</h3>
           
-          <input type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls" 
-                 class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-          
-          <div class="space-y-4">
-            <div class="w-16 h-16 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition duration-300"
-                 [class.bg-green-100]="archivoSeleccionado" [class.text-green-600]="archivoSeleccionado">
-              <i class="bi" [class]="archivoSeleccionado ? 'bi-file-earmark-excel-fill' : 'bi-cloud-upload-fill'" style="font-size: 2rem;"></i>
-            </div>
+          <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition relative group"
+               [class.border-indigo-400]="archivoSeleccionado"
+               [class.bg-indigo-50]="archivoSeleccionado">
             
-            <div *ngIf="!archivoSeleccionado">
-              <p class="text-gray-900 font-medium">Arrastra tu archivo aquí o haz clic</p>
-              <p class="text-xs text-gray-500">Soporta archivos .XLSX (Máx 5MB)</p>
-            </div>
+            <input type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" 
+                   class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" [disabled]="loading">
+            
+            <div class="space-y-3">
+              <div class="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto transition duration-300"
+                   [class.bg-green-100]="archivoSeleccionado" [class.text-green-600]="archivoSeleccionado">
+                <i class="bi" [class]="archivoSeleccionado ? 'bi-file-earmark-excel-fill' : 'bi-cloud-upload'" style="font-size: 1.5rem;"></i>
+              </div>
+              
+              <div *ngIf="!archivoSeleccionado">
+                <p class="text-sm font-medium text-gray-700">Click para subir Excel</p>
+                <p class="text-xs text-gray-400">Máximo 5MB</p>
+              </div>
 
-            <div *ngIf="archivoSeleccionado">
-              <p class="text-green-700 font-bold">{{ archivoSeleccionado.name }}</p>
-              <p class="text-xs text-green-600">{{ (archivoSeleccionado.size / 1024).toFixed(2) }} KB</p>
+              <div *ngIf="archivoSeleccionado">
+                <p class="text-sm font-bold text-green-700 truncate px-2">{{ archivoSeleccionado.name }}</p>
+                <p class="text-xs text-green-600">{{ (archivoSeleccionado.size / 1024).toFixed(1) }} KB</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <p *ngIf="errorGeneral" class="text-red-600 text-sm mt-3 font-medium flex items-center gap-2">
-          <i class="bi bi-exclamation-triangle-fill"></i> {{ errorGeneral }}
-        </p>
+          <p *ngIf="errorGeneral" class="text-red-500 text-xs mt-2 flex items-center gap-1 font-medium animate-pulse">
+            <i class="bi bi-exclamation-circle"></i> {{ errorGeneral }}
+          </p>
 
-        <div class="mt-6">
           <button (click)="subirArchivo()" 
                   [disabled]="!archivoSeleccionado || loading"
-                  class="w-full bg-indigo-600 text-white py-3 px-6 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex justify-center items-center gap-3">
-            <span *ngIf="loading" class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-            {{ loading ? 'Procesando Datos...' : 'Iniciar Importación' }}
+                  class="w-full mt-4 bg-indigo-600 text-white py-2.5 px-4 rounded-lg font-bold text-sm shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition flex justify-center items-center gap-2">
+            <span *ngIf="loading" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+            {{ loading ? 'Procesando...' : 'Procesar Archivo' }}
+          </button>
+        </div>
+
+        <div class="bg-blue-50 rounded-xl p-5 border border-blue-100">
+          <h4 class="text-sm font-bold text-blue-900 mb-2">¿Necesitas ayuda?</h4>
+          <p class="text-xs text-blue-700 mb-3">Descarga el formato oficial para evitar errores de columnas.</p>
+          <button (click)="descargarPlantilla()" class="w-full bg-white text-blue-600 border border-blue-200 py-2 rounded-lg text-xs font-bold hover:bg-blue-50 transition flex items-center justify-center gap-2">
+            <i class="bi bi-download"></i> Descargar Plantilla
           </button>
         </div>
 
       </div>
 
-      <div *ngIf="reporte" class="border-t border-gray-100 bg-gray-50 p-8 animate-fade-in-up">
+      <div class="lg:col-span-2">
         
-        <h3 class="text-lg font-bold text-gray-900 mb-4">Resumen de Importación</h3>
-        
-        <div class="grid grid-cols-2 gap-4 mb-6">
-          <div class="bg-white p-4 rounded-xl border border-green-200 shadow-sm flex items-center gap-3">
-            <div class="bg-green-100 p-2 rounded-full text-green-600"><i class="bi bi-check-lg"></i></div>
-            <div>
-              <p class="text-2xl font-bold text-green-700">{{ reporte.creados }}</p>
-              <p class="text-xs text-gray-500 uppercase font-bold">Importados con éxito</p>
-            </div>
+        <div *ngIf="!reporte" class="bg-white shadow-lg rounded-2xl overflow-hidden border border-gray-100 h-full">
+          <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <h3 class="font-bold text-gray-800">Estructura del Excel</h3>
+            <span class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Ejemplo</span>
           </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm text-left whitespace-nowrap">
+              <thead class="text-xs text-gray-500 uppercase bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3">Cédula*</th>
+                  <th class="px-4 py-3">Nombres*</th>
+                  <th class="px-4 py-3">Sucursal</th>
+                  <th class="px-4 py-3 text-indigo-600 font-bold">Área</th> <th class="px-4 py-3">Depto</th>
+                  <th class="px-4 py-3">Cargo</th>
+                  <th class="px-4 py-3">Supervisor?</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr class="bg-white">
+                  <td class="px-4 py-2 font-mono text-xs text-gray-600">1104567890</td>
+                  <td class="px-4 py-2">Juan Perez</td>
+                  <td class="px-4 py-2">Matriz</td>
+                  <td class="px-4 py-2 text-indigo-600 font-medium">Tecnología</td>
+                  <td class="px-4 py-2">Sistemas</td>
+                  <td class="px-4 py-2">Dev Senior</td>
+                  <td class="px-4 py-2 font-bold text-green-600">SI</td>
+                </tr>
+                <tr class="bg-gray-50/50">
+                  <td class="px-4 py-2 font-mono text-xs text-gray-600">1712345678</td>
+                  <td class="px-4 py-2">Maria Lopez</td>
+                  <td class="px-4 py-2">Norte</td>
+                  <td class="px-4 py-2 text-indigo-600 font-medium">Comercial</td>
+                  <td class="px-4 py-2">Ventas</td>
+                  <td class="px-4 py-2">Vendedor</td>
+                  <td class="px-4 py-2 text-gray-400">NO</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="p-4 bg-yellow-50 text-xs text-yellow-800 border-t border-yellow-100">
+            <i class="bi bi-info-circle-fill mr-1"></i>
+            <strong>Importante:</strong> Si la Sucursal, Área, Departamento o Cargo no existen en el sistema, se crearán automáticamente al subir el archivo.
+          </div>
+        </div>
+
+        <div *ngIf="reporte" class="bg-white shadow-lg rounded-2xl overflow-hidden border border-gray-100 animate-fade-in-up">
           
-          <div class="bg-white p-4 rounded-xl border border-red-200 shadow-sm flex items-center gap-3">
-            <div class="bg-red-100 p-2 rounded-full text-red-600"><i class="bi bi-x-lg"></i></div>
+          <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
             <div>
-              <p class="text-2xl font-bold text-red-700">{{ reporte.errores?.length || 0 }}</p>
-              <p class="text-xs text-gray-500 uppercase font-bold">Filas con error</p>
+              <h3 class="font-bold text-gray-900 text-lg">Resultado del Proceso</h3>
+              <p class="text-xs text-gray-500">Total filas procesadas: {{ reporte.total || 0 }}</p>
+            </div>
+            
+            <div class="flex gap-3">
+              <span class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-bold border border-green-200">
+                <i class="bi bi-check-circle-fill"></i> {{ reporte.creados }} Éxitos
+              </span>
+              <span *ngIf="reporte.errores?.length > 0" class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-bold border border-red-200">
+                <i class="bi bi-x-circle-fill"></i> {{ reporte.errores.length }} Errores
+              </span>
             </div>
           </div>
-        </div>
 
-        <div *ngIf="reporte.errores?.length > 0" class="bg-white rounded-xl border border-red-200 overflow-hidden">
-          <div class="bg-red-50 px-4 py-2 border-b border-red-100 flex justify-between items-center">
-            <span class="text-red-800 text-sm font-bold">Log de Errores</span>
-            <span class="text-xs text-red-600">Revisa tu Excel y vuelve a intentarlo</span>
+          <div *ngIf="reporte.creados > 0 && (!reporte.errores || reporte.errores.length === 0)" class="p-10 text-center">
+            <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+              <i class="bi bi-emoji-smile-fill"></i>
+            </div>
+            <h4 class="text-xl font-bold text-gray-900">¡Carga Perfecta!</h4>
+            <p class="text-gray-500 mt-2">Se importaron {{ reporte.creados }} empleados correctamente.</p>
+            <button routerLink="/empleados" class="mt-6 px-6 py-2 bg-green-600 text-white rounded-lg font-bold shadow hover:bg-green-700 transition">
+              Ver Empleados
+            </button>
           </div>
-          <ul class="divide-y divide-gray-100 max-h-60 overflow-y-auto">
-            <li *ngFor="let err of reporte.errores" class="px-4 py-3 text-sm text-gray-600 flex gap-2 items-start hover:bg-gray-50">
-              <i class="bi bi-arrow-return-right text-red-400 mt-0.5"></i>
-              <span>{{ err }}</span>
-            </li>
-          </ul>
-        </div>
 
-        <div *ngIf="reporte.creados > 0 && (!reporte.errores || reporte.errores.length === 0)" class="text-center p-4 bg-green-50 rounded-xl border border-green-200">
-          <p class="text-green-800 font-medium">✨ ¡Todo perfecto! Todos los registros fueron importados.</p>
-          <button routerLink="/empleados" class="mt-2 text-green-700 font-bold underline text-sm">Ir a ver empleados</button>
+          <div *ngIf="reporte.creados === 0 && (!reporte.errores || reporte.errores.length === 0)" class="p-10 text-center">
+            <div class="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+              <i class="bi bi-question-lg"></i>
+            </div>
+            <h4 class="text-xl font-bold text-gray-900">Sin datos procesados</h4>
+            <p class="text-gray-500 mt-2">
+              El archivo se leyó pero no se encontraron filas válidas.<br>
+              Revisa que los encabezados del Excel coincidan con la plantilla.
+            </p>
+            <button (click)="reporte = null" class="mt-6 px-6 py-2 bg-gray-600 text-white rounded-lg font-bold shadow hover:bg-gray-700 transition">
+              Intentar de nuevo
+            </button>
+          </div>
+
+          <div *ngIf="reporte.errores?.length > 0" class="flex flex-col h-96">
+            <div class="p-4 bg-red-50 border-b border-red-100 text-red-800 text-sm flex items-center gap-2">
+              <i class="bi bi-exclamation-triangle-fill"></i>
+              <span>Algunas filas no se pudieron procesar. Revisa el detalle abajo.</span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto">
+              <table class="min-w-full text-sm text-left">
+                <thead class="text-xs text-gray-500 uppercase bg-gray-50 sticky top-0">
+                  <tr>
+                    <th class="px-6 py-3 w-20">Fila</th>
+                    <th class="px-6 py-3">Detalle del Error</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <tr *ngFor="let err of erroresParseados" class="hover:bg-red-50 transition">
+                    <td class="px-6 py-3 font-mono font-bold text-red-600">{{ err.fila }}</td>
+                    <td class="px-6 py-3 text-gray-700">
+                      {{ err.mensaje }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
 
       </div>
-
     </div>
   </div>
 </div>

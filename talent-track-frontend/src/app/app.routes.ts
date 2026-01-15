@@ -71,7 +71,7 @@ export const routes: Routes = [
           canActivate: [adminGuard]
         },
         { 
-          path: 'empleados/carga-masiva', 
+          path: 'carga-masiva', 
           component: CargaMasivaComponent,
           canActivate: [adminGuard]
         },

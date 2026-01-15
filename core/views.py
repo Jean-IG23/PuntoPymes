@@ -9,7 +9,8 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models.signals import post_save # <--- IMPORTANTE: Necesario para el parche
-
+import pandas as pd
+from rest_framework.parsers import MultiPartParser, FormParser
 # Modelos
 from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion
 from personal.models import Empleado, SolicitudAusencia
@@ -47,6 +48,11 @@ class CustomLoginView(ObtainAuthToken):
 
         try:
             empleado = Empleado.objects.get(email=user.email)
+            if not empleado.empresa.estado:
+                 return Response(
+                     {'error': 'ACCESO DENEGADO: Su empresa se encuentra inactiva. Contacte al administrador.'}, 
+                     status=403 # Forbidden
+                 )
             role = empleado.rol
             empresa_id = empleado.empresa.id
             nombre_empresa = empleado.empresa.nombre_comercial
@@ -319,10 +325,21 @@ def dashboard_stats(request):
                 estado='PENDIENTE'
             ).exclude(empleado=perfil).count()
         elif perfil.rol == 'GERENTE':
-            data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
-                estado='PENDIENTE',
-                empleado__departamento=perfil.departamento
-            ).exclude(empleado=perfil).count()
+            # Verificamos si manda en sucursales
+            sucursales_a_cargo = perfil.sucursales_a_cargo.all()
+            
+            if sucursales_a_cargo.exists():
+                # Cuenta pendientes de TODA la sucursal
+                data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
+                    estado='PENDIENTE',
+                    empleado__sucursal__in=sucursales_a_cargo
+                ).exclude(empleado=perfil).count()
+            else:
+                # Cuenta solo de su departamento (Jefe de Área)
+                data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
+                    estado='PENDIENTE',
+                    empleado__departamento=perfil.departamento
+                ).exclude(empleado=perfil).count()
 
     except Empleado.DoesNotExist:
         if user.is_superuser:
@@ -330,3 +347,4 @@ def dashboard_stats(request):
             data['es_lider'] = True
 
     return Response(data)
+

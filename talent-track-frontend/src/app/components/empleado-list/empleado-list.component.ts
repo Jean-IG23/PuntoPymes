@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
-import { FormsModule } from '@angular/forms'; // Vital para [(ngModel)]
+import { FormsModule } from '@angular/forms'; 
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { forkJoin } from 'rxjs';
@@ -9,29 +9,27 @@ import { forkJoin } from 'rxjs';
 @Component({
   selector: 'app-empleado-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule], // FormsModule agregado
+  imports: [CommonModule, RouterLink, FormsModule],
   templateUrl: './empleado-list.component.html',
   styleUrls: ['./empleado-list.component.css']
 })
 export class EmpleadoListComponent implements OnInit {
   
-  // Datos principales
+  // Datos
   empleados: any[] = [];
   empleadosFiltrados: any[] = [];
-  loading: boolean = true;
   
-  // Filtros visuales
-  searchTerm: string = '';
-  filtroSucursal: string = ''; // <--- ¡ESTA ERA LA VARIABLE QUE FALTABA!
+  // Catálogos para filtros (Dropdowns)
+  sucursales: any[] = [];
+  
+  // Estados de vista
+  loading: boolean = true;
+  textoBusqueda: string = '';
+  filtroSucursal: string = ''; // ID de la sucursal seleccionada
 
-  // Contexto (¿Vengo de un depto específico o veo todo?)
+  // Contexto (Si viene de "Ver Depto")
   currentDeptoId: number | null = null;
   currentEmpresaId: number | null = null;
-
-  // Catálogos para mapeo (Crucial para que no salga "ID: 5")
-  sucursales: any[] = [];
-  puestos: any[] = [];
-  turnos: any[] = [];
 
   constructor(
     private api: ApiService, 
@@ -41,13 +39,12 @@ export class EmpleadoListComponent implements OnInit {
 
   ngOnInit() {
     this.verificarContexto();
-    this.cargarDatosCompletos();
+    this.cargarDatos();
   }
 
   verificarContexto() {
-    // Detectamos si la URL es /departamentos/:id/empleados
+    // Si la URL es /departamentos/:id/empleados
     const deptoId = this.route.snapshot.paramMap.get('id');
-    // Verificamos de forma segura la URL
     const firstSegment = this.route.snapshot.url.length > 0 ? this.route.snapshot.url[0].path : '';
 
     if (firstSegment === 'departamentos' && deptoId) {
@@ -56,81 +53,96 @@ export class EmpleadoListComponent implements OnInit {
     this.currentEmpresaId = this.auth.getEmpresaId();
   }
 
-  cargarDatosCompletos() {
+  cargarDatos() {
     this.loading = true;
 
-    // 1. Definir la petición de empleados según contexto
-    let empleadosReq;
+    // Preparamos peticiones en paralelo
+    const peticiones: any = {
+      // 1. Cargar Sucursales (Para el dropdown de filtro)
+      sucursales: this.api.getSucursales(this.currentEmpresaId || undefined),
+    };
+
+    // 2. Cargar Empleados (Filtrados por depto o todos)
     if (this.currentDeptoId) {
-        // Pedir solo empleados de este depto
-        empleadosReq = this.api.getEmpleados(undefined, this.currentDeptoId);
+       peticiones.empleados = this.api.getEmpleados(undefined, this.currentDeptoId);
     } else {
-        // Pedir todos los de la empresa
-        empleadosReq = this.api.getEmpleados(this.currentEmpresaId || undefined);
+       peticiones.empleados = this.api.getEmpleados(this.currentEmpresaId || undefined);
     }
 
-    // 2. Carga Paralela (Empleados + Catálogos)
-    forkJoin({
-        lista: empleadosReq,
-        sucursales: this.api.getSucursales(this.currentEmpresaId || undefined),
-        puestos: this.api.getPuestos(undefined, this.currentEmpresaId || undefined),
-        turnos: this.api.getTurnos() 
-    }).subscribe({
+    // Ejecutar todo junto
+    forkJoin(peticiones).subscribe({
         next: (res: any) => {
-            const rawEmpleados = res.lista.results || res.lista;
+            // Guardar sucursales
             this.sucursales = res.sucursales.results || res.sucursales;
-            this.puestos = res.puestos.results || res.puestos;
-            this.turnos = res.turnos.results || res.turnos;
-
-            // 3. ENRIQUECIMIENTO DE DATOS (Mapping Inteligente)
-            this.empleados = rawEmpleados.map((emp: any) => {
-                // Django a veces devuelve ID (5) y a veces Objeto ({id:5, nombre:'...'})
-                // Esta lógica normaliza todo a ID para buscar en el catálogo
-                const sucId = (typeof emp.sucursal === 'object' && emp.sucursal) ? emp.sucursal.id : emp.sucursal;
-                const ptoId = (typeof emp.puesto === 'object' && emp.puesto) ? emp.puesto.id : emp.puesto;
-                
-                return {
-                    ...emp,
-                    // Inyectamos el nombre real buscándolo en los arrays descargados
-                    nombre_sucursal_real: this.sucursales.find(s => s.id == sucId)?.nombre || 'Sin Asignar',
-                    nombre_puesto_real: this.puestos.find(p => p.id == ptoId)?.nombre || 'Sin Cargo',
-                    // Generamos iniciales para el avatar (Ej: Juan Perez -> JP)
-                    iniciales: (emp.nombres?.[0] || '') + (emp.apellidos?.[0] || '')
-                };
-            });
-
+            
+            // Guardar empleados
+            this.empleados = res.empleados.results || res.empleados;
+            
+            // Inicializar tabla
             this.empleadosFiltrados = this.empleados;
             this.loading = false;
         },
         error: (e) => {
-            console.error("Error cargando personal:", e);
+            console.error("Error cargando datos:", e);
             this.loading = false;
         }
     });
   }
 
   filtrar() {
-    const term = this.searchTerm.toLowerCase();
-    const idSucursalFiltro = this.filtroSucursal; // string del select
+    const texto = this.textoBusqueda.toLowerCase();
+    const idSucursal = this.filtroSucursal; // Viene como string del select
 
     this.empleadosFiltrados = this.empleados.filter(emp => {
-      // 1. Coincidencia de Texto (Nombre, Apellido, Cargo)
+      // 1. Filtro por Texto
       const matchTexto = 
-          (emp.nombres || '').toLowerCase().includes(term) ||
-          (emp.apellidos || '').toLowerCase().includes(term) ||
-          (emp.documento || '').includes(term) ||
-          (emp.nombre_puesto_real || '').toLowerCase().includes(term);
+          (emp.nombres || '').toLowerCase().includes(texto) ||
+          (emp.apellidos || '').toLowerCase().includes(texto) ||
+          (emp.documento || '').includes(texto) ||
+          (emp.nombre_puesto || '').toLowerCase().includes(texto);
 
-      // 2. Coincidencia de Sucursal (Dropdown)
-      // Comparamos el ID del empleado con el ID seleccionado en el filtro
+      // 2. Filtro por Sucursal
+      // Nota: El serializer devuelve el OBJETO sucursal o el ID. 
+      // Si es objeto, usamos .id. Si es número, directo.
       let matchSucursal = true;
-      if (idSucursalFiltro) {
-          const empSucId = (typeof emp.sucursal === 'object') ? emp.sucursal.id : emp.sucursal;
-          // Usamos == para comparar número con string sin problemas
-          matchSucursal = empSucId == idSucursalFiltro;
+      if (idSucursal) {
+          const empSucId = (typeof emp.sucursal === 'object' && emp.sucursal) ? emp.sucursal.id : emp.sucursal;
+          // Usamos '==' para que coincida "5" (string) con 5 (number)
+          matchSucursal = empSucId == idSucursal;
       }
 
       return matchTexto && matchSucursal;
     });
+  }
+
+  toggleEstado(emp: any) {
+    const nuevoEstado = emp.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
+    const original = emp.estado;
+
+    // Optimismo UI: Cambiamos visualmente primero
+    emp.estado = nuevoEstado;
+
+    this.api.updateEmpleado(emp.id, { estado: nuevoEstado }).subscribe({
+        error: (e) => {
+            // Si falla, revertimos
+            emp.estado = original;
+            alert('No se pudo actualizar el estado.');
+            console.error(e);
+        }
+    });
+  }
+
+  editarEmpleado(emp: any) {
+    // Aquí puedes navegar a /empleados/editar/:id o abrir un modal
+    console.log("Editar:", emp);
+  }
+
+  verDetalles(emp: any) {
+    console.log("Detalles:", emp);
+  }
+
+  abrirModalCrear() {
+    // Lógica para abrir modal
+    console.log("Abrir modal crear");
   }
 }

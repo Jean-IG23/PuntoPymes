@@ -1,316 +1,326 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, of } from 'rxjs'; // Importamos 'of' para mocks rápidos si faltan endpoints
 import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ApiService {
-
-  // Única URL Base (Coincide con urls.py de Django)
-  private apiUrl = 'http://127.0.0.1:8000/api/';
+  
+  private baseUrl = 'http://localhost:8000/api'; 
 
   constructor(private http: HttpClient, private auth: AuthService) { }
 
-  // Helper para enviar el Token en cada petición
   private getHeaders() {
-    const token = this.auth.getToken();
+    const token = this.auth.getToken(); 
     return {
       headers: new HttpHeaders({
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       })
     };
   }
 
   // ==========================================
-  // 0. DASHBOARD
+  // 🏢 EMPRESAS
   // ==========================================
-  getStats(): Observable<any> {
-    return this.http.get(this.apiUrl + 'dashboard/stats/', this.getHeaders());
+  getEmpresas(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/empresas/`, this.getHeaders());
   }
 
-  // ==========================================
-  // 1. MÓDULO CORE (Estructura Empresa)
-  // ==========================================
-  
-  // Empresas
-  getEmpresas(): Observable<any> { return this.http.get(this.apiUrl + 'empresas/', this.getHeaders()); }
-  
-  createEmpresa(data: any, logo?: File): Observable<any> {
-    const formData = new FormData();
-
-    // 1. Agregamos todos los campos de texto (Nombre, RUC, Dirección...)
-    for (const key in data) {
-      if (data[key] !== null && data[key] !== undefined) {
-        formData.append(key, data[key]);
-      }
-    }
-    if (logo) {
-      formData.append('logo', logo);
-    }
-
-    const token = this.auth.getToken();
-    // Recuerda: NO poner Content-Type manual cuando usas FormData
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`
-    });
-
-    return this.http.post(this.apiUrl + 'empresas/', formData, { headers });
-  }
-
-  getEmpresaById(id: number): Observable<any> { 
-    return this.http.get(this.apiUrl + 'empresas/' + id + '/', this.getHeaders()); 
+  getEmpresaById(id: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/empresas/${id}/`, this.getHeaders());
   }
   
-  saveEmpresa(data: any): Observable<any> { return this.http.post(this.apiUrl + 'empresas/', data, this.getHeaders()); }
-  
+  createEmpresa(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/empresas/`, data, this.getHeaders());
+  }
+
   updateEmpresa(id: number, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}empresas/${id}/`, data, this.getHeaders());
+    return this.http.put(`${this.baseUrl}/empresas/${id}/`, data, this.getHeaders()); 
   }
 
-  deleteEmpresa(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}empresas/${id}/`, this.getHeaders());
+  saveEmpresa(data: any): Observable<any> {
+    if (data.id) return this.updateEmpresa(data.id, data);
+    return this.createEmpresa(data);
   }
-  
-  // Sucursales
+
+  // ==========================================
+  // 📍 SUCURSALES
+  // ==========================================
   getSucursales(empresaId?: number): Observable<any> {
-    let params = new HttpParams();
-    if (empresaId) params = params.set('empresa', empresaId.toString());
-    return this.http.get(this.apiUrl + 'sucursales/', { headers: this.getHeaders().headers, params });
+    let url = `${this.baseUrl}/sucursales/`;
+    if (empresaId) url += `?empresa=${empresaId}`;
+    return this.http.get(url, this.getHeaders());
   }
-  saveSucursal(data: any): Observable<any> { return this.http.post(this.apiUrl + 'sucursales/', data, this.getHeaders()); }
 
-  // Áreas
+  createSucursal(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/sucursales/`, data, this.getHeaders());
+  }
+
+  updateSucursal(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/sucursales/${id}/`, data, this.getHeaders());
+  }
+
+  deleteSucursal(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/sucursales/${id}/`, this.getHeaders());
+  }
+
+  saveSucursal(data: any): Observable<any> {
+    if (data.id) return this.updateSucursal(data.id, data);
+    return this.createSucursal(data);
+  }
+
+  // ==========================================
+  // 🏷️ ÁREAS
+  // ==========================================
   getAreas(empresaId?: number): Observable<any> {
-    let params = new HttpParams();
-    if (empresaId) params = params.set('empresa', empresaId.toString());
-    return this.http.get(this.apiUrl + 'areas/', { headers: this.getHeaders().headers, params });
+    let url = `${this.baseUrl}/areas/`;
+    if (empresaId) url += `?empresa=${empresaId}`;
+    return this.http.get(url, this.getHeaders());
   }
-  saveArea(data: any): Observable<any> { return this.http.post(this.apiUrl + 'areas/', data, this.getHeaders()); }
 
-  // Departamentos
+  createArea(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/areas/`, data, this.getHeaders());
+  }
+
+  updateArea(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/areas/${id}/`, data, this.getHeaders());
+  }
+
+  deleteArea(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/areas/${id}/`, this.getHeaders());
+  }
+
+  saveArea(data: any): Observable<any> {
+    if (data.id) return this.updateArea(data.id, data);
+    return this.createArea(data);
+  }
+
+  // ==========================================
+  // 📂 DEPARTAMENTOS
+  // ==========================================
   getDepartamentos(sucursalId?: number): Observable<any> {
-      let params = new HttpParams();
-      if (sucursalId) params = params.set('sucursal', sucursalId.toString());
-      return this.http.get(this.apiUrl + 'departamentos/', { headers: this.getHeaders().headers, params });
-  }
-  saveDepartamento(data: any): Observable<any> { return this.http.post(this.apiUrl + 'departamentos/', data, this.getHeaders()); }
-
-  // Puestos
-  getPuestos(departamentoId?: number | null, empresaId?: number | null): Observable<any> {
-    let params = new HttpParams();
-    if (departamentoId) params = params.set('departamento', departamentoId.toString());
-    if (empresaId) params = params.set('empresa', empresaId.toString());
-
-    return this.http.get(this.apiUrl + 'puestos/', { headers: this.getHeaders().headers, params });
-  }
-  savePuesto(data: any): Observable<any> { return this.http.post(this.apiUrl + 'puestos/', data, this.getHeaders()); }
-
-  // Turnos
-  getTurnos(): Observable<any> { return this.http.get(this.apiUrl + 'turnos/', this.getHeaders()); }
-  saveTurno(data: any): Observable<any> { return this.http.post(this.apiUrl + 'turnos/', data, this.getHeaders()); }
-  deleteTurno(id: number): Observable<any> { return this.http.delete(this.apiUrl + 'turnos/' + id + '/', this.getHeaders()); }
-
-  // ==========================================
-  // 2. MÓDULO PERSONAL (Gente)
-  // ==========================================
-
-  // Empleados (Lista)
-  getEmpleados(empresaId?: number | null, deptoId?: number | null): Observable<any> {
-    let params = new HttpParams();
-    if (empresaId) params = params.set('empresa', empresaId.toString());
-    if (deptoId) params = params.set('departamento', deptoId.toString());
-    
-    return this.http.get(this.apiUrl + 'empleados/', { headers: this.getHeaders().headers, params });
-  }
-  
-  // Empleado (Individual)
-  getEmpleado(id: number): Observable<any> {
-    return this.http.get(`${this.apiUrl}empleados/${id}/`, this.getHeaders());
+    let url = `${this.baseUrl}/departamentos/`;
+    if (sucursalId) url += `?sucursal=${sucursalId}`;
+    return this.http.get(url, this.getHeaders());
   }
 
-  createEmpleado(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'empleados/', data, this.getHeaders());
+  createDepartamento(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/departamentos/`, data, this.getHeaders());
   }
 
-  saveEmpleado(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'empleados/', data, this.getHeaders());
-  }
-  
-  updateEmpleado(id: number, data: any): Observable<any> {
-    return this.http.put(this.apiUrl + `empleados/${id}/`, data, this.getHeaders());
+  updateDepartamento(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/departamentos/${id}/`, data, this.getHeaders());
   }
 
-  // Carga Masiva (Excel)
-  uploadEmpleados(archivo: File): Observable<any> {
-    const formData = new FormData();
-    
-    // CORRECCIÓN: Cambiamos 'archivo' por 'file' para que coincida con Django
-    formData.append('file', archivo); 
-    
-    const token = this.auth.getToken();
-    
-    // Angular detecta automáticamente que es FormData y pone el Content-Type correcto
-    const headers = new HttpHeaders({
-        'Authorization': `Bearer ${token}`
-    });
-    
-    // La URL debe coincidir con el url_path del backend ('importar_excel')
-    return this.http.post(this.apiUrl + 'empleados/importar_excel/', formData, { headers });
-  }
-  downloadPlantilla(): void {
-    // Truco para descargar archivo con Auth Header
-    this.http.get(this.apiUrl + 'empleados/download_template/', { 
-      headers: this.getHeaders().headers, 
-      responseType: 'blob' 
-    }).subscribe(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'plantilla_empleados.xlsx';
-        a.click();
-        window.URL.revokeObjectURL(url);
-    });
+  deleteDepartamento(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/departamentos/${id}/`, this.getHeaders());
   }
 
-  // --- SOLICITUDES (VACACIONES) ---
-  // Aquí corregí: agregué getHeaders() y eliminé los duplicados
-  
-  getSolicitudes(): Observable<any> { 
-      return this.http.get(this.apiUrl + 'solicitudes/', this.getHeaders()); 
-  }
-  
-  createSolicitud(data: any): Observable<any> {
-    // CORRECCIÓN IMPORTANTE: Agregado this.getHeaders()
-    return this.http.post(this.apiUrl + 'solicitudes/', data, this.getHeaders());
-  }
-
-  saveSolicitud(data: any): Observable<any> { return this.http.post(this.apiUrl + 'solicitudes/', data, this.getHeaders()); }
-  
-  updateSolicitud(id: number, data: any): Observable<any> { return this.http.patch(this.apiUrl + 'solicitudes/' + id + '/', data, this.getHeaders()); }
-  
-  gestionarSolicitud(id: number, estado: 'APROBADA' | 'RECHAZADA', comentario: string): Observable<any> {
-    // CORRECCIÓN IMPORTANTE: Agregado this.getHeaders()
-    return this.http.post(this.apiUrl + `solicitudes/${id}/gestionar/`, {
-        estado: estado,
-        comentario_jefe: comentario
-    }, this.getHeaders());
-  }
-
-  // Tipos de Ausencia
-  getTiposAusencia(): Observable<any> { return this.http.get(this.apiUrl + 'tipos-ausencia/', this.getHeaders()); }
-  
-  createTipoAusencia(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'tipos-ausencia/', data, this.getHeaders());
-  }
-
-  deleteTipoAusencia(id: number): Observable<any> {
-    return this.http.delete(this.apiUrl + `tipos-ausencia/${id}/`, this.getHeaders());
+  saveDepartamento(data: any): Observable<any> {
+    if (data.id) return this.updateDepartamento(data.id, data);
+    return this.createDepartamento(data);
   }
 
   // ==========================================
-  // 3. MÓDULO ASISTENCIA (Reloj)
+  // 💼 PUESTOS (CARGOS)
   // ==========================================
-
-  marcarAsistencia(lat: number, lng: number): Observable<any> {
-    return this.http.post(this.apiUrl + 'asistencia/marcar/', { lat, lng }, this.getHeaders());
+  getPuestos(areaId?: number, empresaId?: number): Observable<any> {
+    let url = `${this.baseUrl}/puestos/`;
+    const params: string[] = [];
+    if (areaId) params.push(`area=${areaId}`);
+    if (empresaId) params.push(`empresa=${empresaId}`);
+    if (params.length > 0) url += '?' + params.join('&');
+    return this.http.get(url, this.getHeaders());
   }
 
-  registrarAsistencia(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'asistencia/marcar/', data, this.getHeaders());
+  createPuesto(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/puestos/`, data, this.getHeaders());
   }
 
-  getHistorialAsistencia(): Observable<any> {
-    return this.http.get(this.apiUrl + 'asistencia/', this.getHeaders());
+  updatePuesto(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/puestos/${id}/`, data, this.getHeaders());
+  }
+
+  deletePuesto(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/puestos/${id}/`, this.getHeaders());
+  }
+
+  savePuesto(data: any): Observable<any> {
+    if (data.id) return this.updatePuesto(data.id, data);
+    return this.createPuesto(data);
+  }
+
+  // ==========================================
+  // ⏰ TURNOS & JORNADAS
+  // ==========================================
+  getTurnos(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/turnos/`, this.getHeaders());
+  }
+
+  createTurno(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/turnos/`, data, this.getHeaders());
+  }
+
+  updateTurno(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/turnos/${id}/`, data, this.getHeaders());
+  }
+
+  deleteTurno(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/turnos/${id}/`, this.getHeaders());
+  }
+
+  saveTurno(data: any): Observable<any> {
+    if (data.id) return this.updateTurno(data.id, data);
+    return this.createTurno(data);
   }
 
   getJornadas(): Observable<any> {
-    return this.http.get(this.apiUrl + 'jornadas/', this.getHeaders());
+    return this.http.get(`${this.baseUrl}/asistencia/jornadas/`, this.getHeaders());
   }
 
   // ==========================================
-  // 4. MÓDULO KPI (Evaluaciones y Objetivos)
+  // 👥 EMPLEADOS (CRUD COMPLETO)
   // ==========================================
-
-  // Objetivos
-  getObjetivos(empleadoId?: number): Observable<any> {
-    let url = this.apiUrl + 'objetivos/';
-    if (empleadoId) url += `?empleado=${empleadoId}`; 
+  getEmpleados(empresaId?: any, departamentoId?: any): Observable<any> {
+    let url = `${this.baseUrl}/empleados/`;
+    const params: string[] = [];
+    if (empresaId) params.push(`empresa=${empresaId}`);
+    if (departamentoId) params.push(`departamento=${departamentoId}`);
+    if (params.length > 0) url += '?' + params.join('&');
     return this.http.get(url, this.getHeaders());
+  }
+
+  getEmpleadosSimple(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/empleados/`, this.getHeaders());
+  }
+
+  getEmpleado(id: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/empleados/${id}/`, this.getHeaders());
+  }
+
+  createEmpleado(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/empleados/`, data, this.getHeaders());
+  }
+
+  updateEmpleado(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/empleados/${id}/`, data, this.getHeaders());
+  }
+
+  uploadEmpleados(file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${this.baseUrl}/empleados/upload_excel/`, formData, this.getHeaders());
+  }
+
+  downloadPlantilla(): void {
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${this.auth.getToken()}`
+    });
+    this.http.get(`${this.baseUrl}/empleados/download_plantilla/`, { 
+      headers: headers, 
+      responseType: 'blob' 
+    }).subscribe((blob: Blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'plantilla_empleados.xlsx';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  }
+
+  // ==========================================
+  // 🗓️ SOLICITUDES
+  // ==========================================
+  getSolicitudes(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/solicitudes/`, this.getHeaders());
+  }
+
+  createSolicitud(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/solicitudes/`, data, this.getHeaders());
+  }
+
+  updateSolicitud(id: number, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/solicitudes/${id}/`, data, this.getHeaders());
+  }
+
+  saveSolicitud(data: any): Observable<any> {
+    if (data.id) return this.updateSolicitud(data.id, data);
+    return this.createSolicitud(data);
+  }
+
+  gestionarSolicitud(id: number, estado: string, motivo: string = ''): Observable<any> {
+    const payload = { estado: estado, motivo: motivo };
+    return this.http.post(`${this.baseUrl}/solicitudes/${id}/gestionar/`, payload, this.getHeaders());
+  }
+
+  getTiposAusencia(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/tipos-ausencia/`, this.getHeaders());
+  }
+
+  createTipoAusencia(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/tipos-ausencia/`, data, this.getHeaders());
+  }
+
+  deleteTipoAusencia(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/tipos-ausencia/${id}/`, this.getHeaders());
+  }
+
+  // ==========================================
+  // 🕒 ASISTENCIA
+  // ==========================================
+  marcarAsistencia(lat: number, lng: number): Observable<any> {
+    const data = {
+      latitud: lat,
+      longitud: lng,
+      timestamp: new Date().toISOString()
+    };
+    return this.http.post(`${this.baseUrl}/asistencia/marcar/`, data, this.getHeaders());
+  }
+
+  registrarAsistencia(data: any): Observable<any> {
+    if(data.latitud && data.longitud) {
+       return this.marcarAsistencia(data.latitud, data.longitud);
+    }
+    return this.http.post(`${this.baseUrl}/asistencia/marcar/`, data, this.getHeaders());
+  }
+
+  // ==========================================
+  // 📊 DASHBOARD / STATS
+  // ==========================================
+  getStats(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/dashboard/stats/`, this.getHeaders());
+  }
+
+  // ==========================================
+  // 📈 KPIs & OBJETIVOS (Legacy)
+  // ==========================================
+  getKPIs(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/kpis/`, this.getHeaders());
+  }
+
+  saveKPI(data: any): Observable<any> {
+    if(data.id) return this.http.put(`${this.baseUrl}/kpis/${data.id}/`, data, this.getHeaders());
+    return this.http.post(`${this.baseUrl}/kpis/`, data, this.getHeaders());
+  }
+
+  deleteKPI(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/kpis/${id}/`, this.getHeaders());
+  }
+
+  saveResultadoKPI(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/kpis/resultados/`, data, this.getHeaders());
+  }
+
+  getObjetivos(empleadoId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/objetivos/?empleado=${empleadoId}`, this.getHeaders());
   }
 
   saveObjetivo(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'objetivos/', data, this.getHeaders());
+    if(data.id) return this.http.put(`${this.baseUrl}/objetivos/${data.id}/`, data, this.getHeaders());
+    return this.http.post(`${this.baseUrl}/objetivos/`, data, this.getHeaders());
   }
 
-  updateObjetivo(id: number, data: any): Observable<any> {
-    return this.http.patch(this.apiUrl + 'objetivos/' + id + '/', data, this.getHeaders());
-  }
-
-  deleteObjetivo(id: number): Observable<any> {
-    return this.http.delete(this.apiUrl + 'objetivos/' + id + '/', this.getHeaders());
-  }
-
-  // Configuración de KPIs
-  getKPIs(): Observable<any> { return this.http.get(this.apiUrl + 'kpis/', this.getHeaders()); }
-  saveKPI(data: any): Observable<any> { return this.http.post(this.apiUrl + 'kpis/', data, this.getHeaders()); }
-  deleteKPI(id: number): Observable<any> { return this.http.delete(this.apiUrl + 'kpis/' + id + '/', this.getHeaders()); }
-  
-  // RESULTADOS KPI
-  saveResultadoKPI(data: any): Observable<any> {
-    return this.http.post(this.apiUrl + 'resultados-kpi/', data, this.getHeaders());
-  }
-
-  // Evaluaciones
-  getEvaluaciones(empleadoId?: number): Observable<any> {
-    let url = this.apiUrl + 'evaluaciones/';
-    if (empleadoId) url += `?empleado=${empleadoId}`;
-    return this.http.get(url, this.getHeaders());
-  }
-
-  generarCierreMensual(empleadoId: number, mes: number, anio: number): Observable<any> {
-    return this.http.post(this.apiUrl + 'evaluaciones/generar_cierre/', {
-      empleado_id: empleadoId,
-      mes: mes,
-      anio: anio
-    }, this.getHeaders());
-  }
-  // --- ÁREAS ---
-updateArea(id: number, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}areas/${id}/`, data, this.getHeaders());
-}
-deleteArea(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}areas/${id}/`, this.getHeaders());
-}
-
-// --- SUCURSALES ---
-updateSucursal(id: number, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}sucursales/${id}/`, data, this.getHeaders());
-}
-deleteSucursal(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}sucursales/${id}/`, this.getHeaders());
-}
-
-// --- DEPARTAMENTOS ---
-updateDepartamento(id: number, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}departamentos/${id}/`, data, this.getHeaders());
-}
-deleteDepartamento(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}departamentos/${id}/`, this.getHeaders());
-}
-
-// --- PUESTOS ---
-updatePuesto(id: number, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}puestos/${id}/`, data, this.getHeaders());
-}
-deletePuesto(id: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}puestos/${id}/`, this.getHeaders());
-}
-
-// --- TURNOS ---
-updateTurno(id: number, data: any): Observable<any> {
-    return this.http.put(`${this.apiUrl}turnos/${id}/`, data, this.getHeaders());
-}
 }

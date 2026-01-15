@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-gray-50 p-4 sm:p-8 animate-fade-in relative">
+<div class="min-h-screen bg-gray-50 p-4 sm:p-8 animate-fade-in relative font-sans">
 
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
       <div class="flex items-center gap-4">
@@ -7,10 +7,12 @@
           </div>
           <div>
               <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  Hola, {{ stats.nombres }} <span class="animate-wave text-2xl">👋</span>
+                  Hola, {{ stats.nombres.split(' ')[0] }} <span class="animate-wave text-2xl">👋</span>
               </h1>
-              <p class="text-gray-500 text-sm font-medium">
-                  {{ stats.rol }} <span *ngIf="stats.puesto !== 'Sin puesto'" class="text-gray-300 mx-2">|</span> {{ stats.puesto }}
+              <p class="text-gray-500 text-sm font-medium flex items-center gap-2">
+                  {{ stats.rol | titlecase }} 
+                  <span *ngIf="stats.puesto !== 'Sin puesto'" class="text-gray-300">|</span> 
+                  {{ stats.puesto }}
               </p>
           </div>
       </div>
@@ -24,43 +26,28 @@
   </div>
 
   <h2 class="text-lg font-bold text-gray-800 mb-5 flex items-center gap-2">
-      <i class="bi bi-person-workspace text-indigo-500"></i> Mi Espacio de Trabajo
+      <i class="bi bi-grid-1x2-fill text-indigo-500"></i> Mi Panel
   </h2>
   
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-10">
       
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition relative overflow-hidden group">
           <div class="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition">
               <i class="bi bi-clock-history text-6xl text-indigo-600"></i>
           </div>
           <p class="text-xs font-bold text-gray-400 uppercase mb-1">Registro de Asistencia</p>
-          <div class="text-3xl font-bold text-gray-900 mb-4 font-mono">{{ horaActual || '--:--' }}</div>
+          <div class="text-3xl font-bold text-gray-900 mb-4 font-mono tracking-tight">{{ horaActual || '--:--' }}</div>
           
           <div class="grid grid-cols-2 gap-2">
               <button (click)="marcarAsistencia('ENTRADA')" 
-                      class="py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">
+                      class="py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 active:scale-95">
                   Entrada
               </button>
               <button (click)="marcarAsistencia('SALIDA')" 
-                      class="py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-50 transition">
+                      class="py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition active:scale-95">
                   Salida
               </button>
           </div>
-      </div>
-
-      <div class="bg-white rounded-2xl shadow-sm border-l-4 border-yellow-400 p-5 hover:shadow-md transition group">
-          <div class="flex justify-between items-start mb-4">
-              <div>
-                  <p class="text-xs font-bold text-gray-400 uppercase">Saldo Vacaciones</p>
-                  <p class="text-3xl font-bold text-gray-900 mt-1">{{ stats.saldo_vacaciones }} <span class="text-sm font-medium text-gray-500">Días</span></p>
-              </div>
-              <div class="p-2 bg-yellow-50 text-yellow-600 rounded-lg group-hover:rotate-12 transition">
-                  <i class="bi bi-sun-fill text-xl"></i>
-              </div>
-          </div>
-          <button routerLink="/solicitudes" class="w-full text-center py-2 bg-yellow-50 text-yellow-700 font-bold text-xs uppercase rounded-lg hover:bg-yellow-100 transition tracking-wide">
-              Solicitar Ausencia
-          </button>
       </div>
 
       <div class="bg-white rounded-2xl shadow-sm border-l-4 border-green-500 p-5 hover:shadow-md transition">
@@ -82,56 +69,121 @@
           </div>
       </div>
 
+      <div *ngIf="!stats.es_lider" class="bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden group col-span-1 md:col-span-2 lg:col-span-1">
+          <div class="absolute right-0 top-0 p-2 opacity-20 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition duration-500">
+              <i class="bi bi-airplane-engines-fill text-8xl"></i>
+          </div>
+          
+          <div class="relative z-10 flex flex-col justify-between h-full">
+              <div>
+                  <p class="text-yellow-100 font-bold text-xs uppercase tracking-wide">Saldo Vacaciones</p>
+                  <div class="flex items-baseline gap-2 mt-1">
+                      <span class="text-5xl font-black">{{ stats.saldo_vacaciones }}</span>
+                      <span class="text-lg font-medium opacity-90">días disponibles</span>
+                  </div>
+              </div>
+              
+              <button (click)="abrirModalSolicitud()" class="mt-4 bg-white text-orange-600 px-4 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-orange-50 transition flex items-center justify-center gap-2">
+                  <i class="bi bi-plus-circle-fill"></i> Pedir Vacaciones
+              </button>
+          </div>
+      </div>
+
       <div *ngIf="stats.es_lider" class="bg-white rounded-2xl shadow-sm border-l-4 border-blue-500 p-5 hover:shadow-md transition group">
           <div class="flex justify-between items-start mb-4">
               <div>
-                  <p class="text-xs font-bold text-gray-400 uppercase">Aprobaciones</p>
-                  <p class="text-3xl font-bold text-gray-900 mt-1">
+                  <p class="text-xs font-bold text-gray-400 uppercase">Gestión Equipo</p>
+                  <p class="text-4xl font-extrabold text-gray-900 mt-1">
                       {{ stats.solicitudes_pendientes }} 
                   </p>
-                  <p class="text-xs text-gray-500">Solicitudes pendientes</p>
+                  <p class="text-xs text-gray-500 font-medium">Solicitudes pendientes</p>
               </div>
               <div class="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:scale-110 transition">
                   <i class="bi bi-inbox-fill text-xl"></i>
               </div>
           </div>
           <button routerLink="/solicitudes" class="w-full text-center py-2 bg-blue-50 text-blue-700 font-bold text-xs uppercase rounded-lg hover:bg-blue-100 transition tracking-wide flex justify-center items-center gap-2">
-              Gestionar
+              Ir a Bandeja
               <span *ngIf="stats.solicitudes_pendientes > 0" class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
           </button>
       </div>
+
   </div>
 
-  <div *ngIf="auth.isSuperAdmin() || auth.isManagement()">
+  <div *ngIf="!stats.es_lider && misUltimasSolicitudes.length > 0" class="mb-10">
+      <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <i class="bi bi-clock-history text-gray-400"></i> Mis Movimientos Recientes
+      </h2>
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="divide-y divide-gray-100">
+              <div *ngFor="let sol of misUltimasSolicitudes" class="p-4 flex items-center justify-between hover:bg-gray-50 transition">
+                  <div class="flex items-center gap-4">
+                      <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+                           [ngClass]="{
+                             'bg-green-100 text-green-600': sol.estado === 'APROBADA',
+                             'bg-red-100 text-red-600': sol.estado === 'RECHAZADA',
+                             'bg-yellow-100 text-yellow-600': sol.estado === 'PENDIENTE'
+                           }">
+                          <i class="bi"
+                             [class.bi-check-lg]="sol.estado === 'APROBADA'"
+                             [class.bi-x-lg]="sol.estado === 'RECHAZADA'"
+                             [class.bi-clock]="sol.estado === 'PENDIENTE'"></i>
+                      </div>
+                      <div>
+                          <p class="font-bold text-sm text-gray-900">{{ sol.nombre_tipo || 'Solicitud' }}</p>
+                          <p class="text-xs text-gray-500 flex gap-2">
+                              <span>{{ sol.fecha_inicio | date:'dd MMM' }} - {{ sol.fecha_fin | date:'dd MMM' }}</span>
+                              <span class="text-gray-300">|</span>
+                              <span>{{ sol.dias_solicitados }} días</span>
+                          </p>
+                      </div>
+                  </div>
+                  <span class="text-[10px] font-bold px-2.5 py-1 rounded-full border"
+                        [ngClass]="{
+                          'bg-green-50 text-green-700 border-green-200': sol.estado === 'APROBADA',
+                          'bg-red-50 text-red-700 border-red-200': sol.estado === 'RECHAZADA',
+                          'bg-yellow-50 text-yellow-700 border-yellow-200': sol.estado === 'PENDIENTE'
+                        }">
+                      {{ sol.estado }}
+                  </span>
+              </div>
+          </div>
+          <div class="bg-gray-50 p-3 text-center border-t border-gray-100">
+              <a routerLink="/solicitudes" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline">Ver historial completo</a>
+          </div>
+      </div>
+  </div>
+
+  <div *ngIf="auth.isSuperAdmin() || auth.isManagement() || stats.es_lider">
       <h2 class="text-lg font-bold text-gray-800 mb-5 flex items-center gap-2">
-          <i class="bi bi-buildings-fill text-purple-500"></i> Centro de Administración
+          <i class="bi bi-buildings-fill text-purple-500"></i> Centro de Gestión
       </h2>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           
-          <div routerLink="/personal" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer group flex flex-col items-center text-center">
-              <div class="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition shadow-sm">
+          <a routerLink="/personal" class="block bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer group flex flex-col items-center text-center">
+              <div class="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition">
                   <i class="bi bi-people-fill text-2xl"></i>
               </div>
               <h3 class="font-bold text-gray-800">Directorio</h3>
-              <p class="text-xs text-gray-500 mt-1">Altas y Bajas</p>
-          </div>
+              <p class="text-xs text-gray-500 mt-1">Personal</p>
+          </a>
 
-          <div routerLink="/organizacion" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer group flex flex-col items-center text-center">
-              <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 group-hover:bg-indigo-600 group-hover:text-white transition shadow-sm">
+          <a routerLink="/organizacion" class="block bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer group flex flex-col items-center text-center">
+              <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 group-hover:bg-indigo-600 group-hover:text-white transition">
                   <i class="bi bi-diagram-3-fill text-2xl"></i>
               </div>
               <h3 class="font-bold text-gray-800">Organización</h3>
-              <p class="text-xs text-gray-500 mt-1">Estructura y Cargos</p>
-          </div>
+              <p class="text-xs text-gray-500 mt-1">Estructura</p>
+          </a>
 
-          <div routerLink="/solicitudes" class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer group flex flex-col items-center text-center">
-              <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3 group-hover:bg-blue-600 group-hover:text-white transition shadow-sm">
-                  <i class="bi bi-calendar-range-fill text-2xl"></i>
+          <a routerLink="/solicitudes" class="block bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer group flex flex-col items-center text-center">
+              <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3 group-hover:bg-blue-600 group-hover:text-white transition">
+                  <i class="bi bi-calendar-check-fill text-2xl"></i>
               </div>
-              <h3 class="font-bold text-gray-800">Ausencias</h3>
-              <p class="text-xs text-gray-500 mt-1">Reportes y Permisos</p>
-          </div>
+              <h3 class="font-bold text-gray-800">Aprobaciones</h3>
+              <p class="text-xs text-gray-500 mt-1">Ausencias</p>
+          </a>
 
           <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm cursor-not-allowed group flex flex-col items-center text-center opacity-60 grayscale">
               <div class="w-14 h-14 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center mb-3">
@@ -144,4 +196,59 @@
       </div>
   </div>
 
+</div>
+
+<div *ngIf="showModalSolicitud" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" (click)="showModalSolicitud=false"></div>
+    <div class="bg-white rounded-2xl w-full max-w-md z-10 p-6 shadow-2xl transform transition-all scale-100">
+        
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="font-bold text-xl text-gray-900 flex items-center gap-2">
+              <i class="bi bi-send-fill text-indigo-600"></i> Nueva Solicitud
+            </h3>
+            <button (click)="showModalSolicitud=false" class="text-gray-400 hover:text-red-500 transition">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        
+        <form [formGroup]="formSolicitud" (ngSubmit)="enviarSolicitud()" class="space-y-4">
+            
+            <div>
+              <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Tipo de Ausencia</label>
+              <select formControlName="tipo_ausencia" class="w-full border-gray-300 rounded-lg p-2.5 bg-white focus:ring-indigo-500 focus:border-indigo-500 transition">
+                  <option value="">-- Seleccione --</option>
+                  <option *ngFor="let t of tiposAusencia" [value]="t.id">{{ t.nombre }}</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Desde</label>
+                <input type="date" 
+                       formControlName="fecha_inicio" 
+                       [min]="minDate" 
+                       class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition">
+              </div>
+              <div>
+                <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Hasta</label>
+                <input type="date" 
+                       formControlName="fecha_fin" 
+                       [min]="minDate"
+                       class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition">
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Motivo</label>
+              <textarea formControlName="motivo" rows="3" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition resize-none" placeholder="Explica brevemente..."></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
+              <button type="button" (click)="showModalSolicitud=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-bold text-sm transition">Cancelar</button>
+              <button type="submit" [disabled]="formSolicitud.invalid || procesandoSolicitud" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 transition shadow-md">
+                  {{ procesandoSolicitud ? 'Enviando...' : 'Enviar Solicitud' }}
+              </button>
+            </div>
+        </form>
+    </div>
 </div>

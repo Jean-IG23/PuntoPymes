@@ -47,7 +47,7 @@
             <div class="text-xs text-gray-500">{{ auth.getRole() }}</div>
           </div>
 
-          <button (click)="auth.logout()" class="bg-gray-100 p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 transition">
+          <button (click)="auth.logout()" aria-label="Cerrar sesión" class="bg-gray-100 p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 transition">
             <i class="bi bi-box-arrow-right text-lg"></i>
           </button>
         </div>
@@ -55,7 +55,7 @@
       </div>
 
       <div class="-mr-2 flex items-center sm:hidden">
-        <button (click)="mobileMenuOpen = !mobileMenuOpen" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+        <button (click)="mobileMenuOpen = !mobileMenuOpen" aria-label="Abrir menú móvil" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
           <i class="bi bi-list text-2xl"></i>
         </button>
       </div>

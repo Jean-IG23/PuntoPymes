@@ -1,24 +1,25 @@
 import pandas as pd
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db.models.signals import post_save
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth.models import User, Group
-from django.db import transaction, models
-from django.db.models import Q
+from django.contrib.auth.models import User
+from django.db import transaction
+from django.db.models import Q, F, Sum
 from django.utils import timezone
-from django.shortcuts import get_object_or_404
-from django.db.models import F
-from asistencia import serializers
-from .utils import notificar_solicitud
 import io
 from django.http import HttpResponse
-from core.models import Sucursal, Departamento, Puesto, Turno, Empresa
+
+# Imports locales
+from .utils import notificar_solicitud # 👈 Ahora sí la usaremos
 from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia
 from .serializers import (
-    EmpleadoSerializer, ContratoSerializer, DocumentoSerializer, 
-    SolicitudSerializer, TipoAusenciaSerializer
+    CargaMasivaEmpleadoSerializer, EmpleadoSerializer, ContratoSerializer, 
+    DocumentoSerializer, SolicitudSerializer, TipoAusenciaSerializer
 )
+
 # =========================================================================
 # 1. VIEWSET DE EMPLEADOS
 # =========================================================================
@@ -41,26 +42,30 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         # 2. STAFF EMPRESA
         try:
             perfil = Empleado.objects.get(usuario=user)
-            
-            # RRHH / DUEÑO: Ven todo
             if perfil.rol in ['ADMIN', 'CLIENTE', 'RRHH']:
                 queryset = queryset.filter(empresa=perfil.empresa)
-
-            # GERENTE: Solo su departamento
             elif perfil.rol == 'GERENTE':
-                if perfil.departamento:
+                # LOGICA NUEVA: ¿Es jefe de sucursal?
+                sucursales_a_cargo = perfil.sucursales_a_cargo.all()
+                
+                if sucursales_a_cargo.exists():
+                    # Ve a todos los empleados de las sucursales que dirige
+                    # OJO: Excluimos su propio perfil para que no se auto-edite si no quieres
+                    queryset = queryset.filter(
+                        empresa=perfil.empresa,
+                        sucursal__in=sucursales_a_cargo
+                    )
+                elif perfil.departamento:
+                    # Lógica antigua (Jefe de Área sin sucursal)
                     queryset = queryset.filter(
                         empresa=perfil.empresa,
                         departamento=perfil.departamento
                     )
                 else:
                     return Empleado.objects.none()
-
-            # EMPLEADO: Solo a sí mismo
             else:
                 queryset = queryset.filter(id=perfil.id)
-
-            # Filtros extra
+            
             dept_id = self.request.query_params.get('departamento')
             if dept_id: 
                 queryset = queryset.filter(departamento_id=dept_id)
@@ -113,13 +118,11 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def download_template(self, request):
-        # Columnas requeridas
         columns = [
             'CEDULA', 'NOMBRES', 'APELLIDOS', 'EMAIL', 'TELEFONO', 
             'SUCURSAL', 'DEPARTAMENTO', 'CARGO', 'TURNO', 
             'SUELDO', 'FECHA_INGRESO (AAAA-MM-DD)', 'ROL (EMPLEADO/GERENTE/RRHH)', 'ES_LIDER_DEPTO (SI/NO)'
         ]
-        # Crear DataFrame vacío y convertir a Excel
         df = pd.DataFrame(columns=columns)
         buffer = io.BytesIO()
         
@@ -133,213 +136,148 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         return response
 
     # 2. CARGA MASIVA 
-    @action(detail=False, methods=['POST'], url_path='importar_excel') 
+    @action(detail=False, methods=['POST'], url_path='importar_excel')
     def upload_excel(self, request):
-        print("--- CARGA MASIVA: VERSIÓN BLINDADA (SIN BASURA) ---")
-
-        try:
-            empleado_uploader = Empleado.objects.get(usuario=request.user)
-            empresa_obj = empleado_uploader.empresa
-        except Empleado.DoesNotExist:
-            return Response({'error': 'Usuario sin perfil.'}, status=403)
-
+        print("--- CARGA MASIVA: INICIANDO ---")
+        
         file = request.FILES.get('file')
         if not file: return Response({'error': 'Falta archivo.'}, 400)
 
-        # Cargar catálogos
-        sucursales = {s.nombre.strip().upper(): s for s in Sucursal.objects.filter(empresa=empresa_obj)}
-        deptos = {d.nombre.strip().upper(): d for d in Departamento.objects.filter(sucursal__empresa=empresa_obj)}
-        puestos = {p.nombre.strip().upper(): p for p in Puesto.objects.filter(empresa=empresa_obj)}
-        turnos = {t.nombre.strip().upper(): t for t in Turno.objects.filter(empresa=empresa_obj)}
-        matriz = Sucursal.objects.filter(empresa=empresa_obj, es_matriz=True).first()
-
         try:
-            # --- 1. DETECCIÓN DE FORMATO ---
-            sep = ',' 
+            # 1. Lectura con Pandas
             if file.name.endswith('.csv'):
-                try:
-                    df_test = pd.read_csv(file, header=None, nrows=5, sep=';')
-                    if len(df_test.columns) > 1: sep = ';'
-                except: pass
-            
-            # --- 2. LEER DATOS ---
-            # Leemos TODO como string para evitar conversiones raras
-            if file.name.endswith('.csv'):
-                df_preview = pd.read_csv(file, header=None, nrows=10, sep=sep, dtype=str)
+                df = pd.read_csv(file, dtype=str)
             else:
-                df_preview = pd.read_excel(file, header=None, nrows=10, dtype=str)
+                df = pd.read_excel(file, dtype=str)
 
-            # Buscar cabecera
-            keywords = ['CEDULA', 'CÉDULA', 'DNI', 'DOCUMENTO', 'NOMBRES', 'NOMBRE']
-            header_idx = 0
-            for i, row in df_preview.iterrows():
-                row_str = str(row.values).upper()
-                if any(k in row_str for k in keywords):
-                    header_idx = i
-                    break
-            
-            file.seek(0)
-            if file.name.endswith('.csv'):
-                df = pd.read_csv(file, header=header_idx, sep=sep, dtype=str)
-            else:
-                df = pd.read_excel(file, header=header_idx, dtype=str)
-
+            df.columns = df.columns.str.lower().str.strip()
             df.dropna(how='all', inplace=True)
-            # Limpiamos nombres de columnas
-            df.columns = df.columns.astype(str).str.strip().str.upper()
 
-            # --- 3. MAPEO INTELIGENTE (EVITANDO DUPLICADOS) ---
-            mapa = {
-                'CEDULA': ['CEDULA', 'CÉDULA', 'DNI', 'DOCUMENTO', 'ID', 'IDENTIFICACION', 'CED'],
-                'NOMBRES': ['NOMBRES', 'NOMBRE', 'NAME'],
-                'APELLIDOS': ['APELLIDOS', 'APELLIDO', 'LAST NAME'],
-                'EMAIL': ['EMAIL', 'CORREO', 'MAIL'],
-                'SUCURSAL': ['SUCURSAL', 'SEDE', 'OFICINA'],
-                'DEPARTAMENTO': ['DEPARTAMENTO', 'DEPTO', 'AREA'],
-                'CARGO': ['CARGO', 'PUESTO', 'ROL'],
-                'TURNO': ['TURNO', 'HORARIO'],
-                'SUELDO': ['SUELDO', 'SALARIO'],
-                'ES_LIDER_DEPTO': ['ES_LIDER_DEPTO', 'LIDER', 'JEFE']
+            
+            mapa_traduccion = {
+                'documento': ['cedula', 'cédula', 'dni', 'identificacion', 'id', 'documento', 'c.i.', 'ci'],
+                'nombres': ['nombres', 'nombre', 'name', 'first name', 'nombres*'],
+                'apellidos': ['apellidos', 'apellido', 'last name', 'apellidos*'],
+                'email': ['email', 'correo', 'e-mail', 'mail', 'correo electronico'],
+                'nombre_sucursal': ['sucursal', 'sede', 'oficina', 'sucursal*'],
+                'nombre_area': ['area', 'área', 'area*', 'zona'],
+                'nombre_departamento': ['departamento', 'depto', 'departamento*'],
+                'nombre_puesto': ['cargo', 'puesto', 'rol', 'job', 'cargo*'],
+                'es_supervisor_puesto': ['es_supervisor', 'supervisor', 'jefe', 'lider', 'es supervisor'],
+                'nombre_turno': ['turno', 'horario', 'jornada', 'turno*'],
+                'rol': ['rol', 'role', 'perfil', 'tipo usuario'],
+                'fecha_ingreso': ['fecha_ingreso', 'ingreso', 'fecha inicio', 'fecha_ingreso*'],
+                'sueldo': ['sueldo', 'salario', 'remuneracion', 'sueldo*']
             }
 
-            cols_found = {}
-            used_standards = set() # <--- NUEVO: Para no repetir columnas destino
-
-            for col in df.columns:
-                clean_col = col.replace('"', '').replace(';', '').strip()
-                match = None
-                for std, variants in mapa.items():
-                    # Si ya encontramos una columna para este campo, saltamos (Evita duplicados)
-                    if std in used_standards: continue 
-                    
-                    if clean_col in variants or any(v in clean_col for v in variants):
-                        match = std
+            cols_renombradas = {}
+            columnas_destino_usadas = set()
+            for col_real in df.columns:
+                for col_destino, variantes in mapa_traduccion.items():
+                    if col_real in variantes:
+                        if col_destino in columnas_destino_usadas:
+                            continue 
+                        
+                        cols_renombradas[col_real] = col_destino
+                        columnas_destino_usadas.add(col_destino)
                         break
-                
-                if match:
-                    cols_found[col] = match
-                    used_standards.add(match)
             
-            df.rename(columns=cols_found, inplace=True)
+            df.rename(columns=cols_renombradas, inplace=True)
+                  
+            errores = []
+            creados = 0
 
-            if 'CEDULA' not in df.columns or 'NOMBRES' not in df.columns:
-                 return Response({'error': f'Columnas no reconocidas. Detectadas: {df.columns.tolist()}'}, status=400)
+            # 2. Desconexión de Signals (Evita emails masivos al crear users)
+            receivers = post_save._live_receivers(User)
+            for receiver in receivers:
+                post_save.disconnect(receiver, sender=User)
 
-            # --- 4. PROCESAR FILAS (CON LIMPIEZA DE BASURA PANDAS) ---
-            reporte = {'total': 0, 'creados': 0, 'errores': []}
-
-            for index, row in df.iterrows():
-                reporte['total'] += 1
-                fila_num = index + header_idx + 2
-                
-                # --- FUNCIÓN DE EXTRACCIÓN SEGURA ---
-                def get_val(col):
-                    val = row.get(col, '')
+            with transaction.atomic():
+                for index, row in df.iterrows():
+                    fila_num = index + 2
+                    sid = transaction.savepoint() 
                     
-                    # 1. Si Pandas devuelve una Serie (duplicados), tomamos el primero
-                    if isinstance(val, pd.Series):
-                        val = val.iloc[0]
-                    
-                    val = str(val).strip()
-                    
-                    # 2. Limpieza de "Basura Pandas" (dtype: object...)
-                    if 'dtype:' in val or 'Name:' in val:
-                        # Intentamos recuperar el valor real si se mezcló
-                        # Esto suele pasar si se convirtió a string una Serie completa
-                        return '' 
+                    try:
+                        # --- HELPERS ---
+                        def clean_str(val):
+                            s = str(val).strip()
+                            return '' if s.lower() in ['nan', 'nat', 'none', 'null'] else s
 
-                    return '' if val.lower() in ['nan', 'none', 'nat'] else val
-                # ------------------------------------
+                        def clean_date(val):
+                            s = clean_str(val)
+                            if not s: return timezone.now().date()
+                            try: return pd.to_datetime(s).date() 
+                            except: return timezone.now().date()
 
-                cedula = get_val('CEDULA')[:20] # Cortar por seguridad
-                nombres = get_val('NOMBRES')
+                        def clean_decimal(val):
+                            s = clean_str(val)
+                            if not s: return 460
+                            s = s.replace('$', '').replace(' ', '')
+                            if ',' in s and '.' in s: s = s.replace('.', '').replace(',', '.')
+                            elif ',' in s: s = s.replace(',', '.')
+                            try: return float(s)
+                            except: return 460
 
-                if not cedula or not nombres:
-                    continue # Saltar filas vacías sin reportar error masivo
+                        data = {
+                            'nombres': clean_str(row.get('nombres')),
+                            'apellidos': clean_str(row.get('apellidos')),
+                            'email': clean_str(row.get('email')),
+                            'documento': clean_str(row.get('documento')),
+                            'rol': clean_str(row.get('rol')),
+                            'nombre_sucursal': clean_str(row.get('nombre_sucursal')),
+                            'nombre_area': clean_str(row.get('nombre_area')),
+                            'nombre_departamento': clean_str(row.get('nombre_departamento')),
+                            'nombre_puesto': clean_str(row.get('nombre_puesto')),
+                            
+                            'es_supervisor_puesto': clean_str(row.get('es_supervisor_puesto')).upper() in ['SI', 'S', 'TRUE', 'YES', '1'],
+                            'nombre_turno': clean_str(row.get('nombre_turno')),
+                            
+                            'fecha_ingreso': clean_date(row.get('fecha_ingreso')),
+                            'sueldo': clean_decimal(row.get('sueldo'))
+                        }
 
-                if Empleado.objects.filter(documento=cedula, empresa=empresa_obj).exists():
-                    reporte['errores'].append(f"Fila {fila_num}: Cédula {cedula} ya existe.")
-                    continue
+                        if not data['nombres'] or not data['documento']:
+                            continue 
 
-                email = get_val('EMAIL')
-                if not email:
-                     clean_name = nombres.split()[0].lower()
-                     clean_doc = cedula[-4:] if len(cedula)>4 else '0000'
-                     email = f"{clean_name}.{clean_doc}@empresa.com"
-
-                # Relaciones
-                suc_obj = sucursales.get(get_val('SUCURSAL').upper(), matriz)
-                
-                dep_txt = get_val('DEPARTAMENTO').upper() or 'GENERAL'
-                dep_obj = deptos.get(dep_txt)
-                if not dep_obj:
-                     dep_obj = Departamento.objects.create(
-                         sucursal=suc_obj if suc_obj else matriz, 
-                         nombre=dep_txt.title()
-                     )
-                     deptos[dep_txt] = dep_obj
-
-                pto_txt = get_val('CARGO').upper() or 'OPERATIVO'
-                pto_obj = puestos.get(pto_txt)
-                if not pto_obj:
-                     pto_obj = Puesto.objects.create(
-                         empresa=empresa_obj, 
-                         nombre=pto_txt.title()
-                     )
-                     puestos[pto_txt] = pto_obj
-
-                tur_obj = turnos.get(get_val('TURNO').upper())
-                es_lider = get_val('ES_LIDER_DEPTO').upper() in ['SI', 'S', 'TRUE', 'YES']
-                
-                sueldo = 460.0
-                try: sueldo = float(get_val('SUELDO').replace(',', '.'))
-                except: pass
-
-                try:
-                    with transaction.atomic():
-                        if User.objects.filter(username=email).exists():
-                             import random
-                             email = f"{random.randint(10,99)}{email}"
-
-                        user = User.objects.create_user(
-                            username=email, 
-                            email=email, 
-                            password=cedula, 
-                            first_name=nombres.split()[0]
-                        )
+                        serializer = CargaMasivaEmpleadoSerializer(data=data, context={'request': request})
                         
-                        emp = Empleado.objects.create(
-                            empresa=empresa_obj, 
-                            usuario=user, 
-                            nombres=nombres, 
-                            apellidos=get_val('APELLIDOS'),
-                            documento=cedula, 
-                            email=email, 
-                            telefono=get_val('TELEFONO')[:40], # Corte de seguridad
-                            sucursal=suc_obj, 
-                            departamento=dep_obj, 
-                            puesto=pto_obj, 
-                            turno_asignado=tur_obj,
-                            rol='GERENTE' if es_lider else 'EMPLEADO', 
-                            sueldo=sueldo, 
-                            fecha_ingreso=timezone.now().date(), 
-                            estado='ACTIVO', 
-                            saldo_vacaciones=15
-                        )
-                        if es_lider:
-                            dep_obj.jefe = emp
-                            dep_obj.save()
-                        
-                        reporte['creados'] += 1
-                except Exception as e:
-                    reporte['errores'].append(f"Fila {fila_num}: Error BD {str(e)}")
+                        if serializer.is_valid():
+                            serializer.save()
+                            creados += 1
+                            transaction.savepoint_commit(sid)
+                        else:
+                            transaction.savepoint_rollback(sid)
+                            err_msgs = [f"{k}: {v[0]}" for k, v in serializer.errors.items()]
+                            errores.append(f"Fila {fila_num}: {', '.join(err_msgs)}")
 
-            return Response(reporte)
+                    except Exception as e:
+                        transaction.savepoint_rollback(sid)
+                        errores.append(f"Fila {fila_num}: Error interno - {str(e)}")
+
+            if creados > 0:
+                return Response({
+                    "mensaje": f"{creados}",
+                    "creados": creados,
+                    "errores": errores
+                }, status=status.HTTP_200_OK)
+            elif len(errores) > 0:
+                return Response({
+                    "mensaje": "Errores de validación",
+                    "creados": 0,
+                    "errores": errores
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "mensaje": "Archivo vacío o ilegible",
+                    "creados": 0,
+                    "errores": ["No se encontraron filas con datos. Verifica que la fila 1 tenga los encabezados."]
+                }, status=status.HTTP_200_OK)
 
         except Exception as e:
             import traceback
             traceback.print_exc()
-            return Response({'error': f'Error interno: {str(e)}'}, 400)
+            return Response({"error": f"Error procesando archivo: {str(e)}"}, status=400)
+
 
 # =========================================================================
 # 2. VIEWSET DE CONTRATOS
@@ -372,33 +310,34 @@ class SolicitudViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        
-        # 1. SuperAdmin Técnico (SaaS) -> Ve absolutamente todo
         if user.is_superuser:
             return SolicitudAusencia.objects.all().order_by('-fecha_inicio')
 
         try:
             perfil = Empleado.objects.get(usuario=user)
             
-            # 2. RRHH / Dueño / Admin de Empresa -> Ve TODO de SU empresa
-            if perfil.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
-                return SolicitudAusencia.objects.filter(
-                    empresa=perfil.empresa
-                ).order_by('-fecha_inicio')
+            # 1. ADMIN / RRHH
+            if perfil.rol in ['ADMIN', 'RRHH']:
+                return SolicitudAusencia.objects.filter(empresa=perfil.empresa).order_by('-fecha_inicio')
 
-            # 3. Gerente -> Ve lo suyo + lo de su departamento
-            elif perfil.rol == 'GERENTE':
-                if perfil.departamento:
-                    # Lógica: (Es mío) O (Es de alguien de mi depto Y de mi empresa)
+            # 2. GERENTE
+            if perfil.rol == 'GERENTE':
+                # A. Jefe de Sucursal
+                sucursales = perfil.sucursales_a_cargo.all()
+                if sucursales.exists():
                     return SolicitudAusencia.objects.filter(
                         Q(empleado=perfil) | 
-                        Q(empleado__departamento=perfil.departamento)
+                        Q(empleado__sucursal__in=sucursales)
                     ).filter(empresa=perfil.empresa).distinct().order_by('-fecha_inicio')
                 
-                # Si es Gerente pero no tiene depto asignado, solo ve lo suyo
-                return SolicitudAusencia.objects.filter(empleado=perfil).order_by('-fecha_inicio')
-            
-            # 4. Empleado Normal -> Ve solo lo suyo
+                # B. Jefe de Departamento
+                elif perfil.departamento:
+                    return SolicitudAusencia.objects.filter(
+                        Q(empleado=perfil) |
+                        Q(empleado__departamento=perfil.departamento)
+                    ).filter(empresa=perfil.empresa).distinct().order_by('-fecha_inicio')
+
+            # 3. EMPLEADO NORMAL
             return SolicitudAusencia.objects.filter(empleado=perfil).order_by('-fecha_inicio')
 
         except Empleado.DoesNotExist:
@@ -408,82 +347,153 @@ class SolicitudViewSet(viewsets.ModelViewSet):
         user = self.request.user
         try:
             empleado = Empleado.objects.get(usuario=user)
-            dias = serializer.context.get('dias_calculados', 0)
-            serializer.save(
+            data = serializer.validated_data
+            
+            inicio = data.get('fecha_inicio')
+            fin = data.get('fecha_fin')
+            tipo = data.get('tipo_ausencia')
+            motivo = data.get('motivo', '').strip()
+            
+            hoy = timezone.now().date()
+
+            # ==================================================================
+            # 🛡️ NIVEL 1: VALIDACIONES DE SENTIDO COMÚN (Lógica Pura)
+            # ==================================================================
+            
+            # 1. Fecha Fin menor a Fecha Inicio
+            if inicio > fin:
+                raise ValidationError({"error": "⛔ Error de Lógica: La fecha de finalización no puede ser antes que la de inicio."})
+
+            # 2. Fechas Pasadas (Retroactividad)
+            # Nota: Si permites justificar faltas pasadas, comenta este bloque.
+            if inicio < hoy:
+                 raise ValidationError({"error": "⏳ Error Temporal: No puedes solicitar permisos para fechas que ya pasaron."})
+
+            # 3. Motivo muy corto
+            if len(motivo) < 10:
+                raise ValidationError({"error": "📝 Detalle Insuficiente: Por favor explica el motivo con al menos 10 caracteres."})
+
+            # ==================================================================
+            # 🛡️ NIVEL 2: VALIDACIONES DE DISPONIBILIDAD (Agenda)
+            # ==================================================================
+
+            # 4. Traslapes (Overlaps)
+            # Verifica si YA existe una solicitud (Pendiente o Aprobada) que choque con estas fechas
+            # Fórmula: (StartA <= EndB) and (EndA >= StartB)
+            choque = SolicitudAusencia.objects.filter(
+                empleado=empleado,
+                estado__in=['PENDIENTE', 'APROBADA']
+            ).filter(
+                fecha_inicio__lte=fin,
+                fecha_fin__gte=inicio
+            )
+
+            if choque.exists():
+                conflicto = choque.first()
+                rango = f"{conflicto.fecha_inicio.strftime('%d/%m')} al {conflicto.fecha_fin.strftime('%d/%m')}"
+                raise ValidationError({
+                    "error": f"📅 Agenda Ocupada: Ya tienes una solicitud registrada en el rango del {rango}."
+                })
+
+            # ==================================================================
+            # 🛡️ NIVEL 3: VALIDACIONES FINANCIERAS (Saldo de Vacaciones)
+            # ==================================================================
+
+            # Calculamos días calendario (simple)
+            # OJO: Si quieres excluir sábados/domingos, aquí iría una función compleja.
+            dias_solicitados = (fin - inicio).days + 1
+            
+            # Solo si el tipo de permiso es "Vacaciones"
+            if 'vacacion' in tipo.nombre.lower():
+                
+                saldo_actual = empleado.saldo_vacaciones or 0
+                
+                # 5. Cálculo de "Saldo Comprometido"
+                # Sumamos los días de todas las solicitudes que están PENDIENTES de aprobar
+                # Esto evita que el empleado pida 5 días dos veces rápidas teniendo solo 5 de saldo.
+                dias_pendientes = SolicitudAusencia.objects.filter(
+                    empleado=empleado,
+                    estado='PENDIENTE',
+                    tipo_ausencia__nombre__icontains='vacacion'
+                ).aggregate(total=Sum('dias_solicitados'))['total'] or 0
+
+                saldo_real_disponible = saldo_actual - dias_pendientes
+
+                # 6. Validación Final de Saldo
+                if dias_solicitados > saldo_real_disponible:
+                    raise ValidationError({
+                        "error": (
+                            f"💰 Saldo Insuficiente.\n"
+                            f"- Tienes en sistema: {saldo_actual} días.\n"
+                            f"- Menos pendientes de aprobar: {dias_pendientes} días.\n"
+                            f"- Disponible real: {saldo_real_disponible} días.\n"
+                            f"Estás intentando pedir: {dias_solicitados} días."
+                        )
+                    })
+
+            # ==================================================================
+            # ✅ ÉXITO: GUARDAMOS
+            # ==================================================================
+            instance = serializer.save(
                 empleado=empleado,
                 empresa=empleado.empresa,
-                dias_solicitados=dias
+                dias_solicitados=dias_solicitados
             )
-        except Empleado.DoesNotExist:
-            raise serializers.ValidationError("El usuario no tiene ficha de empleado.")
+            
+            notificar_solicitud(instance)
 
-    # 3. GESTIÓN (APROBAR / RECHAZAR) - VERSIÓN ÚNICA Y CORRECTA
+        except Empleado.DoesNotExist:
+            raise ValidationError({"error": "Error Crítico: Tu usuario no tiene un perfil de empleado asociado."})
+
+    # 3. GESTIÓN (APROBAR / RECHAZAR)
     @action(detail=True, methods=['post'])
     def gestionar(self, request, pk=None):
-        solicitud = self.get_object()
-        nuevo_estado = request.data.get('estado')
-        comentario = request.data.get('comentario_jefe', '')
+        with transaction.atomic(): # Transacción para evitar errores de concurrencia
+            try:
+                solicitud = SolicitudAusencia.objects.select_for_update().get(pk=pk)
+            except SolicitudAusencia.DoesNotExist:
+                return Response({'error': 'Solicitud no encontrada.'}, status=404)
 
-        if nuevo_estado not in ['APROBADA', 'RECHAZADA']:
-            return Response({'error': 'Estado inválido.'}, status=400)
+            nuevo_estado = request.data.get('estado')
+            comentario = request.data.get('comentario_jefe', '')
 
-        # --- A. VERIFICAR PERMISOS ---
-        try:
+            if solicitud.estado != 'PENDIENTE':
+                 return Response({'error': f'Esta solicitud ya fue {solicitud.estado} previamente.'}, status=400)
+
+            # --- VERIFICAR PERMISOS (Igual que antes) ---
             aprobador = Empleado.objects.get(usuario=request.user)
             es_rrhh = aprobador.rol in ['ADMIN', 'RRHH', 'CLIENTE']
-            es_jefe_directo = (
-                aprobador.rol == 'GERENTE' and 
-                aprobador.departamento == solicitud.empleado.departamento and
-                aprobador.id != solicitud.empleado.id
-            )
+            es_jefe_directo = (aprobador.rol == 'GERENTE' and aprobador.departamento == solicitud.empleado.departamento and aprobador.id != solicitud.empleado.id)
+            es_jefe_sucursal = aprobador.sucursales_a_cargo.filter(id=solicitud.empleado.sucursal.id).exists()
 
-            if not (es_rrhh or es_jefe_directo or request.user.is_superuser):
-                return Response({'error': 'No tienes permisos para gestionar esta solicitud.'}, status=403)
+            if not (es_rrhh or es_jefe_directo or es_jefe_sucursal or request.user.is_superuser):
+                return Response({'error': 'No tienes permisos.'}, status=403)
 
-        except Empleado.DoesNotExist:
-            if not request.user.is_superuser:
-                return Response({'error': 'Usuario no autorizado.'}, status=403)
+            # --- LÓGICA DE DESCUENTO DE SALDO AL APROBAR ---
+            if nuevo_estado == 'APROBADA':
+                nombre_tipo = solicitud.tipo_ausencia.nombre.lower()
+                
+                # Solo descontamos si es Vacación
+                if 'vacacion' in nombre_tipo:
+                    dias_a_descontar = solicitud.dias_solicitados
+                    
+                    # Verificación final de saldo (por si acaso)
+                    solicitud.empleado.refresh_from_db()
+                    if solicitud.empleado.saldo_vacaciones < dias_a_descontar:
+                        return Response({'error': 'El empleado ya no tiene saldo suficiente.'}, status=400)
 
-        # --- B. LÓGICA DE SALDOS (ATÓMICA) ---
-        # Detectamos si es vacaciones (singular o plural, mayúsculas o minúsculas)
-        nombre_tipo = solicitud.tipo_ausencia.nombre.lower()
-        es_vacaciones = 'vacacion' in nombre_tipo # Detecta "Vacaciones" y "Vacación"
-        
-        if nuevo_estado == 'APROBADA' and es_vacaciones:
-            # 1. Asegurar que tenemos los días (Calculamos por si acaso es 0 en BD)
-            from core.utils import calcular_dias_habiles
-            dias_a_descontar = solicitud.dias_solicitados
-            
-            # Si por error vino 0, recalculamos usando las fechas
-            if dias_a_descontar <= 0:
-                dias_a_descontar = calcular_dias_habiles(solicitud.fecha_inicio, solicitud.fecha_fin)
-                # Actualizamos el dato en la solicitud también
-                solicitud.dias_solicitados = dias_a_descontar
+                    # Resta efectiva
+                    Empleado.objects.filter(pk=solicitud.empleado.id).update(
+                        saldo_vacaciones=F('saldo_vacaciones') - dias_a_descontar
+                    )
 
-            # 2. Validar Saldo Actual
-            # Refrescamos el empleado desde la BD para tener el dato exacto
-            solicitud.empleado.refresh_from_db()
-            saldo_actual = solicitud.empleado.saldo_vacaciones or 0
-            
-            if saldo_actual < dias_a_descontar:
-                return Response({
-                    'error': f'Saldo insuficiente. Tiene {saldo_actual} días, la solicitud requiere {dias_a_descontar}.'
-                }, status=400)
-            
-            # 3. RESTA ATÓMICA (La parte clave)
-            # Esto le dice a la BD: "Toma el valor que tengas y réstale X"
-            Empleado.objects.filter(pk=solicitud.empleado.id).update(
-                saldo_vacaciones=F('saldo_vacaciones') - dias_a_descontar
-            )
+            solicitud.estado = nuevo_estado
+            solicitud.motivo_rechazo = comentario if nuevo_estado == 'RECHAZADA' else ''
+            solicitud.aprobado_por = aprobador
+            solicitud.fecha_resolucion = timezone.now().date()
+            solicitud.save()
 
-        # Guardar cambio de estado
-        solicitud.estado = nuevo_estado
-        solicitud.motivo_rechazo = comentario if nuevo_estado == 'RECHAZADA' else ''
-        solicitud.aprobado_por = aprobador if not request.user.is_superuser else None
-        solicitud.fecha_resolucion = timezone.now().date()
-        solicitud.save()
-
-        return Response({'status': f'Solicitud {nuevo_estado} correctamente. Se descontaron {dias_a_descontar if nuevo_estado=="APROBADA" and es_vacaciones else 0} días.'})
+            return Response({'status': f'Solicitud {nuevo_estado} correctamente.'})
 
 
 # =========================================================================

@@ -5,12 +5,12 @@
            [class.ml-0]="sidebarOpen">
         
         <div class="h-16 flex items-center px-6 bg-slate-950 border-b border-slate-800">
-            <i class="bi bi-people-fill text-indigo-500 text-2xl mr-3"></i>
+            <i class="bi bi-people-fill text-indigo-500 text-2xl mr-3" aria-hidden="true"></i>
             <span class="text-lg font-bold tracking-wide">Talent<span class="text-indigo-400">Track</span></span>
         </div>
 
         <div class="p-4 border-b border-slate-800 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm">
+            <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm" aria-hidden="true">
                 {{ userInitials }}
             </div>
             <div class="overflow-hidden">
@@ -21,54 +21,54 @@
 
         <nav class="flex-1 overflow-y-auto py-4 space-y-1 px-3">
             
-            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-2">Principal</p>
+            <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-2">Principal</p>
             
             <a routerLink="/dashboard" routerLinkActive="bg-indigo-600 text-white" 
-               class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
-                <i class="bi bi-speedometer2 text-lg mr-3"></i>
+               class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
+                <i class="bi bi-speedometer2 text-lg mr-3" aria-hidden="true"></i>
                 <span class="font-medium">Dashboard</span>
             </a>
 
             <a routerLink="/portal" routerLinkActive="bg-indigo-600 text-white" 
-               class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
-                <i class="bi bi-fingerprint text-lg mr-3"></i>
+               class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
+                <i class="bi bi-fingerprint text-lg mr-3" aria-hidden="true"></i>
                 <span class="font-medium">Mi Reloj</span>
             </a>
 
             <ng-container *ngIf="auth.isManagement()">
-                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-6">Gestión</p>
+                <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-6">Gestión</p>
 
                 <a routerLink="/empleados" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
-                    <i class="bi bi-people text-lg mr-3"></i>
+                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
+                    <i class="bi bi-people text-lg mr-3" aria-hidden="true"></i>
                     <span class="font-medium">Personal</span>
                 </a>
 
                 <a routerLink="/asistencia/reporte" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
-                    <i class="bi bi-calendar-check text-lg mr-3"></i>
+                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
+                    <i class="bi bi-calendar-check text-lg mr-3" aria-hidden="true"></i>
                     <span class="font-medium">Asistencia</span>
                 </a>
 
                 <a routerLink="/solicitudes" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
-                    <i class="bi bi-envelope-paper text-lg mr-3"></i>
+                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
+                    <i class="bi bi-envelope-paper text-lg mr-3" aria-hidden="true"></i>
                     <span class="font-medium">Solicitudes</span>
                 </a>
 
                 <a routerLink="/kpi/manager" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
-                    <i class="bi bi-graph-up-arrow text-lg mr-3"></i>
+                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
+                    <i class="bi bi-graph-up-arrow text-lg mr-3" aria-hidden="true"></i>
                     <span class="font-medium">Evaluaciones KPI</span>
                 </a>
             </ng-container>
 
             <ng-container *ngIf="auth.canConfigCompany()">
-                <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-6">Admin</p>
+                <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-6">Admin</p>
                 
                 <a routerLink="/organizacion" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group">
-                    <i class="bi bi-building-gear text-lg mr-3"></i>
+                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
+                    <i class="bi bi-building-gear text-lg mr-3" aria-hidden="true"></i>
                     <span class="font-medium">Organización</span>
                 </a>
             </ng-container>
@@ -76,8 +76,10 @@
         </nav>
 
         <div class="p-4 border-t border-slate-800">
-            <button (click)="logout()" class="flex items-center w-full px-3 py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition">
-                <i class="bi bi-box-arrow-left text-lg mr-3"></i>
+            <button (click)="logout()" 
+                    aria-label="Cerrar sesión"
+                    class="flex items-center w-full px-3 py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-red-500">
+                <i class="bi bi-box-arrow-left text-lg mr-3" aria-hidden="true"></i>
                 <span class="font-medium">Cerrar Sesión</span>
             </button>
         </div>
@@ -86,8 +88,11 @@
     <div class="flex-1 flex flex-col h-screen overflow-hidden relative">
         
         <header class="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-6 z-10">
-            <button (click)="sidebarOpen = !sidebarOpen" class="text-gray-500 hover:text-indigo-600 focus:outline-none lg:hidden">
-                <i class="bi bi-list text-2xl"></i>
+            
+            <button (click)="sidebarOpen = !sidebarOpen" 
+                    aria-label="Alternar menú lateral"
+                    class="text-gray-500 hover:text-indigo-600 rounded-md p-1 lg:hidden focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <i class="bi bi-list text-2xl" aria-hidden="true"></i>
             </button>
 
             <h2 class="text-gray-700 font-bold text-lg hidden sm:block">
@@ -95,8 +100,9 @@
             </h2>
 
             <div class="flex items-center gap-4">
-                <button class="text-gray-400 hover:text-indigo-600 relative">
-                    <i class="bi bi-bell text-xl"></i>
+                <button aria-label="Ver notificaciones"
+                        class="text-gray-400 hover:text-indigo-600 relative rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <i class="bi bi-bell text-xl" aria-hidden="true"></i>
                     <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
                 </button>
             </div>
@@ -111,5 +117,8 @@
     </div>
 
     <div *ngIf="sidebarOpen" (click)="sidebarOpen = false" 
-         class="fixed inset-0 bg-black/50 z-10 lg:hidden backdrop-blur-sm transition-opacity"></div>
+         class="fixed inset-0 bg-black/50 z-10 lg:hidden backdrop-blur-sm transition-opacity"
+         aria-hidden="true">
+    </div>
+
 </div>

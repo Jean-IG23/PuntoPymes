@@ -2,9 +2,10 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion
 from personal.models import Empleado
-from django.contrib.auth.models import Group
+
 # 1. EMPRESA
 class EmpresaSerializer(serializers.ModelSerializer):
+    # Campos extra solo para escritura (input del formulario)
     admin_email = serializers.EmailField(write_only=True, required=False)
     admin_password = serializers.CharField(write_only=True, style={'input_type': 'password'}, required=False)
     admin_nombre = serializers.CharField(write_only=True, required=False)
@@ -12,34 +13,20 @@ class EmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empresa
         fields = '__all__'
-
+    
     def create(self, validated_data):
-        email = validated_data.pop('admin_email', None)
-        password = validated_data.pop('admin_password', None)
-        nombre_completo = validated_data.pop('admin_nombre', "Admin")
+        """
+        Este método INTERCEPTA los datos antes de guardar.
+        Saca el email y password del admin (porque eso lo maneja la Vista)
+        y guarda solo los datos reales de la Empresa.
+        """
+        # 1. Sacamos los datos que NO pertenecen a la tabla Empresa
+        validated_data.pop('admin_email', None)
+        validated_data.pop('admin_password', None)
+        validated_data.pop('admin_nombre', None)
 
-        empresa = Empresa.objects.create(**validated_data)
-
-        if email and password:
-            username = email
-            if not User.objects.filter(username=username).exists():
-                user = User.objects.create_user(username=username, email=email, password=password, is_staff=True)
-                
-                # --- CAMBIO DE SEGURIDAD ---
-                # Usamos get_or_create para que no falle si el grupo no existe aún
-                owner_group, created = Group.objects.get_or_create(name='OWNER')
-                user.groups.add(owner_group)
-                # ---------------------------
-
-                Empleado.objects.create(
-                    empresa=empresa,
-                    nombres=nombre_completo,
-                    apellidos="(Admin)",
-                    documento="ADMIN-" + empresa.ruc,
-                    email=email,
-                    estado='ACTIVO'
-                )
-        return empresa
+        # 2. Guardamos la empresa limpia usando el método original de Django
+        return super().create(validated_data)
 
 # 2. ÁREA
 class AreaSerializer(serializers.ModelSerializer):
@@ -49,10 +36,17 @@ class AreaSerializer(serializers.ModelSerializer):
 
 # 3. SUCURSAL
 class SucursalSerializer(serializers.ModelSerializer):
+    # Campo extra para mostrar el nombre del jefe en la tabla
+    nombre_responsable = serializers.SerializerMethodField()
+
     class Meta:
         model = Sucursal
-        fields = ['id', 'nombre', 'direccion', 'es_matriz', 'latitud', 'longitud', 'radio_metros', 'empresa']
+        fields = '__all__'
 
+    def get_nombre_responsable(self, obj):
+        if obj.responsable:
+            return f"{obj.responsable.nombres} {obj.responsable.apellidos}"
+        return "Sin asignar"
 # 4. DEPARTAMENTO
 class DepartamentoSerializer(serializers.ModelSerializer):
     empresa = serializers.IntegerField(source='sucursal.empresa.id', read_only=True)
@@ -64,14 +58,13 @@ class DepartamentoSerializer(serializers.ModelSerializer):
 
 # 5. PUESTO 
 class PuestoSerializer(serializers.ModelSerializer):
-    nombre_area = serializers.SerializerMethodField() # Campo calculado
+    nombre_area = serializers.SerializerMethodField() 
 
     class Meta:
         model = Puesto
         fields = '__all__'
 
     def get_nombre_area(self, obj):
-        # Si tiene área, devuelve el nombre. Si no, dice "Universal".
         return obj.area.nombre if obj.area else "Universal / Comodín"
 
 # 6. TURNO
@@ -85,3 +78,4 @@ class NotificacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notificacion
         fields = '__all__'
+

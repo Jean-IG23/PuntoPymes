@@ -33,7 +33,7 @@ class AreaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Area
         fields = '__all__'
-
+        read_only_fields = ('empresa',) 
 # 3. SUCURSAL
 class SucursalSerializer(serializers.ModelSerializer):
     # Campo extra para mostrar el nombre del jefe en la tabla
@@ -42,7 +42,7 @@ class SucursalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sucursal
         fields = '__all__'
-
+        read_only_fields = ('empresa',)
     def get_nombre_responsable(self, obj):
         if obj.responsable:
             return f"{obj.responsable.nombres} {obj.responsable.apellidos}"
@@ -50,12 +50,11 @@ class SucursalSerializer(serializers.ModelSerializer):
 # 4. DEPARTAMENTO
 class DepartamentoSerializer(serializers.ModelSerializer):
     empresa = serializers.IntegerField(source='sucursal.empresa.id', read_only=True)
-    nombre_area = serializers.CharField(source='area.nombre', read_only=True) 
-    
+    nombre_area = serializers.CharField(source='area.nombre', read_only=True)
     class Meta:
         model = Departamento
         fields = '__all__'
-
+        read_only_fields = ('empresa',)
 # 5. PUESTO 
 class PuestoSerializer(serializers.ModelSerializer):
     nombre_area = serializers.SerializerMethodField() 
@@ -63,7 +62,7 @@ class PuestoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Puesto
         fields = '__all__'
-
+        read_only_fields = ('empresa',)
     def get_nombre_area(self, obj):
         return obj.area.nombre if obj.area else "Universal / Comodín"
 
@@ -72,7 +71,7 @@ class TurnoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Turno
         fields = '__all__'
-
+        read_only_fields = ('empresa',)
 # 7. NOTIFICACIÓN
 class NotificacionSerializer(serializers.ModelSerializer):
     class Meta:

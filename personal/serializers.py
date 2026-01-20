@@ -5,135 +5,158 @@ from core.models import Sucursal, Departamento, Puesto, Area, Turno, Empresa
 from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia
 
 # ==============================================================================
-# 📥 SERIALIZER MAESTRO DE CARGA MASIVA
+#  CARGA MASIVA
 # ==============================================================================
 class CargaMasivaEmpleadoSerializer(serializers.Serializer):
-    # --- DATOS PERSONALES ---
+    # Campos de Texto (Entrada)
+    documento = serializers.CharField()
     nombres = serializers.CharField()
     apellidos = serializers.CharField()
-    email = serializers.EmailField()
-    documento = serializers.CharField()
+    email = serializers.EmailField(required=False, allow_blank=True)
     
-    # --- ESTRUCTURA ORGANIZACIONAL ---
+    # Estructura Organizacional
     nombre_sucursal = serializers.CharField(required=False, allow_blank=True)
     nombre_area = serializers.CharField(required=False, allow_blank=True)
     nombre_departamento = serializers.CharField(required=False, allow_blank=True)
-    
-    # --- PUESTO Y JERARQUÍA ---
     nombre_puesto = serializers.CharField(required=False, allow_blank=True)
-    es_supervisor_puesto = serializers.BooleanField(default=False)
+    nombre_turno = serializers.CharField(required=False, allow_blank=True)
     
-    # 👇 NUEVO CAMPO: ROL EXPLÍCITO
+    # Configuración
+    fecha_ingreso = serializers.DateField(required=False)
+    sueldo = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    
+    
     rol = serializers.CharField(required=False, allow_blank=True)
     
-    # --- TIEMPO Y DINERO ---
-    nombre_turno = serializers.CharField(required=False, allow_blank=True)
-    fecha_ingreso = serializers.DateField()
-    sueldo = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=460)
+    es_supervisor_puesto = serializers.BooleanField(default=False)
 
     def create(self, validated_data):
-        request = self.context.get('request')
-        
-        # 1. OBTENER EMPRESA
-        try:
-            uploader = Empleado.objects.get(usuario=request.user)
-            empresa = uploader.empresa
-        except Empleado.DoesNotExist:
-            raise serializers.ValidationError("El usuario que sube el archivo no tiene perfil de empleado.")
+        empresa = self.context['empresa_destino'] 
 
-        # ======================================================================
-        # A. LOGICA DE ESTRUCTURA (Sucursal, Area, Depto, Puesto, Turno)
-        # ======================================================================
-        # (Esta parte se mantiene igual que antes, copiamos la lógica Find or Create)
-        
-        # SUCURSAL
-        sucursal = None
-        nom_suc = validated_data.get('nombre_sucursal')
-        if nom_suc:
-            sucursal, _ = Sucursal.objects.get_or_create(empresa=empresa, nombre__iexact=nom_suc, defaults={'nombre': nom_suc})
-        else:
-            sucursal = Sucursal.objects.filter(empresa=empresa, es_matriz=True).first()
+        def normalizar(texto):
+            if not texto: return None
+            return " ".join(texto.split()).title()
 
-        # AREA
-        area = None
-        nom_area = validated_data.get('nombre_area')
-        if nom_area:
-            area, _ = Area.objects.get_or_create(empresa=empresa, nombre__iexact=nom_area, defaults={'nombre': nom_area})
-
-        # DEPARTAMENTO
-        departamento = None
-        nom_depto = validated_data.get('nombre_departamento')
-        if nom_depto and sucursal:
-            departamento, _ = Departamento.objects.get_or_create(sucursal=sucursal, nombre__iexact=nom_depto, defaults={'nombre': nom_depto, 'area': area})
-
-        # PUESTO
-        puesto = None
-        nom_puesto = validated_data.get('nombre_puesto')
-        es_supervisor_flag = validated_data.get('es_supervisor_puesto', False)
-
-        if nom_puesto:
-            puesto, created = Puesto.objects.get_or_create(
-                empresa=empresa, nombre__iexact=nom_puesto,
-                defaults={'nombre': nom_puesto, 'area': area, 'es_supervisor': es_supervisor_flag}
+        # 1. PROCESAR SUCURSAL
+        sucursal_obj = None
+        raw_sucursal = validated_data.get('nombre_sucursal')
+        if raw_sucursal:
+            clean_sucursal = normalizar(raw_sucursal)
+            sucursal_obj, _ = Sucursal.objects.get_or_create(
+                nombre__iexact=clean_sucursal, 
+                empresa=empresa,
+                defaults={'nombre': clean_sucursal, 'direccion': 'Dirección por definir'}
             )
-            if not created and es_supervisor_flag and not puesto.es_supervisor:
-                puesto.es_supervisor = True
-                puesto.save()
 
-        # TURNO
-        turno = None
-        nom_turno = validated_data.get('nombre_turno')
-        if nom_turno:
-            turno = Turno.objects.filter(empresa=empresa, nombre__iexact=nom_turno).first()
+        # 2. PROCESAR ÁREA
+        area_obj = None
+        raw_area = validated_data.get('nombre_area')
+        if raw_area:
+            clean_area = normalizar(raw_area)
+            area_obj, _ = Area.objects.get_or_create(
+                nombre__iexact=clean_area, 
+                empresa=empresa,
+                defaults={'nombre': clean_area}
+            )
 
+        # 3. PROCESAR DEPARTAMENTO
+        depto_obj = None
+        raw_depto = validated_data.get('nombre_departamento')
+        if raw_depto and sucursal_obj:
+            clean_depto = normalizar(raw_depto)
+            # Nota: Si usas unique_together, asegúrate de manejar posibles errores aquí
+            depto_obj, _ = Departamento.objects.get_or_create(
+                nombre__iexact=clean_depto,
+                sucursal=sucursal_obj,
+                defaults={'nombre': clean_depto, 'area': area_obj}
+            )
 
-        # ======================================================================
-        # B. USUARIO Y ROL (AQUÍ ESTÁ EL CAMBIO)
-        # ======================================================================
-        email = validated_data['email']
-        cedula = validated_data['documento']
+        # 4. PROCESAR PUESTO (CARGO)
+        puesto_obj = None
+        raw_puesto = validated_data.get('nombre_puesto')
+        if raw_puesto:
+            clean_puesto = normalizar(raw_puesto)
+            datos_puesto = {'nombre': clean_puesto, 'area': area_obj}
+            
+            # Verificamos campos opcionales del modelo Puesto
+            try:
+                Puesto._meta.get_field('es_supervision')
+                datos_puesto['es_supervision'] = validated_data.get('es_supervisor_puesto', False)
+            except:
+                pass
+
+            puesto_obj, _ = Puesto.objects.get_or_create(
+                nombre__iexact=clean_puesto,
+                empresa=empresa,
+                defaults=datos_puesto
+            )
+
+        # 5. PROCESAR TURNO
+        turno_obj = None
+        raw_turno = validated_data.get('nombre_turno')
+        if raw_turno:
+            clean_turno = normalizar(raw_turno)
+            turno_obj, _ = Turno.objects.get_or_create(
+                nombre__iexact=clean_turno,
+                empresa=empresa,
+                defaults={
+                    'nombre': clean_turno,
+                    'hora_entrada': '09:00',
+                    'hora_salida': '18:00',
+                    'tipo_jornada': 'RIGIDO'
+                }
+            )
+
+        # 6. GESTIÓN DE USUARIO (GLOBAL)
+        email = validated_data.get('email')
+        doc = validated_data.get('documento')
+        nombres = validated_data.get('nombres')
+        apellidos = validated_data.get('apellidos')
         
-        user = User.objects.create_user(
-            username=email, email=email, password=cedula,
-            first_name=validated_data['nombres'], last_name=validated_data['apellidos']
+        # El username será el email, o la cédula si no hay email
+        username = email if email else doc
+        
+        # Buscamos o creamos el usuario de Django
+        user, created = User.objects.get_or_create(
+            username=username,
+            defaults={
+                'email': email or '',
+                'first_name': nombres,
+                'last_name': apellidos
+            }
+        )
+        if created: 
+            user.set_password(doc) # Clave por defecto: la cédula
+            user.save()
+
+        # 👇 AQUÍ ESTABA EL ERROR: Faltaba definir esta variable
+        rol_final = validated_data.get('rol')
+        if not rol_final:
+            rol_final = 'EMPLEADO'
+        
+        # 7. GESTIÓN DE EMPLEADO (POR EMPRESA)
+        # Usamos update_or_create para que si ya existe en ESTA empresa, lo actualice
+        empleado, _ = Empleado.objects.update_or_create(
+            usuario=user,
+            empresa=empresa, # Clave: Usuario + Empresa = Perfil Único
+            defaults={
+                'documento': doc,
+                'nombres': nombres,
+                'apellidos': apellidos,
+                'email': email,
+                'sucursal': sucursal_obj,
+                'departamento': depto_obj,
+                'puesto': puesto_obj,
+                # 'area': area_obj,  <-- COMENTADO (Ya no existe en tu modelo)
+                'turno_asignado': turno_obj, # <-- CORREGIDO (Nombre correcto del campo)
+                'rol': rol_final.upper(), # Ahora sí existe la variable
+                'fecha_ingreso': validated_data.get('fecha_ingreso'),
+                'sueldo': validated_data.get('sueldo', 0),
+                'estado': 'ACTIVO'
+            }
         )
 
-        
-        rol_input = validated_data.get('rol', '').upper().strip()
-        
-        # Roles válidos en tu sistema
-        roles_validos = ['ADMIN', 'RRHH', 'GERENTE', 'EMPLEADO', 'CLIENTE']
-        
-        rol_asignado = 'EMPLEADO' # Default base
-
-        if rol_input in roles_validos:
-            # 1. Prioridad Máxima: Lo que diga el Excel
-            rol_asignado = rol_input
-        elif puesto and puesto.es_supervisor:
-            # 2. Prioridad Media: Si es supervisor, es GERENTE
-            rol_asignado = 'GERENTE'
-        
-        # 3. Crear Ficha
-        empleado = Empleado.objects.create(
-            usuario=user, 
-            empresa=empresa, 
-            sucursal=sucursal, 
-            departamento=departamento, 
-            puesto=puesto, 
-            turno_asignado=turno, 
-            nombres=validated_data['nombres'], 
-            apellidos=validated_data['apellidos'], 
-            email=email, 
-            documento=cedula,
-            fecha_ingreso=validated_data['fecha_ingreso'], 
-            sueldo=validated_data.get('sueldo', 460),
-            rol=rol_asignado,  # <--- Usamos el rol calculado
-            estado='ACTIVO', 
-            saldo_vacaciones=15
-        )
-        
         return empleado
-
 class EmpleadoSerializer(serializers.ModelSerializer):
     nombre_sucursal = serializers.CharField(source='sucursal.nombre', read_only=True)
     nombre_departamento = serializers.CharField(source='departamento.nombre', read_only=True)

@@ -5,6 +5,7 @@ import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { forkJoin } from 'rxjs'; 
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-empleado-form',
@@ -17,20 +18,21 @@ export class EmpleadoFormComponent implements OnInit {
   
   empleadoForm!: FormGroup;
   
-  // Estado
+  // --- ESTADO ---
   isEditing: boolean = false;
-  loading: boolean = false;
+  loading: boolean = false; // Carga general (catálogos)
+  saving: boolean = false;  // Carga al guardar
   empleadoId: number | null = null;
   titulo = 'Nuevo Colaborador';
 
-  // Catálogos (Listas Maestras)
+  // --- CATÁLOGOS ---
   sucursales: any[] = [];
-  departamentos: any[] = [];
+  departamentos: any[] = []; // Lista completa
   puestos: any[] = [];
   turnos: any[] = [];
 
-  // Listas Filtradas (Para los Selects del HTML)
-  departamentosFiltrados: any[] = [];
+  // --- LISTAS FILTRADAS ---
+  departamentosFiltrados: any[] = []; // Lista reducida según sucursal
   
   constructor(
     private fb: FormBuilder,
@@ -42,17 +44,11 @@ export class EmpleadoFormComponent implements OnInit {
   ) {}
   
   ngOnInit(): void {
-    // 1. Inicializar Formulario (¡CRUCIAL!)
-    this.initForm();
-
-    // 2. Cargar Catálogos
-    this.cargarCatalogos();
-    
-    // 3. Verificar Ruta (Edición o Nuevo)
-    this.verificarRuta();
+    this.initForm();       // 1. Crear el cascarón del formulario
+    this.cargarCatalogos(); // 2. Traer listas del backend
   }
 
-  // --- 1. CONFIGURACIÓN DEL FORMULARIO ---
+  // 1. INICIALIZAR FORMULARIO
   initForm() {
     this.empleadoForm = this.fb.group({
       // Datos Personales
@@ -63,25 +59,24 @@ export class EmpleadoFormComponent implements OnInit {
       telefono: [''],
       direccion: [''],
       
-      // Datos Organizacionales
-      sucursal: [null, Validators.required], // ID Sucursal
-      departamento: [null, Validators.required], // ID Depto
-      puesto: [null, Validators.required], // ID Puesto
-      turno_asignado: [null, Validators.required], // ID Turno
+      // Estructura (IDs)
+      sucursal: [null, Validators.required],
+      departamento: [null, Validators.required],
+      puesto: [null, Validators.required],
+      turno_asignado: [null], // Opcional
       
-      // Datos Contractuales
+      // Contratación
       fecha_ingreso: [new Date().toISOString().substring(0, 10), Validators.required],
-      salario: [0], // Opcional
+      sueldo: [460, [Validators.required, Validators.min(0)]],
       rol: ['EMPLEADO', Validators.required],
-      
-      // Estado
       estado: ['ACTIVO']
     });
   }
 
-  // --- 2. CARGA DE CATÁLOGOS ---
+  // 2. CARGA DE DATOS MAESTROS
   cargarCatalogos() {
     this.loading = true;
+    this.cd.detectChanges();
     const empresaId = this.auth.getEmpresaId();
 
     forkJoin({
@@ -91,100 +86,127 @@ export class EmpleadoFormComponent implements OnInit {
       turnos: this.api.getTurnos()
     }).subscribe({
       next: (res: any) => {
-        // Manejo robusto (si viene .results o array directo)
+        // Manejo robusto (por si viene paginado o array directo)
         this.sucursales = res.sucursales.results || res.sucursales;
         this.departamentos = res.deptos.results || res.deptos;
         this.puestos = res.puestos.results || res.puestos;
         this.turnos = res.turnos.results || res.turnos;
-        this.loading = false;
+        
+        // Una vez tenemos los catálogos, verificamos si es edición
+        this.verificarRuta(); 
       },
       error: (e) => {
         console.error("Error cargando catálogos", e);
+        Swal.fire('Error', 'No se pudieron cargar los datos necesarios.', 'error');
         this.loading = false;
+        this.cd.detectChanges();
       }
     });
   }
 
-  // --- 3. LÓGICA DE RUTA Y EDICIÓN ---
+  // 3. VERIFICAR SI ESTAMOS EDITANDO
   verificarRuta() {
     this.route.paramMap.subscribe(params => {
       const id = params.get('id');
-      
-      // CASO A: EDICIÓN
       if (id) {
         this.isEditing = true;
         this.titulo = 'Editar Colaborador';
         this.empleadoId = Number(id);
         this.cargarEmpleado(this.empleadoId);
-      } 
-      // CASO B: CONTEXTUAL (Viene desde un departamento específico)
-      else if (this.router.url.includes('/departamentos/')) {
-         // Lógica opcional si quieres pre-llenar depto desde la URL
+      } else {
+        this.loading = false; 
+        this.cd.detectChanges();
       }
     });
   }
 
+  // 4. CARGAR DATOS DEL EMPLEADO (Modo Edición)
   cargarEmpleado(id: number) {
-    this.loading = true;
     this.api.getEmpleado(id).subscribe({
       next: (data: any) => {
-        // CORRECCIÓN DE OBJETOS vs IDs
-        // Si el backend devuelve { id: 1, nombre: 'Norte' }, extraemos el 1.
-        const formValues = {
-            ...data,
-            sucursal: (typeof data.sucursal === 'object' && data.sucursal) ? data.sucursal.id : data.sucursal,
-            departamento: (typeof data.departamento === 'object' && data.departamento) ? data.departamento.id : data.departamento,
-            puesto: (typeof data.puesto === 'object' && data.puesto) ? data.puesto.id : data.puesto,
-            turno_asignado: (typeof data.turno_asignado === 'object' && data.turno_asignado) ? data.turno_asignado.id : data.turno_asignado
-        };
+        // PREPARACIÓN DE DATOS (Normalización ID vs Objeto)
+        // El backend puede devolver { sucursal: {id: 1, nombre...} } o { sucursal: 1 }
+        // El formulario necesita el ID (1).
+        
+        const sucursalId = (typeof data.sucursal === 'object' && data.sucursal) ? data.sucursal.id : data.sucursal;
+        const deptoId = (typeof data.departamento === 'object' && data.departamento) ? data.departamento.id : data.departamento;
+        const puestoId = (typeof data.puesto === 'object' && data.puesto) ? data.puesto.id : data.puesto;
+        const turnoId = (typeof data.turno_asignado === 'object' && data.turno_asignado) ? data.turno_asignado.id : data.turno_asignado;
 
-        this.empleadoForm.patchValue(formValues);
+        // Llenar formulario
+        this.empleadoForm.patchValue({
+            nombres: data.nombres,
+            apellidos: data.apellidos,
+            documento: data.documento,
+            email: data.email,
+            telefono: data.telefono,
+            direccion: data.direccion,
+            sucursal: sucursalId,
+            puesto: puestoId,
+            turno_asignado: turnoId,
+            fecha_ingreso: data.fecha_ingreso,
+            sueldo: data.sueldo,
+            rol: data.rol,
+            estado: data.estado
+        });
+
+        // IMPORTANTE: Filtrar departamentos antes de setear el valor
+        this.filtrarDepartamentos(sucursalId);
         
-        // Disparamos el filtro manualmente para que el select de Deptos se llene
-        this.onSucursalChange(); 
-        
-        // Volvemos a setear el departamento (porque onSucursalChange lo limpia)
-        this.empleadoForm.patchValue({ departamento: formValues.departamento });
-        
+        // Setear departamento (después de filtrar, si no, el select estaría vacío)
+        this.empleadoForm.patchValue({ departamento: deptoId });
+
         this.loading = false;
+        this.cd.detectChanges();
       },
       error: (e) => {
         console.error(e);
-        this.loading = false;
+        Swal.fire('Error', 'No se encontró la ficha del empleado', 'error');
+        this.router.navigate(['/empleados']);
       }
     });
   }
 
-  // --- 4. LÓGICA DE INTERACCIÓN (CASCADA) ---
-  
-  // Cuando cambian la Sucursal -> Filtramos los Departamentos
+  // 5. EVENTOS: CAMBIO DE SUCURSAL
   onSucursalChange() {
     const sucursalId = this.empleadoForm.get('sucursal')?.value;
     
-    if (sucursalId) {
-      this.departamentosFiltrados = this.departamentos.filter(d => {
-         // Verificamos si d.sucursal es objeto o ID
-         const dSucId = (typeof d.sucursal === 'object') ? d.sucursal.id : d.sucursal;
-         return Number(dSucId) === Number(sucursalId);
-      });
-      // Limpiamos el depto seleccionado porque ya no es válido para la nueva sucursal
-      this.empleadoForm.patchValue({ departamento: null });
-    } else {
-      this.departamentosFiltrados = [];
-    }
+    // 1. Resetear departamento (porque cambió la sucursal padre)
+    this.empleadoForm.patchValue({ departamento: null });
+    
+    // 2. Filtrar lista
+    this.filtrarDepartamentos(sucursalId);
   }
 
-  // --- 5. GUARDAR ---
+  filtrarDepartamentos(sucursalId: number | null) {
+    if (!sucursalId) {
+        this.departamentosFiltrados = [];
+        return;
+    }
+    // Filtramos la lista maestra
+    this.departamentosFiltrados = this.departamentos.filter(d => {
+        const dSucId = (typeof d.sucursal === 'object') ? d.sucursal.id : d.sucursal;
+        return Number(dSucId) === Number(sucursalId);
+    });
+  }
+
+  // 6. GUARDAR DATOS
   guardar() {
     if (this.empleadoForm.invalid) {
       this.empleadoForm.markAllAsTouched();
+      // Toast suave para avisar
+      const toast = Swal.mixin({
+        toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
+      });
+      toast.fire({ icon: 'warning', title: 'Complete los campos obligatorios' });
       return;
     }
 
-    this.loading = true;
+    this.saving = true;
+    this.cd.detectChanges();
     const data = this.empleadoForm.value;
     
-    // Si es nuevo, aseguramos inyectar la empresa ID del usuario actual
+    // Inyectar empresa si es nuevo
     if (!this.isEditing) {
       data.empresa = this.auth.getEmpresaId();
     }
@@ -195,14 +217,29 @@ export class EmpleadoFormComponent implements OnInit {
 
     request.subscribe({
       next: () => {
-        alert(this.isEditing ? 'Actualizado correctamente' : 'Empleado contratado con éxito');
-        this.router.navigate(['/empleados']);
+        this.saving = false;
+        Swal.fire({
+            title: '¡Excelente!',
+            text: this.isEditing ? 'Datos actualizados correctamente' : 'Colaborador registrado con éxito',
+            icon: 'success',
+            confirmButtonText: 'Volver al Directorio',
+            confirmButtonColor: '#4F46E5'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                this.router.navigate(['/empleados']);
+            }
+        });
       },
       error: (e) => {
+        this.saving = false;
+        this.cd.detectChanges();
         console.error(e);
-        const msg = e.error?.error || 'Error al procesar la solicitud';
-        alert(msg);
-        this.loading = false;
+        // Manejo de errores comunes
+        let msg = 'Ocurrió un error al procesar la solicitud.';
+        if (e.error?.email) msg = 'El correo electrónico ya está registrado.';
+        if (e.error?.documento) msg = 'El número de documento ya existe en esta empresa.';
+        
+        Swal.fire('Error', msg, 'error');
       }
     });
   }

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from jsonschema import ValidationError
 from core.models import Empresa, Sucursal, Departamento, Puesto, Area, Turno
 from core.utils import calcular_dias_habiles
 # 1. FICHA DEL EMPLEADO
@@ -19,7 +20,7 @@ class Empleado(models.Model):
     # Datos Personales
     nombres = models.CharField(max_length=150)
     apellidos = models.CharField(max_length=150)
-    email = models.EmailField(unique=True)
+    email = models.EmailField()
     telefono = models.CharField(max_length=100, blank=True)
     direccion = models.TextField(blank=True)
     foto = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
@@ -39,10 +40,6 @@ class Empleado(models.Model):
     
     # --- JERARQUÍA Y ACCESO ---
     rol = models.CharField(max_length=100, choices=ROLES, default='EMPLEADO')
-    
-    # Campo opcional: Si es GERENTE, ¿de qué Área es responsable?
-    # Esto permite que un Gerente vea a TODOS los empleados de "Ventas", 
-    # sin importar si están en Quito o Guayaquil.
     lider_area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, help_text="Solo para Gerentes: Define qué área supervisa globalmente")
 
     # Datos Laborales
@@ -51,9 +48,31 @@ class Empleado(models.Model):
     saldo_vacaciones = models.IntegerField(default=15)
     turno_asignado = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Turno Fijo")
     estado = models.CharField(max_length=100, default='ACTIVO', choices=[('ACTIVO', 'Activo'), ('INACTIVO', 'Inactivo')])
+    class Meta:
+        unique_together = [
+            ('empresa', 'email'),
+            ('empresa', 'documento')
+        ]
+    def clean(self):
+        # 1. VALIDACIÓN DE CONSISTENCIA JERÁRQUICA
+        if self.departamento and self.sucursal:
+            if self.departamento.sucursal != self.sucursal:
+                raise ValidationError({
+                    'departamento': 'El departamento seleccionado no pertenece a la sucursal indicada.'
+                })
+        
+        # 2. VALIDACIÓN DE JEFE DE ÁREA
+        if self.rol == 'GERENTE' and not self.lider_area:
+            raise ValidationError({'lider_area': 'Un Gerente debe tener un Área asignada.'})
 
+    def save(self, *args, **kwargs):
+        # Auto-llenado de sucursal si se elige departamento
+        if self.departamento and not self.sucursal:
+            self.sucursal = self.departamento.sucursal
+        super().save(*args, **kwargs)
     def __str__(self):
         return f"{self.nombres} {self.apellidos} ({self.rol})"
+
 
 # 2. DOCUMENTOS DEL EMPLEADO
 class DocumentoEmpleado(models.Model):

@@ -21,14 +21,18 @@
             [class.border-indigo-600]="activeTab==='EMPRESAS'" 
             [class.text-indigo-600]="activeTab==='EMPRESAS'" 
             class="pb-3 px-2 border-b-2 border-transparent hover:text-indigo-600 font-bold transition text-gray-500 flex items-center gap-2">
-      <i class="bi bi-buildings"></i> Gestión Empresas
+      <i class="bi bi-buildings"></i> Gestión Clientes SaaS
     </button>
     <button (click)="activeTab='ESTRUCTURA'" 
             [class.border-indigo-600]="activeTab==='ESTRUCTURA'" 
             [class.text-indigo-600]="activeTab==='ESTRUCTURA'" 
             class="pb-3 px-2 border-b-2 border-transparent hover:text-indigo-600 font-bold transition text-gray-500 flex items-center gap-2">
-      <i class="bi bi-diagram-2"></i> Configuración Interna
+      <i class="bi bi-diagram-2"></i> Mi Organización Interna
     </button>
+  </div>
+
+  <div *ngIf="!isSuperAdmin" class="mb-6">
+      <h2 class="text-xl font-bold text-gray-800">Mi Organización</h2>
   </div>
 
   <div *ngIf="activeTab === 'EMPRESAS' && isSuperAdmin" class="animate-fade-in">
@@ -39,7 +43,6 @@
             <tr>
               <th class="px-6 py-4">Empresa / Razón Social</th>
               <th class="px-6 py-4">RUC</th>
-              <th class="px-6 py-4 text-center">Admin</th>
               <th class="px-6 py-4 text-center">Estado</th>
               <th class="px-6 py-4 text-right">Acciones</th>
             </tr>
@@ -59,9 +62,6 @@
                 </div>
               </td>
               <td class="px-6 py-4 font-mono text-gray-600">{{ emp.ruc }}</td>
-              <td class="px-6 py-4 text-center">
-                 <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">Admin</span>
-              </td>
               <td class="px-6 py-4 text-center">
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" [checked]="emp.estado" (change)="cambiarEstadoEmpresa(emp, $event)" class="sr-only peer">
@@ -193,12 +193,8 @@
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                   <div class="flex justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button (click)="abrirModalArea(item)" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 w-8 h-8 rounded-lg transition flex items-center justify-center" title="Editar">
-                                      <i class="bi bi-pencil-square"></i>
-                                    </button>
-                                    <button (click)="eliminarArea(item)" class="text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition flex items-center justify-center" title="Eliminar">
-                                      <i class="bi bi-trash"></i>
-                                    </button>
+                                    <button (click)="abrirModalArea(item)" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
+                                    <button (click)="eliminarArea(item)" class="text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-trash"></i></button>
                                   </div>
                                 </td>
                             </tr>
@@ -301,10 +297,6 @@
                   <label class="text-xs font-bold text-gray-500 uppercase">RUC *</label>
                   <input formControlName="ruc" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500" placeholder="13 dígitos">
                 </div>
-                <div class="col-span-2 bg-gray-50 p-3 rounded-lg border border-dashed border-gray-300">
-                    <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">Logo (Opcional)</label>
-                    <input type="file" (change)="onLogoSelect($event)" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 cursor-pointer">
-                </div>
                 <div *ngIf="!selectedId" class="col-span-2 bg-indigo-50 p-4 rounded-xl border border-indigo-100 mt-2">
                     <p class="text-xs font-bold text-indigo-800 mb-3 flex items-center gap-2"><i class="bi bi-person-fill-lock"></i> Admin Inicial</p>
                     <div class="grid grid-cols-2 gap-3">
@@ -315,7 +307,7 @@
             </div>
             <div class="flex justify-end gap-2 mt-6">
               <button type="button" (click)="showModalEmpresa=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>
-              <button type="submit" [disabled]="formEmpresa.invalid || loading" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50">
+              <button type="submit" [disabled]="formEmpresa.invalid || loading" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition">
                   {{ loading ? 'Guardando...' : 'Guardar' }}
               </button>
             </div>
@@ -340,19 +332,18 @@
                 <input type="checkbox" formControlName="es_matriz" class="w-5 h-5 text-indigo-600 rounded">
                 <span class="text-sm font-bold text-gray-800">Es Casa Matriz</span>
             </div>
-            <div class="flex justify-end gap-2 mt-4">
-              <button type="button" (click)="showModalSucursal=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" [disabled]="sucursalForm.invalid" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold">Guardar</button>
-            </div>
             <div>
               <label class="text-xs font-bold text-gray-500 uppercase">Gerente Responsable</label>
-              <div class="text-xs text-gray-400 mb-1">Quien aprobará las vacaciones en esta sede.</div>
               <select formControlName="responsable" class="w-full border-gray-300 rounded-lg p-2.5 bg-white focus:ring-indigo-500">
                   <option [ngValue]="null">-- Sin Asignar --</option>
                   <option *ngFor="let emp of empleadosList" [value]="emp.id">
                       {{ emp.nombres }} {{ emp.apellidos }} ({{ emp.nombre_puesto }})
                   </option>
               </select>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+              <button type="button" (click)="showModalSucursal=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+              <button type="submit" [disabled]="sucursalForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
             </div>
         </form>
     </div>
@@ -373,7 +364,7 @@
             </div>
             <div class="flex justify-end gap-2 mt-4">
               <button type="button" (click)="showModalArea=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold">Guardar</button>
+              <button type="submit" [disabled]="areaForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
             </div>
         </form>
     </div>
@@ -404,7 +395,7 @@
             </div>
             <div class="flex justify-end gap-2 mt-4">
               <button type="button" (click)="showModalDepto=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold">Guardar</button>
+              <button type="submit" [disabled]="deptoForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
             </div>
         </form>
     </div>
@@ -432,7 +423,7 @@
             </div>
             <div class="flex justify-end gap-2 mt-4">
               <button type="button" (click)="showModalPuesto=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold">Guardar</button>
+              <button type="submit" [disabled]="puestoForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
             </div>
         </form>
     </div>
@@ -480,7 +471,8 @@
             </div>
             <div class="flex justify-end gap-2 mt-4">
               <button type="button" (click)="showModalTurno=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold">Guardar</button>
+              
+              <button type="submit" [disabled]="turnoForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
             </div>
         </form>
     </div>

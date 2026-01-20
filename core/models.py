@@ -51,16 +51,8 @@ class Departamento(models.Model):
     nombre = models.CharField(max_length=100) 
     sucursal = models.ForeignKey(Sucursal, on_delete=models.CASCADE, related_name='departamentos')
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, related_name='departamentos')
-    @property
-    def jefe_actual(self):
-        # Busca un empleado de este departamento cuyo puesto sea de supervisor
-        # Asumiendo que has importado el modelo Empleado o usas apps.get_model
-        from personal.models import Empleado 
-        return Empleado.objects.filter(
-            departamento=self, 
-            puesto__es_supervisor=True,
-            estado='ACTIVO'
-        ).first()
+    class Meta:
+        unique_together = ('sucursal', 'nombre')
 
     def __str__(self):
         return f"{self.nombre} ({self.sucursal.nombre})"
@@ -71,7 +63,8 @@ class Puesto(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True)
     es_supervisor = models.BooleanField(default=False)
-
+    class Meta:
+        unique_together = ('empresa', 'nombre')
     def __str__(self):
         return self.nombre
 

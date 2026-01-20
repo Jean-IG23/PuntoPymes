@@ -13,7 +13,7 @@ import io
 from django.http import HttpResponse
 
 # Imports locales
-from .utils import notificar_solicitud # 👈 Ahora sí la usaremos
+from .utils import notificar_solicitud 
 from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia
 from .serializers import (
     CargaMasivaEmpleadoSerializer, EmpleadoSerializer, ContratoSerializer, 
@@ -23,57 +23,71 @@ from .serializers import (
 # =========================================================================
 # 1. VIEWSET DE EMPLEADOS
 # =========================================================================
+# En src/personal/views.py
+
 class EmpleadoViewSet(viewsets.ModelViewSet):
-    queryset = Empleado.objects.all()
+    queryset = Empleado.objects.all().order_by('-id')
     serializer_class = EmpleadoSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Empleado.objects.all().order_by('-id')
+        
+        # 1. BASE: Empezamos con NADA (Seguridad por defecto)
+        queryset = Empleado.objects.none()
 
-        # 1. SUPERADMIN
+        # 2. IDENTIFICAR EMPRESA
+        mi_empresa = None
+        
         if user.is_superuser:
-            empresa_id = self.request.query_params.get('empresa')
-            if empresa_id:
-                queryset = queryset.filter(empresa_id=empresa_id)
-            return queryset
+            # Caso A: SuperUser.
+            # Intentamos ver si tiene perfil de empleado (para ver SU propia empresa)
+            try:
+                perfil = Empleado.objects.get(usuario=user)
+                mi_empresa = perfil.empresa
+            except Empleado.DoesNotExist:
+                # Si es SuperUser puro sin perfil, NO ve nada en esta vista.
+                return Empleado.objects.none()
+        else:
+            # Caso B: Usuario Normal.
+            try:
+                perfil = Empleado.objects.get(usuario=user)
+                mi_empresa = perfil.empresa
+            except Empleado.DoesNotExist:
+                return Empleado.objects.none()
 
-        # 2. STAFF EMPRESA
-        try:
-            perfil = Empleado.objects.get(usuario=user)
-            if perfil.rol in ['ADMIN', 'CLIENTE', 'RRHH']:
-                queryset = queryset.filter(empresa=perfil.empresa)
-            elif perfil.rol == 'GERENTE':
-                # LOGICA NUEVA: ¿Es jefe de sucursal?
-                sucursales_a_cargo = perfil.sucursales_a_cargo.all()
-                
-                if sucursales_a_cargo.exists():
-                    # Ve a todos los empleados de las sucursales que dirige
-                    # OJO: Excluimos su propio perfil para que no se auto-edite si no quieres
-                    queryset = queryset.filter(
-                        empresa=perfil.empresa,
-                        sucursal__in=sucursales_a_cargo
-                    )
-                elif perfil.departamento:
-                    # Lógica antigua (Jefe de Área sin sucursal)
-                    queryset = queryset.filter(
-                        empresa=perfil.empresa,
-                        departamento=perfil.departamento
-                    )
-                else:
-                    return Empleado.objects.none()
-            else:
-                queryset = queryset.filter(id=perfil.id)
-            
-            dept_id = self.request.query_params.get('departamento')
-            if dept_id: 
-                queryset = queryset.filter(departamento_id=dept_id)
-                
-            return queryset
-
-        except Empleado.DoesNotExist:
+        # 3. APLICAR FILTRO MAESTRO (Si encontramos empresa)
+        if mi_empresa:
+            queryset = Empleado.objects.filter(empresa=mi_empresa).order_by('-id')
+        else:
             return Empleado.objects.none()
+
+        # -------------------------------------------------------------
+        # 🔍 FILTROS ADICIONALES (Solo aplican sobre el queryset ya filtrado)
+        # -------------------------------------------------------------
+        
+        # Filtro por Departamento
+        depto_id = self.request.query_params.get('departamento')
+        if depto_id:
+            queryset = queryset.filter(departamento_id=depto_id)
+
+        # Filtro por Sucursal
+        sucursal_id = self.request.query_params.get('sucursal')
+        if sucursal_id:
+            queryset = queryset.filter(sucursal_id=sucursal_id)
+
+        # Búsqueda por texto
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(nombres__icontains=search) | 
+                Q(apellidos__icontains=search) |
+                Q(documento__icontains=search) |
+                Q(email__icontains=search)
+            )
+
+        return queryset
 
     def create(self, request, *args, **kwargs):
         if not request.user.is_superuser:
@@ -143,51 +157,69 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         file = request.FILES.get('file')
         if not file: return Response({'error': 'Falta archivo.'}, 400)
 
+        # 1. DETERMINAR EMPRESA DESTINO (Contexto de Seguridad)
+        empresa_destino = None
+        
+        if request.user.is_superuser:
+            # Si soy Superadmin, DEBO decir para qué empresa es este Excel
+            empresa_id = request.data.get('empresa_id')
+            if not empresa_id:
+                return Response({'error': 'Superadmin debe enviar "empresa_id"'}, 400)
+            try:
+                empresa_destino = Empresa.objects.get(pk=empresa_id)
+            except Empresa.DoesNotExist:
+                return Response({'error': 'Empresa no encontrada'}, 404)
+        else:
+            # Si soy cliente, uso MI empresa
+            try:
+                perfil = Empleado.objects.get(usuario=request.user)
+                empresa_destino = perfil.empresa
+            except Empleado.DoesNotExist:
+                return Response({'error': 'Usuario sin perfil de empleado.'}, 403)
+
         try:
-            # 1. Lectura con Pandas
+            # 2. Lectura del Archivo
             if file.name.endswith('.csv'):
                 df = pd.read_csv(file, dtype=str)
             else:
                 df = pd.read_excel(file, dtype=str)
 
+            # Limpieza básica de cabeceras
             df.columns = df.columns.str.lower().str.strip()
             df.dropna(how='all', inplace=True)
 
-            
+            # Mapa de Columnas (Igual que tenías)
             mapa_traduccion = {
-                'documento': ['cedula', 'cédula', 'dni', 'identificacion', 'id', 'documento', 'c.i.', 'ci'],
-                'nombres': ['nombres', 'nombre', 'name', 'first name', 'nombres*'],
-                'apellidos': ['apellidos', 'apellido', 'last name', 'apellidos*'],
-                'email': ['email', 'correo', 'e-mail', 'mail', 'correo electronico'],
-                'nombre_sucursal': ['sucursal', 'sede', 'oficina', 'sucursal*'],
-                'nombre_area': ['area', 'área', 'area*', 'zona'],
-                'nombre_departamento': ['departamento', 'depto', 'departamento*'],
-                'nombre_puesto': ['cargo', 'puesto', 'rol', 'job', 'cargo*'],
-                'es_supervisor_puesto': ['es_supervisor', 'supervisor', 'jefe', 'lider', 'es supervisor'],
-                'nombre_turno': ['turno', 'horario', 'jornada', 'turno*'],
-                'rol': ['rol', 'role', 'perfil', 'tipo usuario'],
-                'fecha_ingreso': ['fecha_ingreso', 'ingreso', 'fecha inicio', 'fecha_ingreso*'],
-                'sueldo': ['sueldo', 'salario', 'remuneracion', 'sueldo*']
+                'documento': ['cedula', 'cédula', 'dni', 'identificacion', 'id', 'documento'],
+                'nombres': ['nombres', 'nombre', 'name'],
+                'apellidos': ['apellidos', 'apellido', 'last name'],
+                'email': ['email', 'correo', 'mail'],
+                'nombre_sucursal': ['sucursal', 'sede', 'oficina'],
+                'nombre_area': ['area', 'área', 'zona'],
+                'nombre_departamento': ['departamento', 'depto'],
+                'nombre_puesto': ['cargo', 'puesto', 'rol'],
+                'es_supervisor_puesto': ['es_supervisor', 'supervisor', 'jefe'],
+                'nombre_turno': ['turno', 'horario', 'jornada'],
+                'rol': ['rol', 'perfil'],
+                'fecha_ingreso': ['fecha_ingreso', 'ingreso', 'fecha inicio'],
+                'sueldo': ['sueldo', 'salario']
             }
 
             cols_renombradas = {}
-            columnas_destino_usadas = set()
+            usadas = set()
             for col_real in df.columns:
                 for col_destino, variantes in mapa_traduccion.items():
-                    if col_real in variantes:
-                        if col_destino in columnas_destino_usadas:
-                            continue 
-                        
+                    if col_real in variantes and col_destino not in usadas:
                         cols_renombradas[col_real] = col_destino
-                        columnas_destino_usadas.add(col_destino)
+                        usadas.add(col_destino)
                         break
             
             df.rename(columns=cols_renombradas, inplace=True)
-                  
+
             errores = []
             creados = 0
 
-            # 2. Desconexión de Signals (Evita emails masivos al crear users)
+            # Desconectar Signals para evitar spam de correos al crear usuarios
             receivers = post_save._live_receivers(User)
             for receiver in receivers:
                 post_save.disconnect(receiver, sender=User)
@@ -198,7 +230,7 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
                     sid = transaction.savepoint() 
                     
                     try:
-                        # --- HELPERS ---
+                        # Helpers de limpieza de celdas
                         def clean_str(val):
                             s = str(val).strip()
                             return '' if s.lower() in ['nan', 'nat', 'none', 'null'] else s
@@ -210,36 +242,37 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
                             except: return timezone.now().date()
 
                         def clean_decimal(val):
-                            s = clean_str(val)
-                            if not s: return 460
-                            s = s.replace('$', '').replace(' ', '')
-                            if ',' in s and '.' in s: s = s.replace('.', '').replace(',', '.')
-                            elif ',' in s: s = s.replace(',', '.')
+                            s = clean_str(val).replace('$','').replace(' ','')
+                            if not s: return 0
+                            if ',' in s and '.' in s: s = s.replace('.','').replace(',','.')
+                            elif ',' in s: s = s.replace(',','.')
                             try: return float(s)
-                            except: return 460
+                            except: return 0
 
-                        data = {
+                        # Extracción de Datos Crudos
+                        data_row = {
+                            'documento': clean_str(row.get('documento')),
                             'nombres': clean_str(row.get('nombres')),
                             'apellidos': clean_str(row.get('apellidos')),
                             'email': clean_str(row.get('email')),
-                            'documento': clean_str(row.get('documento')),
-                            'rol': clean_str(row.get('rol')),
                             'nombre_sucursal': clean_str(row.get('nombre_sucursal')),
                             'nombre_area': clean_str(row.get('nombre_area')),
                             'nombre_departamento': clean_str(row.get('nombre_departamento')),
                             'nombre_puesto': clean_str(row.get('nombre_puesto')),
-                            
-                            'es_supervisor_puesto': clean_str(row.get('es_supervisor_puesto')).upper() in ['SI', 'S', 'TRUE', 'YES', '1'],
+                            'es_supervisor_puesto': clean_str(row.get('es_supervisor_puesto')).upper() in ['SI','S','TRUE','1'],
                             'nombre_turno': clean_str(row.get('nombre_turno')),
-                            
+                            'rol': clean_str(row.get('rol')),
                             'fecha_ingreso': clean_date(row.get('fecha_ingreso')),
                             'sueldo': clean_decimal(row.get('sueldo'))
                         }
 
-                        if not data['nombres'] or not data['documento']:
-                            continue 
+                        if not data_row['nombres'] or not data_row['documento']: continue 
 
-                        serializer = CargaMasivaEmpleadoSerializer(data=data, context={'request': request})
+                        # 👇 INYECTAMOS LA EMPRESA AL SERIALIZER
+                        serializer = CargaMasivaEmpleadoSerializer(
+                            data=data_row, 
+                            context={'empresa_destino': empresa_destino} 
+                        )
                         
                         if serializer.is_valid():
                             serializer.save()
@@ -247,35 +280,16 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
                             transaction.savepoint_commit(sid)
                         else:
                             transaction.savepoint_rollback(sid)
-                            err_msgs = [f"{k}: {v[0]}" for k, v in serializer.errors.items()]
-                            errores.append(f"Fila {fila_num}: {', '.join(err_msgs)}")
+                            errs = [f"{k}: {v[0]}" for k,v in serializer.errors.items()]
+                            errores.append(f"Fila {fila_num}: {', '.join(errs)}")
 
                     except Exception as e:
                         transaction.savepoint_rollback(sid)
                         errores.append(f"Fila {fila_num}: Error interno - {str(e)}")
 
-            if creados > 0:
-                return Response({
-                    "mensaje": f"{creados}",
-                    "creados": creados,
-                    "errores": errores
-                }, status=status.HTTP_200_OK)
-            elif len(errores) > 0:
-                return Response({
-                    "mensaje": "Errores de validación",
-                    "creados": 0,
-                    "errores": errores
-                }, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    "mensaje": "Archivo vacío o ilegible",
-                    "creados": 0,
-                    "errores": ["No se encontraron filas con datos. Verifica que la fila 1 tenga los encabezados."]
-                }, status=status.HTTP_200_OK)
+            return Response({"creados": creados, "errores": errores}, status=200)
 
         except Exception as e:
-            import traceback
-            traceback.print_exc()
             return Response({"error": f"Error procesando archivo: {str(e)}"}, status=400)
 
 

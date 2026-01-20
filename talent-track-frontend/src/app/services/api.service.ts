@@ -211,7 +211,7 @@ export class ApiService {
   uploadEmpleados(file: File): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post(`${this.baseUrl}/empleados/upload_excel/`, formData, this.getHeaders());
+    return this.http.post(`${this.baseUrl}/empleados/importar_excel/`, formData, this.getHeaders());
   }
 
   downloadPlantilla(): void {

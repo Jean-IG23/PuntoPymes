@@ -1,0 +1,173 @@
+<div class="min-h-screen bg-gray-50/50 p-6 font-sans animate-fade-in overflow-x-hidden">
+
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
+                <i class="bi bi-kanban text-rose-600"></i> Tablero de Tareas
+            </h1>
+            <p class="text-gray-500 mt-1 ml-10">Gestiona el flujo de trabajo de tu equipo.</p>
+        </div>
+        
+        <div class="flex items-center gap-3 bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+            <button (click)="verMisTareas=false; cargarTareas()" 
+                    [class]="!verMisTareas ? 'bg-gray-900 text-white shadow' : 'text-gray-500 hover:bg-gray-50'"
+                    class="px-4 py-2 rounded-lg text-sm font-bold transition">
+                Todo el Equipo
+            </button>
+            <button (click)="verMisTareas=true; cargarTareas()" 
+                    [class]="verMisTareas ? 'bg-gray-900 text-white shadow' : 'text-gray-500 hover:bg-gray-50'"
+                    class="px-4 py-2 rounded-lg text-sm font-bold transition">
+                Mis Tareas
+            </button>
+        </div>
+
+        <button (click)="abrirModal()" 
+                class="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-rose-200 transition flex items-center gap-2">
+            <i class="bi bi-plus-lg"></i> Nueva Tarea
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start h-full">
+        
+        <div *ngFor="let col of columnas" class="flex flex-col h-full">
+            
+            <div [class]="'p-3 rounded-t-xl border-b-2 flex justify-between items-center ' + col.color">
+                <h3 class="font-bold text-gray-700 uppercase text-xs tracking-wider">{{ col.titulo }}</h3>
+                <span class="bg-white/50 px-2 py-0.5 rounded text-xs font-bold text-gray-600">
+                    {{ getTareasPorEstado(col.id).length }}
+                </span>
+            </div>
+
+            <div class="bg-gray-100/50 p-2 rounded-b-xl min-h-[500px] border-x border-b border-gray-200 space-y-3">
+                
+                <div *ngFor="let tarea of getTareasPorEstado(col.id)" 
+                     class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition group relative animate-fade-in-up">
+                    
+                    <div class="flex justify-between items-start mb-2">
+                        <span [ngClass]="{
+                            'bg-gray-100 text-gray-600': tarea.prioridad === 'BAJA',
+                            'bg-blue-50 text-blue-600': tarea.prioridad === 'MEDIA',
+                            'bg-orange-50 text-orange-600': tarea.prioridad === 'ALTA',
+                            'bg-red-50 text-red-600': tarea.prioridad === 'URGENTE'
+                        }" class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide border border-transparent">
+                            {{ tarea.prioridad }}
+                        </span>
+                        
+                        <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                            <button (click)="abrirModal(tarea)" class="text-gray-400 hover:text-indigo-600"><i class="bi bi-pencil-square"></i></button>
+                            <button (click)="eliminar(tarea.id)" class="text-gray-400 hover:text-red-600"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+
+                    <h4 class="font-bold text-gray-800 text-sm mb-1 leading-snug">{{ tarea.titulo }}</h4>
+                    <p class="text-xs text-gray-500 mb-3 line-clamp-2" title="{{ tarea.descripcion }}">{{ tarea.descripcion || 'Sin descripción' }}</p>
+
+                    <div class="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold" title="Asignado a: {{ tarea.asignado_nombre }}">
+                                {{ tarea.asignado_nombre ? tarea.asignado_nombre.charAt(0) : '?' }}
+                            </div>
+                            <span class="text-[10px] text-gray-400 font-medium">
+                                {{ tarea.fecha_limite | date:'dd MMM' }}
+                            </span>
+                        </div>
+                        
+                        <div class="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 flex items-center gap-1">
+                            <i class="bi bi-star-fill text-amber-400"></i> {{ tarea.puntos_valor }}
+                        </div>
+                    </div>
+
+                    <div class="mt-3 grid grid-cols-2 gap-2" *ngIf="col.id !== 'COMPLETADA'">
+                        <button *ngIf="col.id === 'PENDIENTE'" (click)="cambiarEstado(tarea, 'PROGRESO')" 
+                                class="col-span-2 text-xs bg-blue-50 text-blue-600 py-1.5 rounded-lg font-bold hover:bg-blue-100 transition">
+                            Empezar <i class="bi bi-play-fill"></i>
+                        </button>
+                        
+                        <button *ngIf="col.id === 'PROGRESO'" (click)="cambiarEstado(tarea, 'REVISION')" 
+                                class="col-span-2 text-xs bg-yellow-50 text-yellow-600 py-1.5 rounded-lg font-bold hover:bg-yellow-100 transition">
+                            A Revisión <i class="bi bi-eye-fill"></i>
+                        </button>
+
+                        <button *ngIf="col.id === 'REVISION'" (click)="cambiarEstado(tarea, 'PROGRESO')" 
+                                class="text-xs bg-gray-50 text-gray-500 py-1.5 rounded-lg font-bold hover:bg-gray-100 transition">
+                            <i class="bi bi-arrow-counterclockwise"></i> Devolver
+                        </button>
+                        <button *ngIf="col.id === 'REVISION'" (click)="cambiarEstado(tarea, 'COMPLETADA')" 
+                                class="text-xs bg-green-50 text-green-600 py-1.5 rounded-lg font-bold hover:bg-green-100 transition">
+                            Aprobar <i class="bi bi-check-lg"></i>
+                        </button>
+                    </div>
+
+                </div>
+                
+                <div *ngIf="getTareasPorEstado(col.id).length === 0" class="text-center py-10 opacity-40">
+                    <i class="bi bi-clipboard-plus text-3xl text-gray-400 mb-2 block"></i>
+                    <p class="text-xs font-medium text-gray-500">Vacío</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div *ngIf="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" (click)="showModal=false"></div>
+    <div class="bg-white rounded-2xl w-full max-w-lg z-10 p-6 shadow-2xl">
+        <h3 class="font-bold text-xl mb-4 text-gray-900">
+            {{ isEditing ? 'Editar Tarea' : 'Nueva Tarea' }}
+        </h3>
+        
+        <form [formGroup]="form" (ngSubmit)="guardar()" class="space-y-4">
+            
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">Título</label>
+                <input formControlName="titulo" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-rose-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Asignar a</label>
+                    <select formControlName="asignado_a" class="w-full border-gray-300 rounded-lg p-2.5 bg-white">
+                        <option value="">-- Seleccione --</option>
+                        <option *ngFor="let emp of empleados" [value]="emp.id">
+                            {{ emp.nombres }} {{ emp.apellidos }}
+                        </option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Fecha Límite</label>
+                    <input type="date" formControlName="fecha_limite" class="w-full border-gray-300 rounded-lg p-2.5">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Prioridad</label>
+                    <select formControlName="prioridad" class="w-full border-gray-300 rounded-lg p-2.5 bg-white">
+                        <option value="BAJA">Baja</option>
+                        <option value="MEDIA">Media</option>
+                        <option value="ALTA">Alta</option>
+                        <option value="URGENTE">🔥 Urgente</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Puntos (Valor)</label>
+                    <input type="number" formControlName="puntos_valor" min="1" max="10" class="w-full border-gray-300 rounded-lg p-2.5">
+                </div>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase">Descripción</label>
+                <textarea formControlName="descripcion" rows="3" class="w-full border-gray-300 rounded-lg p-2.5"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
+                <button type="button" (click)="showModal=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>
+                <button type="submit" [disabled]="form.invalid || loading" class="bg-rose-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-rose-700 disabled:opacity-50">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>x

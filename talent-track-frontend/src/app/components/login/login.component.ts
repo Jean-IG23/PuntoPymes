@@ -45,10 +45,7 @@ export class LoginComponent {
       next: (res) => {
         // Si todo sale bien, el servicio ya guardó el token y el user en localStorage
         this.loading = false;
-        setTimeout(() => {
-    this.router.navigate(['/home']);
-  }, 50);
-        // REDIRECCIÓN CLAVE AL DASHBOARD
+        // REDIRECCIÓN AL HOME
         this.router.navigate(['/home']);
       },
       error: (err) => {

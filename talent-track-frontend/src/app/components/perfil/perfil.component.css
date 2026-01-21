@@ -1,0 +1,97 @@
+/* Perfil Component Styles */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #991b1b;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Inputs con estilo consistente */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+textarea {
+  transition: all 0.2s ease;
+  border: 1px solid #e5e7eb;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Botones */
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Tabs activos */
+button[class*="border-red-600"] {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+/* Tablas */
+table tbody tr:hover {
+  background-color: #f3f4f6;
+}
+
+/* Loading spinner */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Progress bars */
+.progress-bar {
+  transition: width 0.3s ease;
+}
+
+/* Cards de información */
+.info-card {
+  transition: all 0.2s ease;
+}
+
+.info-card:hover {
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1);
+}

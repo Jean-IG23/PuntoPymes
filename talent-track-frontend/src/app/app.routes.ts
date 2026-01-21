@@ -1,13 +1,10 @@
 import { Routes } from '@angular/router';
-
-// 1. IMPORTAR GUARDS (Los porteros de seguridad)
 import { authGuard } from './guards/auth.guard'; 
 import { adminGuard } from './guards/admin.guard'; 
 import { configGuard } from './guards/config.guard';
 
-// 2. IMPORTAR COMPONENTES
-// Nota: Asegúrate de que todos empiecen con './components/...' si esa es tu estructura
 import { LoginComponent } from './components/login/login.component';
+import { HomeComponent } from './components/home/home.component';
 import { MainLayoutComponent } from './components/layout/main-layout/main-layout.component'; 
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { OrganizacionComponent } from './components/organizacion/organizacion.component';
@@ -21,100 +18,193 @@ import { AsistenciaAdminComponent } from './components/asistencia-admin/asistenc
 import { SolicitudesComponent } from './components/solicitudes/solicitudes.component';
 import { ConfigAusenciasComponent } from './components/config-ausencias/config-ausencias.component';
 import { SaasDashboardComponent } from './components/saas-dashboard/saas-dashboard.component';
-// 3. DEFINICIÓN DE RUTAS
+import { ReportesComponent } from './components/reportes/reportes.component';
+import { ConfiguracionComponent } from './components/configuracion/configuracion.component';
+import { TareasComponent } from './components/tareas/tareas.component';
+import { RankingComponent } from './components/ranking/ranking.component';
+import { NominaComponent } from './components/nomina/nomina.component';
+import { PerfilComponent } from './components/perfil/perfil.component';
+import { KpiManagerComponent } from './components/kpi-manager/kpi-manager.component';
+import { KpiScoreComponent } from './components/kpi-score/kpi-score.component';
+
 export const routes: Routes = [
   
-  // -- RUTA PÚBLICA --
+  // ==========================================
+  // 🌐 RUTAS PÚBLICAS
+  // ==========================================
   { path: 'login', component: LoginComponent },
+  { path: 'home', component: HomeComponent },
+  { path: '', redirectTo: 'home', pathMatch: 'full' },
 
-  // -- RUTAS PRIVADAS (Envueltas en MainLayout) --
+  // ==========================================
+  // 🔒 RUTAS PRIVADAS (Envueltas en MainLayout)
+  // ==========================================
   {
     path: '',
-    component: MainLayoutComponent, // El caparazón (Navbar + Content)
-    canActivate: [authGuard],       // 1er Candado: Solo logueados pueden ver esto
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
     children: [
         
-        // Redirección por defecto: Si entra a la raíz, va al dashboard
-        { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-
-        // --- ACCESO GENERAL (Jefes y Empleados) ---
-        { path: 'dashboard', component: DashboardComponent },
-        { path: 'saas-admin', component: SaasDashboardComponent },
+        // ========================================
+        // 📱 ACCESO PARA TODOS LOS USUARIOS
+        // ========================================
+        
+        // Reloj de Asistencia
         { path: 'reloj', component: RelojComponent },
-        { path: 'mi-perfil', component: EmpleadoFormComponent }, // O el componente de perfil de lectura
+        
+        // Perfil Personal
+        { path: 'mi-perfil', component: PerfilComponent },
+        
+        // Solicitudes (Vacaciones, Permisos, etc.)
         { path: 'solicitudes', component: SolicitudesComponent },
+        
+        // Reportes Generales
+        { path: 'reportes', component: ReportesComponent },
+        
+        // Tareas Asignadas
+        { path: 'tareas', component: TareasComponent },
+        
+        // Nómina Personal
+        { path: 'nomina', component: NominaComponent },
+
+        // Ranking de Desempeño (Público para todos)
+        { path: 'ranking', component: RankingComponent },
+        
+        // Mis Objetivos
         { path: 'objetivos', component: ObjetivosListComponent },
 
-        // --- ACCESO RESTRINGIDO (Solo Jefes - Usamos adminGuard) ---
-        
-        // 1. ORGANIZACIÓN
-        { 
-          path: 'organizacion', 
-          component: OrganizacionComponent,
-          canActivate: [adminGuard] // <--- Solo Jefes
-        },
-        
-        // 2. EMPLEADOS
-        { 
-          path: 'empleados', 
-          component: EmpleadoListComponent,
-          canActivate: [adminGuard] 
-        },
-        { 
-          path: 'empleados/nuevo', 
-          component: EmpleadoFormComponent,
-          canActivate: [adminGuard]
-        },
-        { 
-          path: 'empleados/editar/:id', 
-          component: EmpleadoFormComponent,
-          canActivate: [adminGuard]
-        },
-        { 
-          path: 'carga-masiva', 
-          component: CargaMasivaComponent,
-          canActivate: [adminGuard]
-        },
-        
-        // 3. CONTEXTUALES (Departamentos)
-        { 
-          path: 'departamentos/:id/empleados', 
-          component: EmpleadoListComponent, 
-          canActivate: [adminGuard] 
-        },
-        { 
-          path: 'departamentos/:id/empleados/nuevo', 
-          component: EmpleadoFormComponent, 
-          canActivate: [adminGuard] 
+        // ========================================
+        // 👨‍💼 GESTIÓN - SOLO JEFES/MANAGERS
+        // ========================================
+        {
+          path: 'gestion',
+          canActivate: [adminGuard],
+          children: [
+            // Dashboard de Jefe (Analytics, KPIs, estadísticas del equipo)
+            { 
+              path: 'dashboard', 
+              component: DashboardComponent 
+            },
+            
+            // Gestión de Personal
+            { 
+              path: 'empleados', 
+              component: EmpleadoListComponent 
+            },
+            { 
+              path: 'empleados/nuevo', 
+              component: EmpleadoFormComponent 
+            },
+            { 
+              path: 'empleados/editar/:id', 
+              component: EmpleadoFormComponent 
+            },
+            { 
+              path: 'carga-masiva', 
+              component: CargaMasivaComponent 
+            },
+            
+            // Asistencia del Equipo
+            { 
+              path: 'asistencia', 
+              component: AsistenciaAdminComponent 
+            },
+
+            // Evaluaciones (Registrar KPIs y calificar objetivos)
+            { 
+              path: 'evaluaciones', 
+              component: KpiScoreComponent 
+            },
+
+            // Organización (Estructura de empresa)
+            { 
+              path: 'organizacion', 
+              component: OrganizacionComponent 
+            },
+
+            // Contextuales (Empleados por departamento)
+            { 
+              path: 'departamentos/:id/empleados', 
+              component: EmpleadoListComponent 
+            },
+            { 
+              path: 'departamentos/:id/empleados/nuevo', 
+              component: EmpleadoFormComponent 
+            },
+
+            // Crear/Editar Objetivos
+            { 
+              path: 'objetivos/nuevo', 
+              component: ObjetivoFormComponent 
+            },
+            { 
+              path: 'objetivos/editar/:id', 
+              component: ObjetivoFormComponent 
+            },
+          ]
         },
 
-        // 4. REPORTES Y GESTIÓN
-        { 
-          path: 'asistencia/reporte', 
-          component: AsistenciaAdminComponent, 
-          canActivate: [adminGuard] 
+        // ========================================
+        // ⚙️ ADMIN - SOLO ADMINISTRADOR DE EMPRESA
+        // ========================================
+        {
+          path: 'admin',
+          canActivate: [configGuard],
+          children: [
+            // Definir KPIs para la empresa
+            { 
+              path: 'kpi', 
+              component: KpiManagerComponent 
+            },
+            
+            // Configurar Ausencias (Vacaciones, permisos, etc.)
+            { 
+              path: 'ausencias', 
+              component: ConfigAusenciasComponent 
+            },
+
+            // Configuración General
+            { 
+              path: 'configuracion', 
+              component: ConfiguracionComponent 
+            },
+          ]
         },
-        
-        // 5. GESTIÓN OBJETIVOS
-        { 
-          path: 'objetivos/nuevo', 
-          component: ObjetivoFormComponent, 
-          canActivate: [adminGuard] 
+
+        // ========================================
+        // 🏢 SAAS - SOLO SUPERADMIN
+        // ========================================
+        {
+          path: 'saas',
+          canActivate: [adminGuard],
+          children: [
+            // Dashboard SaaS (Analytics de toda la plataforma)
+            { 
+              path: 'dashboard', 
+              component: SaasDashboardComponent 
+            },
+
+            // Gestión de Empresas Clientes
+            // { 
+            //   path: 'empresas', 
+            //   component: EmpresaListComponent 
+            // },
+          ]
         },
-        { 
-          path: 'objetivos/editar/:id', 
-          component: ObjetivoFormComponent, 
-          canActivate: [adminGuard] 
-        },
-        { 
-    path: 'configuracion/ausencias', 
-    component: ConfigAusenciasComponent,
-    canActivate: [configGuard] 
-  },
+
+        // ========================================
+        // 🔄 DEPRECATED - Redirecciones
+        // ========================================
+        // Mantener /dashboard por compatibilidad, pero redirige
+        { path: 'dashboard', redirectTo: '/gestion/dashboard', pathMatch: 'full' },
+        { path: 'portal', redirectTo: '/reloj', pathMatch: 'full' },
+        { path: 'kpi/manager', redirectTo: '/admin/kpi', pathMatch: 'full' },
+        { path: 'configuracion', redirectTo: '/admin/configuracion', pathMatch: 'full' },
     ]
   },
 
-  // -- 404 (Wildcard) --
-  // Si escriben una ruta loca, los mandamos al dashboard
-  { path: '**', redirectTo: 'dashboard' },
+  // ==========================================
+  // 🚫 WILDCARD - Página no encontrada
+  // ==========================================
+  { path: '**', redirectTo: 'home' },
 ];

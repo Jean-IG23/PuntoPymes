@@ -6,17 +6,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
+from django.db.models import Count
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models.signals import post_save # <--- IMPORTANTE: Necesario para el parche
+from rest_framework.decorators import action
+from datetime import timedelta
+
+from django.db.models.signals import post_save 
 import pandas as pd
 from rest_framework.parsers import MultiPartParser, FormParser
 # Modelos
 from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion
-from personal.models import Empleado, SolicitudAusencia
+from personal.models import Empleado, SolicitudAusencia, Tarea
 from asistencia.models import Jornada
-
+from .serializers import ConfiguracionNominaSerializer
 # Serializers
 from .serializers import (
     EmpresaSerializer, SucursalSerializer, DepartamentoSerializer, 
@@ -26,7 +31,6 @@ from .serializers import (
 # Helper para obtener empresa del usuario logueado
 def get_empresa_usuario(user):
     try:
-        # Buscamos el empleado asociado al usuario logueado
         perfil = Empleado.objects.get(usuario=user)
         return perfil.empresa
     except Empleado.DoesNotExist:
@@ -320,6 +324,7 @@ class NotificacionViewSet(viewsets.ModelViewSet):
 @permission_classes([IsAuthenticated])
 def dashboard_stats(request):
     user = request.user
+    hoy = timezone.now().date()
     data = {
         'nombres': user.first_name or user.username,
         'rol': 'Usuario',
@@ -327,7 +332,8 @@ def dashboard_stats(request):
         'saldo_vacaciones': 0,
         'solicitudes_pendientes': 0,
         'es_lider': False,
-        'estado': 'Activo'
+        'estado': 'Activo',
+        'jornada_abierta': False
     }
 
     try:
@@ -338,7 +344,12 @@ def dashboard_stats(request):
         data['saldo_vacaciones'] = perfil.saldo_vacaciones 
         data['estado'] = perfil.estado
         data['es_lider'] = perfil.rol in ['GERENTE', 'RRHH', 'ADMIN', 'SUPERADMIN']
-
+        jornada_activa = Jornada.objects.filter(
+            empleado=perfil, 
+            estado='ABIERTA'
+        ).exists()
+        
+        data['jornada_abierta'] = jornada_activa
         if perfil.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
             data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
                 estado='PENDIENTE'
@@ -367,3 +378,98 @@ def dashboard_stats(request):
 
     return Response(data)
 
+class ConfiguracionNominaViewSet(viewsets.GenericViewSet):
+    """
+    Vista Singleton: Solo existe una configuración por empresa.
+    No usamos ModelViewSet completo porque no queremos una lista, solo un objeto único.
+    """
+    serializer_class = ConfiguracionNominaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ConfiguracionNomina.objects.none() # No se usa lista directa
+
+    @action(detail=False, methods=['get', 'put', 'patch'])
+    def mi_configuracion(self, request):
+        try:
+            empleado = Empleado.objects.get(usuario=request.user)
+            # Buscamos la config de SU empresa, o la creamos si no existe
+            config, created = ConfiguracionNomina.objects.get_or_create(
+                empresa=empleado.empresa
+            )
+            
+            if request.method == 'GET':
+                serializer = self.get_serializer(config)
+                return Response(serializer.data)
+            
+            elif request.method in ['PUT', 'PATCH']:
+                # Solo Admin o RRHH pueden editar esto
+                if empleado.rol not in ['ADMIN', 'RRHH', 'SUPERADMIN']:
+                    return Response({'error': 'No tienes permisos para editar la nómina.'}, status=403)
+
+                serializer = self.get_serializer(config, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=400)
+
+        except Empleado.DoesNotExist:
+            return Response({'error': 'Usuario no es empleado.'}, status=403)
+class DashboardChartsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            empleado = Empleado.objects.get(usuario=user)
+            empresa = empleado.empresa
+            hoy = timezone.now().date()
+            
+            # --- GRÁFICO 1: ASISTENCIA DE HOY (Pie Chart) ---
+            total_empleados = Empleado.objects.filter(empresa=empresa, activo=True).count()
+            jornadas_hoy = Jornada.objects.filter(empresa=empresa, fecha=hoy)
+            
+            presentes = jornadas_hoy.count()
+            atrasos = jornadas_hoy.filter(es_atraso=True).count()
+            puntuales = presentes - atrasos
+            ausentes = total_empleados - presentes
+            
+            # --- GRÁFICO 2: PRODUCTIVIDAD SEMANAL (Bar Chart) ---
+            # Tareas completadas en los últimos 7 días
+            hace_una_semana = timezone.now() - timedelta(days=6) # 6 días atrás + hoy
+            
+            tareas_semana = Tarea.objects.filter(
+                empresa=empresa,
+                estado='COMPLETADA',
+                completado_at__gte=hace_una_semana
+            ).annotate(
+                dia=TruncDate('completado_at')
+            ).values('dia').annotate(total=Count('id')).order_by('dia')
+
+            # Formatear para Chart.js (Labels y Data)
+            labels_semana = []
+            data_semana = []
+            
+            # Rellenar días vacíos (si no hubo tareas el martes, que salga 0)
+            for i in range(7):
+                dia_check = (hace_una_semana + timedelta(days=i)).date()
+                dia_str = dia_check.strftime("%a %d") # Ej: "Lun 21"
+                labels_semana.append(dia_str)
+                
+                # Buscar si hay datos para este día
+                encontrado = next((item for item in tareas_semana if item['dia'] == dia_check), None)
+                data_semana.append(encontrado['total'] if encontrado else 0)
+
+            return Response({
+                'asistencia': {
+                    'labels': ['Puntuales', 'Atrasos', 'Ausentes'],
+                    'data': [puntuales, atrasos, ausentes]
+                },
+                'productividad': {
+                    'labels': labels_semana,
+                    'data': data_semana
+                }
+            })
+
+        except Empleado.DoesNotExist:
+            return Response({'error': 'No autorizado'}, status=403)

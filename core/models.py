@@ -115,3 +115,32 @@ class Notificacion(models.Model):
 
     def __str__(self):
         return f"{self.tipo}: {self.titulo}"
+# --- AGREGAR AL FINAL DE src/core/models.py ---
+
+class ConfiguracionNomina(models.Model):
+    empresa = models.OneToOneField(Empresa, on_delete=models.CASCADE, related_name='config_nomina')
+    
+    # 1. Configuración General
+    moneda = models.CharField(max_length=5, default='USD', help_text="Ej: USD, EUR, MXN")
+    
+    # 2. Valor del Tiempo
+    divisor_hora_mensual = models.IntegerField(default=240, 
+        help_text="Divisor para calcular valor hora. Ej: 240 (30 días * 8h) o 160 (20 días * 8h)")
+    
+    # 3. Horas Extras (Multiplicadores)
+    # 1.0 = Valor normal, 1.5 = 50% recargo, 2.0 = 100% recargo
+    factor_he_diurna = models.DecimalField(max_digits=4, decimal_places=2, default=1.50) 
+    factor_he_nocturna = models.DecimalField(max_digits=4, decimal_places=2, default=2.00)
+    
+    # ¿A qué hora empieza la noche para el sistema?
+    hora_inicio_nocturna = models.TimeField(default='19:00:00')
+    
+    # 4. Políticas de Castigo
+    descontar_atrasos = models.BooleanField(default=True, 
+        help_text="Si es True, se resta del sueldo el tiempo de atraso.")
+    
+    tolerancia_remunerada = models.BooleanField(default=True, 
+        help_text="Si llega tarde dentro de la tolerancia, ¿se le paga ese tiempo?")
+
+    def __str__(self):
+        return f"Configuración Nómina - {self.empresa.nombre_comercial}"

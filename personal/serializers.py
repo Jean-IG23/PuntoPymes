@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.utils import timezone
 from core.models import Sucursal, Departamento, Puesto, Area, Turno, Empresa
-from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia
+from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia, Tarea
 
 # ==============================================================================
 #  CARGA MASIVA
@@ -195,3 +195,23 @@ class SolicitudSerializer(serializers.ModelSerializer):
         fields = '__all__'
         # ⚠️ IMPORTANTE: Eliminamos 'dias_solicitados' de esta lista
         read_only_fields = ['empleado', 'empresa', 'estado', 'fecha_solicitud', 'fecha_resolucion', 'aprobado_por']
+class TareaSerializer(serializers.ModelSerializer):
+    # Campos de solo lectura para mostrar nombres bonitos en el frontend
+    asignado_nombre = serializers.CharField(source='asignado_a.usuario.first_name', read_only=True)
+    asignado_apellido = serializers.CharField(source='asignado_a.usuario.last_name', read_only=True)
+    asignado_puesto = serializers.CharField(source='asignado_a.puesto.nombre', read_only=True, default='')
+    creado_por_nombre = serializers.CharField(source='creado_por.username', read_only=True)
+
+    class Meta:
+        model = Tarea
+        fields = '__all__'
+        read_only_fields = ['empresa', 'creado_por', 'created_at', 'updated_at', 'completado_at']
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+    confirm_password = serializers.CharField(required=True)
+
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError("Las nuevas contraseñas no coinciden.")
+        return data

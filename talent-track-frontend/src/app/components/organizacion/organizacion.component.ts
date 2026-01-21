@@ -3,25 +3,26 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-organizacion',
-  templateUrl: './organizacion.component.html',
-  
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule]
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  templateUrl: './organizacion.component.html'
 })
 export class OrganizacionComponent implements OnInit {
   
-  // --- ESTADO ---
+  // --- ESTADO DE VISTA ---
   activeTab: string = 'ESTRUCTURA'; 
   activeSubTab: string = 'SUCURSALES';
   isSuperAdmin: boolean = false;
   loading: boolean = false;
-  selectedId: number | null = null; // ID del elemento que se está editando
+  isEditing: boolean = false;
+  selectedId: number | null = null;
 
-  // --- DATA ---
+  // --- DATOS ---
   empresas: any[] = [];
   sucursales: any[] = [];
   areas: any[] = [];
@@ -30,7 +31,7 @@ export class OrganizacionComponent implements OnInit {
   turnos: any[] = [];
   empleadosList: any[] = []; 
 
-  // --- FORMS ---
+  // --- FORMULARIOS ---
   formEmpresa: FormGroup;
   sucursalForm: FormGroup;
   areaForm: FormGroup;
@@ -38,7 +39,7 @@ export class OrganizacionComponent implements OnInit {
   puestoForm: FormGroup;
   turnoForm: FormGroup;
 
-  // --- MODALES ---
+  // --- VISIBILIDAD DE MODALES ---
   showModalEmpresa = false;
   showModalSucursal = false;
   showModalArea = false;
@@ -72,7 +73,10 @@ export class OrganizacionComponent implements OnInit {
       nombre: ['', Validators.required],
       direccion: [''],
       es_matriz: [false],
-      responsable: [null]
+      responsable: [null],
+      latitud: [null], 
+      longitud: [null],
+      radio_metros: [50, [Validators.min(10)]]
     });
 
     // 3. ÁREA
@@ -102,42 +106,73 @@ export class OrganizacionComponent implements OnInit {
       hora_entrada: ['09:00'],
       hora_salida: ['18:00'],
       horas_semanales_meta: [40],
-      dias_laborables: [[]] // Array de días
+      dias_laborables: [[]] 
     });
   }
 
   ngOnInit(): void {
     this.isSuperAdmin = this.auth.isSuperAdmin();
+    // Si NO es superadmin, forzamos la vista de estructura
     if (!this.isSuperAdmin) {
       this.activeTab = 'ESTRUCTURA';
+    } else {
+      this.activeTab = 'EMPRESAS'; // Por defecto para SuperAdmin
     }
     this.cargarTodo();
   }
 
   cargarTodo() {
     this.loading = true;
-    if (this.isSuperAdmin) {
-        this.api.getEmpresas().subscribe(res => this.empresas = res);
-    }
-    this.api.getSucursales().subscribe(res => this.sucursales = res);
-    this.api.getAreas().subscribe(res => this.areas = res);
-    this.api.getDepartamentos().subscribe(res => this.departamentos = res);
-    this.api.getPuestos().subscribe(res => this.puestos = res);
-    this.api.getTurnos().subscribe(res => this.turnos = res);
     
-    this.api.getEmpleadosSimple().subscribe(res => {
-      this.empleadosList = Array.isArray(res) ? res : res.results;
-      this.loading = false;
-    }, () => this.loading = false);
+    const peticiones: any = {};
+    
+    // Empresas solo para SuperAdmin
+    if (this.isSuperAdmin) {
+      peticiones.empresas = this.api.getEmpresas();
+    }
+    
+    // Datos que cargamos siempre
+    peticiones.sucursales = this.api.getSucursales();
+    peticiones.areas = this.api.getAreas();
+    peticiones.departamentos = this.api.getDepartamentos();
+    peticiones.puestos = this.api.getPuestos();
+    peticiones.turnos = this.api.getTurnos();
+    peticiones.empleados = this.api.getEmpleadosSimple();
+
+    forkJoin(peticiones).subscribe({
+      next: (res: any) => {
+        // Procesar empresas
+        if (this.isSuperAdmin && res.empresas) {
+          this.empresas = Array.isArray(res.empresas) ? res.empresas : (res.empresas.results || []);
+        }
+
+        // Procesar otros datos
+        this.sucursales = Array.isArray(res.sucursales) ? res.sucursales : (res.sucursales.results || []);
+        this.areas = Array.isArray(res.areas) ? res.areas : (res.areas.results || []);
+        this.departamentos = Array.isArray(res.departamentos) ? res.departamentos : (res.departamentos.results || []);
+        this.puestos = Array.isArray(res.puestos) ? res.puestos : (res.puestos.results || []);
+        this.turnos = Array.isArray(res.turnos) ? res.turnos : (res.turnos.results || []);
+        this.empleadosList = Array.isArray(res.empleados) ? res.empleados : (res.empleados.results || []);
+        
+        this.loading = false;
+      },
+      error: (e) => {
+        console.error('Error cargando datos de organización:', e);
+        Swal.fire('Error', 'No se pudieron cargar los datos de la organización', 'error');
+        this.loading = false;
+      }
+    });
   }
+
   // ==========================================================
   // 🏢 GESTIÓN DE EMPRESAS
   // ==========================================================
   abrirModalEmpresa(emp: any = null) {
     this.selectedId = emp ? emp.id : null;
+    this.isEditing = !!emp;
+    
     if (emp) {
       this.formEmpresa.patchValue(emp);
-      // Desactivar validación de password al editar
       this.formEmpresa.get('admin_email')?.clearValidators();
       this.formEmpresa.get('admin_password')?.clearValidators();
     } else {
@@ -187,38 +222,80 @@ export class OrganizacionComponent implements OnInit {
   cambiarEstadoEmpresa(emp: any, event: any) {
     const nuevoEstado = event.target.checked;
     this.api.updateEmpresa(emp.id, { estado: nuevoEstado }).subscribe({
-      next: () => Swal.fire('Estado Actualizado', '', 'success'),
+      next: () => Swal.fire({
+        toast: true, position: 'top-end', icon: 'success', 
+        title: 'Estado actualizado', showConfirmButton: false, timer: 1500
+      }),
       error: () => {
-        event.target.checked = !nuevoEstado; // Revertir si falla
+        event.target.checked = !nuevoEstado;
         Swal.fire('Error', 'No se pudo cambiar el estado', 'error');
       }
     });
   }
 
   // ==========================================================
-  // 📍 GESTIÓN DE SUCURSALES
+  // 📍 GESTIÓN DE SUCURSALES (CON GEOLOCALIZACIÓN)
   // ==========================================================
-  abrirModalSucursal(item: any = null) {
-    this.selectedId = item ? item.id : null;
-    if (item) {
-      this.sucursalForm.patchValue(item);
-    } else {
-      this.sucursalForm.reset({ es_matriz: false });
-    }
+  abrirModalSucursal(sucursal?: any) {
     this.showModalSucursal = true;
+    if (sucursal) {
+      this.isEditing = true;
+      this.selectedId = sucursal.id;
+      this.sucursalForm.patchValue(sucursal);
+    } else {
+      this.isEditing = false;
+      this.selectedId = null;
+      this.sucursalForm.reset({ 
+        es_matriz: false, 
+        radio_metros: 50 
+      });
+    }
+  }
+
+  cerrarModalSucursal() {
+    this.showModalSucursal = false;
+  }
+
+  obtenerUbicacionActual() {
+    if (navigator.geolocation) {
+      // Mostrar loading temporal si deseas
+      const toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+      toast.fire({ icon: 'info', title: 'Obteniendo GPS...' });
+
+      navigator.geolocation.getCurrentPosition((position) => {
+        this.sucursalForm.patchValue({
+          latitud: position.coords.latitude,
+          longitud: position.coords.longitude
+        });
+        toast.fire({ icon: 'success', title: 'Ubicación capturada' });
+      }, (error) => {
+        console.error(error);
+        alert('No se pudo obtener la ubicación. Verifique los permisos del navegador.');
+      }, {
+        enableHighAccuracy: true
+      });
+    } else {
+      alert('Tu navegador no soporta geolocalización.');
+    }
   }
 
   guardarSucursal() {
     if (this.sucursalForm.invalid) return;
-    this.loading = true;
-    const req = this.selectedId 
-      ? this.api.updateSucursal(this.selectedId, this.sucursalForm.value)
-      : this.api.createSucursal(this.sucursalForm.value);
+    
+    const data = this.sucursalForm.value;
+    // Asignar empresa actual si no eres superadmin gestionando otra
+    if (!this.isSuperAdmin) {
+       data.empresa = this.auth.getEmpresaId(); 
+    }
 
-    req.subscribe({
+    const request = this.isEditing && this.selectedId
+      ? this.api.updateSucursal(this.selectedId, data)
+      : this.api.createSucursal(data);
+
+    request.subscribe({
       next: () => {
         this.finishSave('Sucursal guardada');
-        this.showModalSucursal = false;
+        this.cerrarModalSucursal();
       },
       error: (e) => this.handleError(e)
     });
@@ -233,6 +310,7 @@ export class OrganizacionComponent implements OnInit {
   // ==========================================================
   abrirModalArea(item: any = null) {
     this.selectedId = item ? item.id : null;
+    this.isEditing = !!item;
     item ? this.areaForm.patchValue(item) : this.areaForm.reset();
     this.showModalArea = true;
   }
@@ -262,6 +340,7 @@ export class OrganizacionComponent implements OnInit {
   // ==========================================================
   abrirModalDepto(item: any = null) {
     this.selectedId = item ? item.id : null;
+    this.isEditing = !!item;
     item ? this.deptoForm.patchValue(item) : this.deptoForm.reset();
     this.showModalDepto = true;
   }
@@ -291,6 +370,7 @@ export class OrganizacionComponent implements OnInit {
   // ==========================================================
   abrirModalPuesto(item: any = null) {
     this.selectedId = item ? item.id : null;
+    this.isEditing = !!item;
     item ? this.puestoForm.patchValue(item) : this.puestoForm.reset({ es_supervision: false });
     this.showModalPuesto = true;
   }
@@ -320,6 +400,7 @@ export class OrganizacionComponent implements OnInit {
   // ==========================================================
   abrirModalTurno(item: any = null) {
     this.selectedId = item ? item.id : null;
+    this.isEditing = !!item;
     if (item) {
       this.turnoForm.patchValue(item);
     } else {
@@ -336,7 +417,7 @@ export class OrganizacionComponent implements OnInit {
 
   guardarTurno() {
     if (this.turnoForm.invalid) {
-      Swal.fire('Atención', 'Verifica los campos obligatorios del turno', 'warning');
+      Swal.fire('Atención', 'Verifica los campos obligatorios', 'warning');
       return;
     }
     this.loading = true;
@@ -357,7 +438,6 @@ export class OrganizacionComponent implements OnInit {
     this.confirmDelete(item.id, this.api.deleteTurno.bind(this.api), 'Turno');
   }
 
-  // --- HELPERS PARA TURNOS (DÍAS) ---
   isDiaChecked(diaId: string): boolean {
     const dias = this.turnoForm.get('dias_laborables')?.value || [];
     return dias.includes(diaId);
@@ -376,10 +456,12 @@ export class OrganizacionComponent implements OnInit {
     this.turnoForm.patchValue({ dias_laborables: nuevosDias });
   }
 
-  // --- HELPERS GENERALES ---
+  // ==========================================================
+  // 🔧 HELPERS Y UTILIDADES
+  // ==========================================================
   private finishSave(msg: string) {
     this.loading = false;
-    this.selectedId = null; // LIMPIEZA CRÍTICA
+    this.selectedId = null;
     this.cargarTodo();
     Swal.fire('¡Éxito!', msg, 'success');
   }
@@ -387,7 +469,7 @@ export class OrganizacionComponent implements OnInit {
   private handleError(e: any) {
     this.loading = false;
     console.error(e);
-    const msg = e.error?.error || e.error?.detail || 'Ocurrió un error en el servidor';
+    const msg = e.error?.error || e.error?.detail || 'Error en el servidor';
     Swal.fire('Error', msg, 'error');
   }
 
@@ -403,8 +485,7 @@ export class OrganizacionComponent implements OnInit {
       if (result.isConfirmed) {
         deleteFn(id).subscribe({
           next: () => {
-            this.cargarTodo();
-            Swal.fire('Eliminado', 'El registro ha sido borrado.', 'success');
+            this.finishSave('Registro eliminado');
           },
           error: (e: any) => this.handleError(e)
         });
@@ -415,17 +496,15 @@ export class OrganizacionComponent implements OnInit {
   getEstiloArea(nombre: string): { color: string, icono: string } {
     const n = (nombre || '').toLowerCase();
     if (n.includes('admin') || n.includes('gerencia')) return { color: 'bg-blue-500', icono: 'bi-building' };
-    if (n.includes('comercial') || n.includes('venta') || n.includes('marketing')) return { color: 'bg-green-500', icono: 'bi-graph-up-arrow' };
-    if (n.includes('tecno') || n.includes('sist') || n.includes('dev')) return { color: 'bg-purple-500', icono: 'bi-laptop' };
-    if (n.includes('opera') || n.includes('logis') || n.includes('seguridad') || n.includes('bodega')) return { color: 'bg-orange-500', icono: 'bi-gear' };
-    if (n.includes('legal')) return { color: 'bg-yellow-500', icono: 'bi-briefcase' };
-    if (n.includes('human') || n.includes('rrhh') || n.includes('talento')) return { color: 'bg-pink-500', icono: 'bi-people' };
+    if (n.includes('comercial') || n.includes('venta')) return { color: 'bg-green-500', icono: 'bi-graph-up-arrow' };
+    if (n.includes('tecno') || n.includes('sist')) return { color: 'bg-purple-500', icono: 'bi-laptop' };
+    if (n.includes('opera') || n.includes('logis')) return { color: 'bg-orange-500', icono: 'bi-gear' };
+    if (n.includes('human') || n.includes('rrhh')) return { color: 'bg-pink-500', icono: 'bi-people' };
     return { color: 'bg-gray-500', icono: 'bi-layers' };
   }
 
   getNombreArea(areaId: any): string {
     if (!areaId) return '---';
-    // Maneja si areaId es el objeto completo o solo el ID
     const id = typeof areaId === 'object' ? areaId.id : areaId;
     const a = this.areas.find(x => x.id === id);
     return a ? a.nombre : '---';
@@ -441,11 +520,5 @@ export class OrganizacionComponent implements OnInit {
   getDiasStr(dias: string[]): string {
     if (!dias || dias.length === 0) return 'Sin asignar';
     return dias.join(', ');
-  }
-
-  onLogoSelect(event: any) {
-    // Implementar si usas subida de archivos real
-    // const file = event.target.files[0];
-    // this.formEmpresa.patchValue({ logo: file });
   }
 }

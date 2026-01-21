@@ -1,0 +1,86 @@
+<div class="min-h-screen bg-gray-50/50 p-6 font-sans animate-fade-in">
+
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
+                <i class="bi bi-cash-stack text-emerald-600"></i> Nómina Estimada
+            </h1>
+            <p class="text-gray-500 mt-1 ml-10">Cálculo preliminar basado en asistencia y configuración.</p>
+        </div>
+
+        <div class="bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex items-center gap-2">
+            <input type="date" [(ngModel)]="fechaInicio" class="border-none bg-transparent text-sm font-bold text-gray-700 focus:ring-0">
+            <span class="text-gray-400">-</span>
+            <input type="date" [(ngModel)]="fechaFin" class="border-none bg-transparent text-sm font-bold text-gray-700 focus:ring-0">
+            <button (click)="calcular()" class="bg-gray-900 text-white w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-800 transition">
+                <i class="bi bi-arrow-clockwise" [class.animate-spin]="loading"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-r from-emerald-600 to-emerald-800 rounded-2xl p-6 text-white shadow-lg mb-8 flex justify-between items-center">
+        <div>
+            <p class="text-emerald-100 font-bold uppercase text-xs tracking-wider">Total a Pagar (Estimado)</p>
+            <h2 class="text-4xl font-black mt-1">{{ moneda }} {{ totalPagina | number:'1.2-2' }}</h2>
+        </div>
+        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl">
+            <i class="bi bi-wallet2"></i>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase font-bold border-b border-gray-200">
+                    <tr>
+                        <th class="px-6 py-4">Empleado</th>
+                        <th class="px-6 py-4 text-right">Sueldo Base</th>
+                        <th class="px-6 py-4 text-center">Extras</th>
+                        <th class="px-6 py-4 text-right text-emerald-600">Pago Extras (+)</th>
+                        <th class="px-6 py-4 text-center">Atrasos</th>
+                        <th class="px-6 py-4 text-right text-rose-600">Multa (-)</th>
+                        <th class="px-6 py-4 text-right font-black text-gray-900 bg-gray-50/50">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <tr *ngFor="let item of datos" class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 font-bold text-gray-800">
+                            {{ item.nombre }}
+                            <div class="text-xs text-gray-400 font-normal">{{ item.puesto }}</div>
+                        </td>
+                        <td class="px-6 py-4 text-right font-mono text-gray-600">
+                            {{ item.sueldo_base | number:'1.2-2' }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span *ngIf="item.horas_extras > 0" class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded text-xs font-bold">
+                                {{ item.horas_extras }}h
+                            </span>
+                            <span *ngIf="item.horas_extras === 0" class="text-gray-300">-</span>
+                        </td>
+                        <td class="px-6 py-4 text-right font-mono text-emerald-600 font-bold">
+                            {{ item.pago_extras | number:'1.2-2' }}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span *ngIf="item.minutos_atraso > 0" class="bg-rose-50 text-rose-700 px-2 py-0.5 rounded text-xs font-bold">
+                                {{ item.minutos_atraso }}m
+                            </span>
+                            <span *ngIf="item.minutos_atraso === 0" class="text-gray-300">-</span>
+                        </td>
+                        <td class="px-6 py-4 text-right font-mono text-rose-600 font-bold">
+                            {{ item.descuento_atrasos | number:'1.2-2' }}
+                        </td>
+                        <td class="px-6 py-4 text-right font-black text-gray-900 bg-gray-50/50 text-base">
+                            {{ moneda }} {{ item.total_a_pagar | number:'1.2-2' }}
+                        </td>
+                    </tr>
+                    <tr *ngIf="datos.length === 0 && !loading">
+                        <td colspan="7" class="px-6 py-10 text-center text-gray-400">
+                            No hay datos para calcular en este rango de fechas.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

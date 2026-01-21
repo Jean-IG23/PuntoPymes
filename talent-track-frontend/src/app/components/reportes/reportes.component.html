@@ -1,0 +1,140 @@
+<div class="min-h-screen bg-gray-50/50 p-6 font-sans animate-fade-in">
+
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
+                <i class="bi bi-file-earmark-bar-graph text-rose-600"></i> Reporte de Asistencia
+            </h1>
+            <p class="text-gray-500 text-sm mt-1 ml-10">Historial de entradas, salidas y cálculo de horas.</p>
+        </div>
+        
+        <button (click)="exportarExcel()" 
+                class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-green-200 transition flex items-center gap-2">
+            <i class="bi bi-file-excel-fill"></i> Exportar Excel
+        </button>
+    </div>
+
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Desde</label>
+                <input type="date" [(ngModel)]="fechaInicio" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-rose-500">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Hasta</label>
+                <input type="date" [(ngModel)]="fechaFin" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-rose-500">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Empleado</label>
+                <select [(ngModel)]="empleadoId" class="w-full border-gray-300 rounded-lg p-2.5 bg-white focus:ring-rose-500">
+                    <option value="">-- Todos --</option>
+                    <option *ngFor="let emp of empleados" [value]="emp.id">{{ emp.nombres }} {{ emp.apellidos }}</option>
+                </select>
+            </div>
+            <button (click)="buscar()" 
+        [disabled]="loading"
+        class="bg-gray-900 text-white h-[42px] px-6 rounded-lg font-bold hover:bg-gray-800 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[120px]">
+    
+    <span *ngIf="loading" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+    
+    <i *ngIf="!loading" class="bi bi-search"></i>
+    
+    <span>{{ loading ? 'Buscando...' : 'Filtrar' }}</span>
+</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-calendar-check"></i></div>
+            <div>
+                <p class="text-xs text-gray-400 font-bold uppercase">Registros</p>
+                <p class="text-xl font-extrabold text-gray-800">{{ asistencias.length }}</p>
+            </div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center"><i class="bi bi-clock-history"></i></div>
+            <div>
+                <p class="text-xs text-gray-400 font-bold uppercase">Horas Totales</p>
+                <p class="text-xl font-extrabold text-gray-800">{{ totalHoras | number:'1.2-2' }}h</p>
+            </div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center"><i class="bi bi-exclamation-triangle"></i></div>
+            <div>
+                <p class="text-xs text-gray-400 font-bold uppercase">Atrasos</p>
+                <p class="text-xl font-extrabold text-gray-800">{{ totalAtrasos }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-gray-600">
+                <thead class="bg-gray-50 text-xs text-gray-800 uppercase font-bold border-b border-gray-200">
+                    <tr>
+                        <th class="px-6 py-4">Empleado</th>
+                        <th class="px-6 py-4">Fecha</th>
+                        <th class="px-6 py-4">Entrada / Salida</th>
+                        <th class="px-6 py-4 text-center">Horas</th>
+                        <th class="px-6 py-4 text-center">Estado</th>
+                        <th class="px-6 py-4 text-center">Mapa</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <tr *ngFor="let item of asistencias" (dblclick)="verDetalle(item)"
+    class="hover:bg-gray-50 transition cursor-pointer"
+    title="Doble click para ver detalle rápido">>
+                        
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-gray-900">{{ item.empleado_detalle?.nombres || 'Empleado' }}</div>
+                            <div class="text-xs text-gray-400">{{ item.empleado_detalle?.puesto || 'Sin cargo' }}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                                <i class="bi bi-calendar-event text-gray-400"></i>
+                                {{ item.fecha | date:'dd/MM/yyyy' }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-green-700 bg-green-50 px-2 py-0.5 rounded w-fit text-xs font-bold border border-green-100">
+                                    IN: {{ item.entrada | date:'HH:mm' }}
+                                </span>
+                                <span *ngIf="item.salida" class="text-red-700 bg-red-50 px-2 py-0.5 rounded w-fit text-xs font-bold border border-red-100">
+                                    OUT: {{ item.salida | date:'HH:mm' }}
+                                </span>
+                                <span *ngIf="!item.salida" class="text-gray-400 text-xs italic ml-1">
+                                    En curso...
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-center font-mono font-bold text-gray-800">
+                            {{ item.horas_trabajadas || 0 }}h
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span *ngIf="item.es_atraso" class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold border border-orange-200">
+                                {{ item.minutos_atraso }}m Tarde
+                            </span>
+                            <span *ngIf="!item.es_atraso" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">
+                                Puntual
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <button class="text-gray-400 hover:text-rose-600 transition" title="Ver ubicación (Próximamente)">
+                                <i class="bi bi-geo-alt-fill text-lg"></i>
+                             </button>
+                        </td>
+                    </tr>
+                    <tr *ngIf="asistencias.length === 0">
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                            <i class="bi bi-filter-circle text-4xl mb-2 block opacity-30"></i>
+                            No hay registros en este rango de fechas.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>

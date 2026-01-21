@@ -1,0 +1,72 @@
+<div class="bg-white rounded-2xl border border-gray-200 p-8 overflow-hidden relative">
+  <div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-red-50 rounded-full opacity-50 blur-3xl"></div>
+  
+  <div class="relative z-10">
+    <!-- ENCABEZADO -->
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-xl">
+        <i class="ri-time-line"></i>
+      </div>
+      <h3 class="text-2xl font-bold text-gray-900">Marcar Asistencia</h3>
+    </div>
+
+    <!-- GPS STATUS -->
+    <div class="mb-6 min-h-[60px] flex items-center justify-start">
+      <div *ngIf="cargandoUbicacion" class="flex items-center gap-3 text-yellow-600">
+        <i class="ri-loader-4-line text-xl animate-spin"></i>
+        <span class="text-sm font-medium">Detectando ubicación...</span>
+      </div>
+
+      <div *ngIf="gpsError" class="w-full bg-red-50 text-red-700 p-3 rounded-lg border border-red-200">
+        <div class="flex items-start gap-2">
+          <i class="ri-alert-line text-lg flex-shrink-0 mt-0.5"></i>
+          <div class="flex-1 text-sm">
+            <p class="font-semibold">{{ gpsError }}</p>
+            <button (click)="reintentar()" class="mt-2 text-red-700 font-semibold hover:text-red-900 underline text-xs">
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="ubicacion && !gpsError && !cargandoUbicacion" class="flex items-center gap-2 text-green-600 text-sm">
+        <i class="ri-check-double-line text-lg"></i>
+        <span class="font-medium">Ubicación verificada</span>
+      </div>
+    </div>
+
+    <!-- INFO GRID -->
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="text-center p-3 bg-gray-50 rounded-lg">
+        <p class="text-gray-500 text-xs font-semibold uppercase">Estado</p>
+        <p class="text-lg font-bold text-gray-900 mt-1">
+          {{ jornadaAbierta ? '🟢 ON' : '🔴 OFF' }}
+        </p>
+      </div>
+      <div class="text-center p-3 bg-gray-50 rounded-lg">
+        <p class="text-gray-500 text-xs font-semibold uppercase">Hora</p>
+        <p class="text-lg font-bold font-mono text-gray-900 mt-1">{{ horaActual }}</p>
+      </div>
+      <div class="text-center p-3 bg-gray-50 rounded-lg">
+        <p class="text-gray-500 text-xs font-semibold uppercase">GPS</p>
+        <p class="text-lg font-bold text-gray-900 mt-1">
+          {{ ubicacion && !gpsError ? '✓' : '✕' }}
+        </p>
+      </div>
+    </div>
+
+    <!-- BOTÓN DE MARCAR -->
+    <button (click)="marcar()" 
+            [disabled]="cargandoUbicacion || !!gpsError || procesandoMarca"
+            class="w-full py-4 rounded-xl font-bold text-white text-lg shadow-md transition transform hover:-translate-y-1 active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            [ngClass]="jornadaAbierta ? 'bg-gray-700 hover:bg-gray-800' : 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600'">
+      
+      <span *ngIf="procesandoMarca" class="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+      
+      <ng-container *ngIf="!procesandoMarca">
+        <i class="text-xl" [class]="jornadaAbierta ? 'ri-logout-box-line' : 'ri-login-box-line'"></i>
+        <span>{{ procesandoMarca ? 'PROCESANDO...' : (jornadaAbierta ? 'FINALIZAR JORNADA' : 'REGISTRAR ENTRADA') }}</span>
+      </ng-container>
+    </button>
+  </div>
+</div>

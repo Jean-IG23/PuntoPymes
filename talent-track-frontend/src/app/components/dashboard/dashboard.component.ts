@@ -1,60 +1,90 @@
 import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common'; // Agregado DatePipe
+import { CommonModule, DatePipe } from '@angular/common';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { AttendanceQuickMarkerComponent } from '../attendance-quick-marker/attendance-quick-marker.component';
 import { filter, finalize } from 'rxjs/operators';
 import Swal from 'sweetalert2';
-
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartConfiguration, ChartData, ChartType } from 'chart.js';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule, FormsModule],
+  imports: [CommonModule, RouterModule, ReactiveFormsModule, FormsModule, BaseChartDirective, AttendanceQuickMarkerComponent],
   templateUrl: './dashboard.component.html',
-  providers: [DatePipe] // Proveedor necesario para fechas
+  providers: [DatePipe]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
 
-  // --- DATOS ---
-  stats: any = {
-    nombres: 'Usuario',
-    rol: '',
-    puesto: '',
-    saldo_vacaciones: 0, // CRÍTICO para la validación
-    solicitudes_pendientes: 0,
-    es_lider: false,
-    estado: '...'
+  // --- DATOS GLOBALES ---
+  userRole: string = '';
+  userName: string = '';
+  loading: boolean = true;
+  
+  // Datos Admin/Líder
+  kpis = {
+    totalEmpleados: 0,
+    presentesHoy: 0,
+    solicitudesPendientes: 0,
+    porcentajeAsistencia: 0,
+    llegadasTarde: 0
   };
 
-  // Datos específicos para EMPLEADOS
-  misUltimasSolicitudes: any[] = [];
+  // Datos Empleado
+  perfil = {
+    puesto: '',
+    saldo_vacaciones: 0,
+    estado: 'ACTIVO',
+    jornada_abierta: false
+  };
+
+  // --- RELOJ Y ASISTENCIA ---
+  horaActual: string = '';
+  fechaActual: Date = new Date();
+  private timer: any;
+
+  // --- SOLICITUDES ---
   tiposAusencia: any[] = [];
-
-  // --- UI & RELOJ ---
-  fechaActual = new Date();
-  horaActual = '';
-  intervaloReloj: any;
-  loading = true;
-
-  // --- MODAL SOLICITUD & VALIDACIÓN (LO QUE FALTABA) ---
+  misSolicitudes: any[] = [];
   showModalSolicitud = false;
   formSolicitud: FormGroup;
   procesandoSolicitud = false;
   minDate: string = '';
-  diasCalculados: number = 0; // <--- FALTABA ESTO
+  diasCalculados: number = 0;
+  public pieChartOptions: ChartConfiguration['options'] = {
+    responsive: true,
+    plugins: { legend: { position: 'bottom' } }
+  };
+  public pieChartData: ChartData<'pie', number[], string | string[]> = {
+    labels: [],
+    datasets: [{ data: [], backgroundColor: ['#10B981', '#F59E0B', '#EF4444'] }] // Verde, Amarillo, Rojo
+  };
+  public pieChartType: ChartType = 'pie';
 
+  // --- CONFIG GRÁFICO 2: BAR (Tareas) ---
+  public barChartOptions: ChartConfiguration['options'] = {
+    responsive: true,
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  };
+  public barChartData: ChartData<'bar'> = {
+    labels: [],
+    datasets: [{ data: [], label: 'Tareas Completadas', backgroundColor: '#E11D48' }] // Rose-600
+  };
+  public barChartType: ChartType = 'bar';
+
+  loadingCharts = true;
+  stats: any = {}; // Tu variable existente de stats
   constructor(
     private api: ApiService,
     public auth: AuthService,
     private cdr: ChangeDetectorRef,
-    private router: Router,
+    public router: Router,
     private fb: FormBuilder
   ) {
-    // Inicializar fecha mínima para el HTML
     this.minDate = new Date().toISOString().split('T')[0];
-
-    // Formulario
+    
     this.formSolicitud = this.fb.group({
       tipo_ausencia: ['', Validators.required],
       fecha_inicio: ['', Validators.required],
@@ -62,235 +92,142 @@ export class DashboardComponent implements OnInit, OnDestroy {
       motivo: ['', [Validators.required, Validators.minLength(5)]]
     });
 
-    // Recarga al navegar
-    this.router.events.pipe(
-      filter(event => event instanceof NavigationEnd)
-    ).subscribe(() => this.cargarDashboard());
+    // Detectar cambios de fecha para calcular días
+    this.formSolicitud.valueChanges.subscribe(val => {
+      if (val.fecha_inicio && val.fecha_fin) this.calcularDias(val.fecha_inicio, val.fecha_fin);
+    });
   }
 
   ngOnInit() {
     this.iniciarReloj();
-    this.cargarDashboard();
-    
-    // --- ESCUCHA ACTIVA DE FECHAS (NUEVO) ---
-    // Esto calcula los días automáticamente cuando el usuario cambia las fechas
-    this.formSolicitud.valueChanges.subscribe(val => {
-      if (val.fecha_inicio && val.fecha_fin) {
-        this.calcularDias(val.fecha_inicio, val.fecha_fin);
-      }
-    });
+    this.cargarDatos();
+    this.cargarGraficos();
   }
 
   ngOnDestroy() {
-    if (this.intervaloReloj) clearInterval(this.intervaloReloj);
+    if (this.timer) clearInterval(this.timer);
   }
 
   iniciarReloj() {
-    this.intervaloReloj = setInterval(() => {
+    this.timer = setInterval(() => {
       const now = new Date();
-      this.horaActual = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.horaActual = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }, 1000);
   }
+  
 
   // ================================================================
-  // 1. CARGA DE DATOS
+  // 1. CARGA DE DATOS INTELIGENTE
   // ================================================================
-  cargarDashboard() {
+  cargarDatos() {
     this.loading = true;
+    
     this.api.getStats().subscribe({
-      next: (res) => {
-        this.stats = res;
+      next: (res: any) => {
+        // 1. Guardamos la respuesta cruda en stats (Para compatibilidad con tu HTML)
+        this.stats = res; 
+
+        // 2. Mapeo específico (Tu lógica actual)
+        this.userRole = res.rol;
+        this.userName = res.nombres;
+        
+        this.kpis = {
+          totalEmpleados: res.total_empleados || 0,
+          presentesHoy: res.presentes_hoy || 0,
+          solicitudesPendientes: res.solicitudes_pendientes || 0,
+          porcentajeAsistencia: res.porcentaje_asistencia || 0,
+          llegadasTarde: res.ausentes_hoy || 0
+        };
+
+        this.perfil = {
+          puesto: res.puesto,
+          saldo_vacaciones: res.saldo_vacaciones,
+          estado: res.estado,
+          jornada_abierta: res.jornada_abierta
+        };
+
+        this.cargarListas();
         this.loading = false;
-        
-        if (!this.stats.es_lider) {
-          this.cargarDatosEmpleado();
-        }
-        
         this.cdr.detectChanges();
       },
       error: (e) => {
-        console.error('Error dashboard:', e);
+        console.error(e);
         this.loading = false;
       }
     });
   }
+  cargarGraficos() {
+    this.loadingCharts = true;
+    this.api.getDashboardCharts().subscribe({
+      next: (res: any) => {
+        // Asignar datos Pie
+        this.pieChartData.labels = res.asistencia.labels;
+        this.pieChartData.datasets[0].data = res.asistencia.data;
 
-  cargarDatosEmpleado() {
-    this.api.getTiposAusencia().subscribe((res: any) => {
-      this.tiposAusencia = Array.isArray(res) ? res : res.results;
-    });
+        // Asignar datos Barras
+        this.barChartData.labels = res.productividad.labels;
+        this.barChartData.datasets[0].data = res.productividad.data;
 
-    this.api.getSolicitudes().subscribe((res: any) => {
-      const lista = Array.isArray(res) ? res : res.results;
-      this.misUltimasSolicitudes = lista.slice(0, 3);
+        this.loadingCharts = false;
+      },
+      error: () => this.loadingCharts = false
     });
   }
 
+
+  cargarListas() {
+    this.api.getTiposAusencia().subscribe((res: any) => this.tiposAusencia = Array.isArray(res) ? res : res.results);
+    // Cargar últimas solicitudes del empleado (si aplica)
+    if (this.userRole === 'EMPLEADO' || this.userRole === 'GERENTE') {
+        // Asumiendo que tienes este endpoint
+        // this.api.getMisSolicitudes().subscribe(...) 
+    }
+  }
+
   // ================================================================
-  // 2. LÓGICA DE CÁLCULO DE DÍAS (NUEVO - REQUERIDO POR HTML)
+  // 2. SISTEMA DE SOLICITUDES (PERMISOS/AUSENCIAS)
+  // ================================================================
+
+  // ================================================================
+  // 3. GESTIÓN DE VACACIONES
   // ================================================================
   calcularDias(inicio: string, fin: string) {
-    const dInicio = new Date(inicio);
-    const dFin = new Date(fin);
-
-    // Si fecha fin es menor que inicio, error
-    if (dFin < dInicio) {
-      this.diasCalculados = -1; 
-      return;
-    }
-
-    const diffTime = Math.abs(dFin.getTime() - dInicio.getTime());
-    // +1 para incluir el día de inicio
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
-    
-    this.diasCalculados = diffDays;
-  }
-
-  // ================================================================
-  // 3. SOLICITUDES (CON VALIDACIÓN DE SALDO)
-  // ================================================================
-  abrirModalSolicitud() {
-    this.showModalSolicitud = true;
-    this.formSolicitud.reset();
-    this.diasCalculados = 0; // Reiniciar contador
+    const d1 = new Date(inicio);
+    const d2 = new Date(fin);
+    if (d2 < d1) { this.diasCalculados = -1; return; }
+    const diff = Math.abs(d2.getTime() - d1.getTime());
+    this.diasCalculados = Math.ceil(diff / (1000 * 3600 * 24)) + 1;
   }
 
   enviarSolicitud() {
-    if (this.formSolicitud.invalid) {
-      Swal.fire('Formulario Incompleto', 'Por favor llena todos los campos.', 'warning');
+    if (this.formSolicitud.invalid) return;
+    
+    // Validación rápida de saldo
+    const tipoId = this.formSolicitud.value.tipo_ausencia;
+    const tipo = this.tiposAusencia.find(t => t.id == tipoId);
+    const esVacacion = tipo?.nombre.toLowerCase().includes('vacac');
+
+    if (esVacacion && this.diasCalculados > this.perfil.saldo_vacaciones) {
+      Swal.fire('Saldo Insuficiente', `Solo tienes ${this.perfil.saldo_vacaciones} días.`, 'error');
       return;
     }
 
-    // --- VALIDACIÓN DE NEGOCIO (NUEVO) ---
-    // Verificar si pide más días de los que tiene
-    const tipoId = this.formSolicitud.value.tipo_ausencia;
-    const tipo = this.tiposAusencia.find(t => t.id == tipoId);
-    
-    // Asumimos que si contiene "Vacaciones" o tiene un flag 'afecta_sueldo'
-    const esVacaciones = tipo?.nombre.toLowerCase().includes('vacaciones') || tipo?.afecta_sueldo;
-
-    if (esVacaciones && this.diasCalculados > this.stats.saldo_vacaciones) {
-       Swal.fire('Saldo Insuficiente', `Solo tienes ${this.stats.saldo_vacaciones} días disponibles.`, 'error');
-       return;
-    }
-    // -------------------------------------
-
     this.procesandoSolicitud = true;
-    
-    // Inyectamos dias_solicitados
-    const payload = { 
-        ...this.formSolicitud.value, 
-        dias_solicitados: this.diasCalculados 
-    };
+    const data = { ...this.formSolicitud.value, dias_solicitados: this.diasCalculados };
 
-    this.api.createSolicitud(payload)
-      .pipe(finalize(() => {
-          this.procesandoSolicitud = false;
-          this.cdr.detectChanges();
+    this.api.createSolicitud(data)
+      .pipe(finalize(() => { 
+        this.procesandoSolicitud = false; 
+        this.cdr.detectChanges(); 
       }))
       .subscribe({
         next: () => {
           this.showModalSolicitud = false;
-          
-          Swal.fire({
-            icon: 'success',
-            title: '¡Solicitud Enviada!',
-            text: 'Tu solicitud ha sido registrada.',
-            timer: 2000,
-            showConfirmButton: false
-          });
-
           this.formSolicitud.reset();
-          this.diasCalculados = 0;
-          this.cargarDashboard(); 
+          Swal.fire('Enviada', 'Tu solicitud ha sido registrada.', 'success');
+          // Recargar saldo si fuera necesario
         },
-        error: (e) => {
-          const serverError = e.error?.error || 'Ocurrió un error inesperado.';
-          Swal.fire({
-            icon: 'error',
-            title: 'Solicitud Rechazada',
-            text: serverError,
-            confirmButtonText: 'Entendido',
-            confirmButtonColor: '#d33'
-          });
-        }
+        error: (e) => Swal.fire('Error', e.error?.error || 'No se pudo enviar.', 'error')
       });
-  }
-
-  // ================================================================
-  // 4. ASISTENCIA
-  // ================================================================
-  marcarAsistencia(tipo: string) { 
-    Swal.fire({
-      title: `¿Registrar ${tipo}?`, // <--- Usamos la variable aquí para el UX
-      text: "Se validará tu ubicación GPS.",
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, registrar',
-      confirmButtonColor: '#4F46E5',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.ejecutarMarcaje(); // Al backend no le enviamos el tipo, él es inteligente y sabe qué toca.
-      }
-    });
-  }
-
-  ejecutarMarcaje() {
-    // Feedback visual de carga
-    Swal.fire({
-      title: 'Localizando...',
-      text: 'Buscando señal GPS',
-      allowOutsideClick: false,
-      didOpen: () => { Swal.showLoading(); }
-    });
-
-    if (!navigator.geolocation) {
-      Swal.fire('Error', 'Tu navegador no soporta GPS.', 'error');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        
-        // Enviamos solo coordenadas, el backend calcula si es Entrada o Salida
-        this.api.marcarAsistencia(lat, lng).subscribe({
-          next: (res: any) => {
-            Swal.fire({
-              icon: 'success',
-              title: res.mensaje, // "Entrada registrada" o "Salida registrada"
-              text: `Ubicación: ${res.sucursal || 'Detectada'} | Distancia: ${res.distancia || 'OK'}`,
-              timer: 3000
-            });
-            this.cargarDashboard(); // Actualizamos las tarjetas del dashboard
-          },
-          error: (e) => {
-            Swal.fire('Error', e.error?.error || 'No se pudo registrar la marca.', 'error');
-          }
-        });
-      },
-      (err) => {
-        let msg = 'Error de GPS.';
-        if (err.code === 1) msg = 'Permiso de ubicación denegado.';
-        if (err.code === 2) msg = 'Ubicación no disponible.';
-        if (err.code === 3) msg = 'Tiempo de espera agotado.';
-        Swal.fire('Error GPS', msg, 'warning');
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  }
-
-  enviarAlBackend(data: any) {
-    this.api.registrarAsistencia(data).subscribe({
-      next: (res) => {
-        Swal.fire('Correcto', res.mensaje || 'Asistencia registrada', 'success');
-        this.cargarDashboard();
-      },
-      error: (e) => {
-        Swal.fire('Error', e.error?.error || 'No se pudo registrar', 'error');
-      }
-    });
   }
 }

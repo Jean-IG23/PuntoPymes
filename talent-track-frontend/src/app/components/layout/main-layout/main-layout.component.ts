@@ -55,4 +55,45 @@ export class MainLayoutComponent {
     };
     return roles[role] || role;
   }
+
+  // ========== CONTROL DE VISIBILIDAD POR ROL ==========
+  
+  // Visibilidad de secciones principales
+  canSeePrincipal(): boolean {
+    return true; // Todos ven la sección principal
+  }
+
+  canSeeReportes(): boolean {
+    // Solo si eres management (Gerente+) o si tienes datos propios
+    return this.auth.isManagement() || this.auth.isEmployee();
+  }
+
+  canSeeNomina(): boolean {
+    // Todos pueden ver su propia nómina
+    return true;
+  }
+
+  canSeeRanking(): boolean {
+    // Solo management (jefes, admin, rrhh)
+    return this.auth.isManagement();
+  }
+
+  canSeeTareas(): boolean {
+    // Solo si eres management (asignas tareas) o empleado (tienes tareas)
+    return true;
+  }
+
+  canSeeObjetivos(): boolean {
+    // Todos pueden ver sus objetivos
+    return true;
+  }
+
+  canSeeSolicitudes(): boolean {
+    // Todos pueden hacer solicitudes
+    return true;
+  }
+
+  isSuperAdmin(): boolean {
+    return this.auth.isSuperAdmin();
+  }
 }

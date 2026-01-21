@@ -1,113 +1,200 @@
 <div class="flex h-screen bg-gray-50 overflow-hidden">
 
-    <aside class="w-64 bg-slate-900 text-white flex flex-col shadow-2xl z-20 transition-all duration-300"
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white text-gray-900 flex flex-col shadow-lg z-20 transition-all duration-300 border-r border-gray-200"
            [class.-ml-64]="!sidebarOpen"
            [class.ml-0]="sidebarOpen">
         
-        <div class="h-16 flex items-center px-6 bg-slate-950 border-b border-slate-800">
-            <i class="bi bi-people-fill text-indigo-500 text-2xl mr-3" aria-hidden="true"></i>
-            <span class="text-lg font-bold tracking-wide">Talent<span class="text-indigo-400">Track</span></span>
+        <!-- Logo -->
+        <div class="h-16 flex items-center px-6 bg-white border-b border-gray-200">
+            <span class="text-2xl font-bold">
+                <span class="text-red-600">Talent</span><span class="text-gray-900">Track</span>
+            </span>
         </div>
 
-        <div class="p-4 border-b border-slate-800 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm" aria-hidden="true">
+        <!-- User Card -->
+        <div class="p-4 border-b border-gray-200 flex items-center gap-3 bg-gray-50">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center font-bold text-sm text-red-600">
                 {{ userInitials }}
             </div>
             <div class="overflow-hidden">
-                <p class="text-sm font-medium truncate">{{ userName }}</p>
-                <p class="text-xs text-slate-400 truncate">{{ userRole }}</p>
+                <p class="text-sm font-semibold text-gray-900 truncate">{{ userName }}</p>
+                <p class="text-xs text-gray-500 truncate">{{ userRole }}</p>
             </div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto py-4 space-y-1 px-3">
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto py-4 px-3">
             
-            <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-2">Principal</p>
+            <!-- SECCIÓN: PRINCIPAL - ACCESO PARA TODOS -->
+            <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-2">Principal</p>
             
-            <a routerLink="/dashboard" routerLinkActive="bg-indigo-600 text-white" 
-               class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
-                <i class="bi bi-speedometer2 text-lg mr-3" aria-hidden="true"></i>
-                <span class="font-medium">Dashboard</span>
+            <a routerLink="/mi-perfil" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+               [routerLinkActiveOptions]="{ exact: true }"
+               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                <i class="ri-user-line text-lg mr-3"></i>
+                <span class="font-medium">Mi Perfil</span>
             </a>
 
-            <a routerLink="/portal" routerLinkActive="bg-indigo-600 text-white" 
-               class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
-                <i class="bi bi-fingerprint text-lg mr-3" aria-hidden="true"></i>
-                <span class="font-medium">Mi Reloj</span>
+            <a *ngIf="canSeeSolicitudes()" routerLink="/solicitudes" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+               [routerLinkActiveOptions]="{ exact: true }"
+               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                <i class="ri-mail-send-line text-lg mr-3"></i>
+                <span class="font-medium">Solicitudes</span>
             </a>
 
+            <a *ngIf="canSeeNomina()" routerLink="/nomina" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+               [routerLinkActiveOptions]="{ exact: true }"
+               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                <i class="ri-money-dollar-circle-line text-lg mr-3"></i>
+                <span class="font-medium">Nómina</span>
+            </a>
+
+            <a *ngIf="canSeeObjetivos()" routerLink="/objetivos" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+               [routerLinkActiveOptions]="{ exact: true }"
+               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                <i class="ri-target-2-line text-lg mr-3"></i>
+                <span class="font-medium">Mis Objetivos</span>
+            </a>
+
+            <a *ngIf="canSeeReportes()" routerLink="/reportes" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+               [routerLinkActiveOptions]="{ exact: true }"
+               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                <i class="ri-bar-chart-line text-lg mr-3"></i>
+                <span class="font-medium">Reportes</span>
+            </a>
+
+            <a *ngIf="canSeeTareas()" routerLink="/tareas" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+               [routerLinkActiveOptions]="{ exact: true }"
+               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                <i class="ri-check-list-line text-lg mr-3"></i>
+                <span class="font-medium">Mis Tareas</span>
+            </a>
+
+            <a *ngIf="canSeeRanking()" routerLink="/ranking" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+               [routerLinkActiveOptions]="{ exact: true }"
+               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                <i class="ri-award-line text-lg mr-3"></i>
+                <span class="font-medium">Ranking</span>
+            </a>
+
+            <!-- SECCIÓN: GESTIÓN - SOLO JEFES/MANAGERS -->
             <ng-container *ngIf="auth.isManagement()">
-                <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-6">Gestión</p>
+                <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Gestión</p>
 
-                <a routerLink="/empleados" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
-                    <i class="bi bi-people text-lg mr-3" aria-hidden="true"></i>
-                    <span class="font-medium">Personal</span>
+                <a routerLink="/gestion/dashboard" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: true }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-dashboard-line text-lg mr-3"></i>
+                    <span class="font-medium">Dashboard</span>
                 </a>
 
-                <a routerLink="/asistencia/reporte" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
-                    <i class="bi bi-calendar-check text-lg mr-3" aria-hidden="true"></i>
+                <a routerLink="/gestion/empleados" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: false }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-team-line text-lg mr-3"></i>
+                    <span class="font-medium">Mi Equipo</span>
+                </a>
+
+                <a routerLink="/gestion/organizacion" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: true }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-organization-chart mr-3"></i>
+                    <span class="font-medium">Organización</span>
+                </a>
+
+                <a routerLink="/gestion/asistencia" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: true }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-check-double-line text-lg mr-3"></i>
                     <span class="font-medium">Asistencia</span>
                 </a>
 
-                <a routerLink="/solicitudes" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
-                    <i class="bi bi-envelope-paper text-lg mr-3" aria-hidden="true"></i>
-                    <span class="font-medium">Solicitudes</span>
-                </a>
-
-                <a routerLink="/kpi/manager" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
-                    <i class="bi bi-graph-up-arrow text-lg mr-3" aria-hidden="true"></i>
-                    <span class="font-medium">Evaluaciones KPI</span>
+                <a routerLink="/gestion/evaluaciones" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: true }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-star-line text-lg mr-3"></i>
+                    <span class="font-medium">Evaluaciones</span>
                 </a>
             </ng-container>
 
+            <!-- SECCIÓN: ADMINISTRACIÓN - SOLO ADMIN DE EMPRESA Y RRHH -->
             <ng-container *ngIf="auth.canConfigCompany()">
-                <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 mt-6">Admin</p>
+                <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Administración</p>
                 
-                <a routerLink="/organizacion" routerLinkActive="bg-indigo-600 text-white" 
-                   class="flex items-center px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition group focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">
-                    <i class="bi bi-building-gear text-lg mr-3" aria-hidden="true"></i>
-                    <span class="font-medium">Organización</span>
+                <a routerLink="/admin/kpi" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: true }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-line-chart-line text-lg mr-3"></i>
+                    <span class="font-medium">Definir KPIs</span>
+                </a>
+
+                <a routerLink="/admin/ausencias" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: true }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-calendar-todo-line text-lg mr-3"></i>
+                    <span class="font-medium">Tipos de Ausencias</span>
+                </a>
+
+                <a routerLink="/admin/configuracion" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: true }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-settings-3-line text-lg mr-3"></i>
+                    <span class="font-medium">Configuración</span>
+                </a>
+            </ng-container>
+
+            <!-- SECCIÓN: SAAS - SOLO SUPERADMIN -->
+            <ng-container *ngIf="isSuperAdmin()">
+                <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">SaaS</p>
+
+                <a routerLink="/saas/dashboard" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
+                   [routerLinkActiveOptions]="{ exact: true }"
+                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
+                    <i class="ri-server-line text-lg mr-3"></i>
+                    <span class="font-medium">Panel SaaS</span>
                 </a>
             </ng-container>
 
         </nav>
 
-        <div class="p-4 border-t border-slate-800">
+        <!-- Logout Button -->
+        <div class="p-4 border-t border-gray-200 bg-gray-50">
             <button (click)="logout()" 
                     aria-label="Cerrar sesión"
-                    class="flex items-center w-full px-3 py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-red-500">
-                <i class="bi bi-box-arrow-left text-lg mr-3" aria-hidden="true"></i>
-                <span class="font-medium">Cerrar Sesión</span>
+                    class="flex items-center w-full px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition font-medium focus:outline-none focus:ring-2 focus:ring-red-500">
+                <i class="bi bi-box-arrow-right text-lg mr-3"></i>
+                <span>Cerrar Sesión</span>
             </button>
         </div>
     </aside>
 
+    <!-- Main Content -->
     <div class="flex-1 flex flex-col h-screen overflow-hidden relative">
         
+        <!-- Header -->
         <header class="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-6 z-10">
             
             <button (click)="sidebarOpen = !sidebarOpen" 
                     aria-label="Alternar menú lateral"
-                    class="text-gray-500 hover:text-indigo-600 rounded-md p-1 lg:hidden focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <i class="bi bi-list text-2xl" aria-hidden="true"></i>
+                    class="text-gray-500 hover:text-red-600 rounded-md p-1 lg:hidden focus:outline-none focus:ring-2 focus:ring-red-500">
+                <i class="bi bi-list text-2xl"></i>
             </button>
 
-            <h2 class="text-gray-700 font-bold text-lg hidden sm:block">
+            <h2 class="text-gray-900 font-bold text-lg hidden sm:block flex-1 ml-4">
                 {{ userEmpresa || 'Panel de Control' }}
             </h2>
 
             <div class="flex items-center gap-4">
                 <button aria-label="Ver notificaciones"
-                        class="text-gray-400 hover:text-indigo-600 relative rounded-full p-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <i class="bi bi-bell text-xl" aria-hidden="true"></i>
-                    <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                        class="text-gray-400 hover:text-red-600 relative rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-red-500 transition">
+                    <i class="bi bi-bell text-xl"></i>
+                    <span class="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
                 </button>
             </div>
         </header>
 
+        <!-- Page Content -->
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6 scroll-smooth">
             <div class="max-w-7xl mx-auto">
                 <router-outlet></router-outlet>
@@ -116,6 +203,7 @@
         
     </div>
 
+    <!-- Mobile Backdrop -->
     <div *ngIf="sidebarOpen" (click)="sidebarOpen = false" 
          class="fixed inset-0 bg-black/50 z-10 lg:hidden backdrop-blur-sm transition-opacity"
          aria-hidden="true">

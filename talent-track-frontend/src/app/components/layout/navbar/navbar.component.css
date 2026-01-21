@@ -1,0 +1,87 @@
+/* Estilos para Navbar minimalista */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border-radius: 3px;
+}
+
+/* Navbar */
+nav {
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+/* Links en navbar */
+nav a {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+nav a:hover {
+  color: rgb(220, 38, 38);
+}
+
+nav a.active {
+  color: rgb(220, 38, 38);
+  border-bottom-color: rgb(220, 38, 38);
+}
+
+/* Avatar con iniciales */
+.avatar-initials {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #dc2626;
+}
+
+/* Botón logout */
+button[aria-label="Cerrar sesión"] {
+  transition: all 0.2s ease;
+}
+
+button[aria-label="Cerrar sesión"]:hover {
+  transform: scale(1.05);
+}
+
+/* Mobile menu icon */
+.bi-list,
+.bi-x {
+  transition: transform 0.2s ease;
+}
+
+button:active .bi-list,
+button:active .bi-x {
+  transform: scale(0.95);
+}
+
+/* Menu desplegable móvil */
+@media (max-width: 640px) {
+  nav > div:last-child {
+    animation: slideDown 0.3s ease;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -7,17 +7,17 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Q, F, Sum
+from django.db.models import Q, F, Sum, Count
 from django.utils import timezone
 import io
 from django.http import HttpResponse
 
 # Imports locales
 from .utils import notificar_solicitud 
-from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia
+from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia, Tarea   
 from .serializers import (
     CargaMasivaEmpleadoSerializer, EmpleadoSerializer, ContratoSerializer, 
-    DocumentoSerializer, SolicitudSerializer, TipoAusenciaSerializer
+    DocumentoSerializer, SolicitudSerializer, TipoAusenciaSerializer, TareaSerializer
 )
 
 # =========================================================================
@@ -292,7 +292,47 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"error": f"Error procesando archivo: {str(e)}"}, status=400)
 
+    @action(detail=False, methods=['get', 'put', 'patch'], url_path='me')
+    def me(self, request):
+        try:
+            empleado = Empleado.objects.get(usuario=request.user)
+            
+            if request.method == 'GET':
+                serializer = self.get_serializer(empleado)
+                return Response(serializer.data)
+            
+            elif request.method in ['PUT', 'PATCH']:
+                # Partial=True permite subir solo la foto sin enviar todo lo demás
+                serializer = self.get_serializer(empleado, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=400)
+                
+        except Empleado.DoesNotExist:
+            return Response({'error': 'Perfil no encontrado'}, status=404)
 
+    # 👇 2. ACCIÓN: CAMBIAR CONTRASEÑA
+    @action(detail=False, methods=['post'], url_path='change-password')
+    def change_password(self, request):
+        serializer = PasswordChangeSerializer(data=request.data)
+        if serializer.is_valid():
+            user = request.user
+            
+            # Verificar contraseña anterior
+            if not user.check_password(serializer.data['old_password']):
+                return Response({'old_password': ['La contraseña actual es incorrecta.']}, status=400)
+            
+            # Guardar nueva contraseña
+            user.set_password(serializer.data['new_password'])
+            user.save()
+            
+            # Mantener sesión activa
+            update_session_auth_hash(request, user)
+            
+            return Response({'message': 'Contraseña actualizada correctamente.'})
+        
+        return Response(serializer.errors, status=400)
 # =========================================================================
 # 2. VIEWSET DE CONTRATOS
 # =========================================================================
@@ -523,3 +563,79 @@ class TipoAusenciaViewSet(viewsets.ModelViewSet):
             serializer.save(empresa=empleado.empresa)
         except Empleado.DoesNotExist:
             raise ValueError("Usuario sin perfil de empleado.")
+class TareaViewSet(viewsets.ModelViewSet):
+    serializer_class = TareaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Tarea.objects.all().select_related('asignado_a', 'creado_por')
+        
+        try:
+            empleado = Empleado.objects.get(usuario=user)
+            
+            # FILTRO 1: Seguridad por Empresa (Siempre)
+            queryset = queryset.filter(empresa=empleado.empresa)
+
+            # FILTRO 2: Roles
+            # Si es empleado normal, solo ve las que le asignaron a él
+            if empleado.rol not in ['ADMIN', 'RRHH', 'GERENTE', 'SUPERADMIN']:
+                queryset = queryset.filter(asignado_a=empleado)
+            
+            # FILTRO 3: Dashboard personal vs Gestión Global
+            # Si el frontend manda ?mis_tareas=true, mostramos solo las mías (aunque sea jefe)
+            if self.request.query_params.get('mis_tareas') == 'true':
+                queryset = queryset.filter(asignado_a=empleado)
+
+        except Empleado.DoesNotExist:
+            return Tarea.objects.none()
+            
+        return queryset.order_by('-prioridad', 'fecha_limite')
+
+    def perform_create(self, serializer):
+        """Asigna automáticamente la empresa y el creador"""
+        empleado = Empleado.objects.get(usuario=self.request.user)
+        serializer.save(
+            empresa=empleado.empresa,
+            creado_por=self.request.user
+        )
+
+    def perform_update(self, serializer):
+        """Si la tarea se marca como COMPLETADA, guardamos la fecha"""
+        instance = serializer.save()
+        if instance.estado == 'COMPLETADA' and not instance.completado_at:
+            instance.completado_at = timezone.now()
+            instance.save()
+        elif instance.estado != 'COMPLETADA':
+            instance.completado_at = None
+            instance.save()
+    @action(detail=False, methods=['get'])
+    def ranking(self, request):
+        """
+        Devuelve el Top de empleados basado en puntos de tareas completadas.
+        Filtro opcional: ?periodo=mes (por defecto histórico)
+        """
+        empleado_solicitante = Empleado.objects.get(usuario=request.user)
+        empresa = empleado_solicitante.empresa
+
+        # Base: Tareas completadas de la empresa
+        queryset = Tarea.objects.filter(
+            empresa=empresa, 
+            estado='COMPLETADA'
+        )
+
+        # Filtro de fecha (Opcional: Implementar lógica de 'este mes')
+        # ...
+
+        # AGREGACIÓN (La magia de SQL)
+        ranking = queryset.values(
+            'asignado_a__id',
+            'asignado_a__usuario__first_name',
+            'asignado_a__usuario__last_name',
+            'asignado_a__puesto__nombre'
+        ).annotate(
+            total_puntos=Sum('puntos_valor'),
+            total_tareas=Count('id')
+        ).order_by('-total_puntos') # Ordenar del más alto al más bajo
+
+        return Response(ranking)

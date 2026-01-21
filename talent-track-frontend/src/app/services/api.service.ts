@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, of } from 'rxjs'; // Importamos 'of' para mocks rápidos si faltan endpoints
 import { AuthService } from './auth.service';
 
@@ -12,15 +12,46 @@ export class ApiService {
 
   constructor(private http: HttpClient, private auth: AuthService) { }
 
-  private getHeaders() {
-    const token = this.auth.getToken(); 
-    return {
-      headers: new HttpHeaders({
-        'Authorization': `Bearer ${token}`
-      })
-    };
+  private getHeaders(isJson: boolean = true) {
+    const token = localStorage.getItem('token');
+  let headers: any = {};
+  
+  if (token) {
+    headers['Authorization'] = `Token ${token}`;
+  }
+  
+  // Solo agregamos JSON si nos lo piden. 
+  // Para archivos (FormData), isJson será false.
+  if (isJson) {
+    headers['Content-Type'] = 'application/json';
+  }
+    return headers
+  }
+  get(endpoint: string, params?: any): Observable<any> {
+    let httpParams = new HttpParams();
+    if (params) {
+      Object.keys(params).forEach(key => {
+        if (params[key] !== null && params[key] !== undefined) {
+          httpParams = httpParams.append(key, params[key]);
+        }
+      });
+    }
+  return this.http.get(`${this.baseUrl}${endpoint}`, { headers: this.getHeaders(true), params });  }
+
+  post(endpoint: string, data: any): Observable<any> {
+  return this.http.post(`${this.baseUrl}${endpoint}`, data, { headers: this.getHeaders(true) });  }
+
+  put(endpoint: string, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}${endpoint}`, data,{ headers: this.getHeaders(true) });
   }
 
+  patch(endpoint: string, data: any): Observable<any> {
+    return this.http.patch(`${this.baseUrl}${endpoint}`, data, { headers: this.getHeaders(true) });
+  }
+
+  delete(endpoint: string): Observable<any> {
+    return this.http.delete(`${this.baseUrl}${endpoint}`,{ headers: this.getHeaders(true) });
+  }
   // ==========================================
   // 🏢 EMPRESAS
   // ==========================================
@@ -208,6 +239,10 @@ export class ApiService {
     return this.http.put(`${this.baseUrl}/empleados/${id}/`, data, this.getHeaders());
   }
 
+  deleteEmpleado(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/empleados/${id}/`, this.getHeaders());
+  }
+
   uploadEmpleados(file: File): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);
@@ -278,15 +313,33 @@ export class ApiService {
       longitud: lng,
       timestamp: new Date().toISOString()
     };
-    return this.http.post(`${this.baseUrl}/asistencia/marcar/`, data, this.getHeaders());
+    return this.http.post(`${this.baseUrl}/marcar/`, data, this.getHeaders());
   }
 
   registrarAsistencia(data: any): Observable<any> {
     if(data.latitud && data.longitud) {
        return this.marcarAsistencia(data.latitud, data.longitud);
     }
-    return this.http.post(`${this.baseUrl}/asistencia/marcar/`, data, this.getHeaders());
+    return this.http.post(`${this.baseUrl}/marcar/`, data, this.getHeaders());
   }
+  getDashboardCharts() {
+  return this.get('/dashboard/charts/');
+}
+  download(endpoint: string, params?: any) {
+  let httpParams = new HttpParams();
+  if (params) {
+    Object.keys(params).forEach(key => {
+      if (params[key]) httpParams = httpParams.append(key, params[key]);
+    });
+  }
+  
+
+  // responseType: 'blob' es CRÍTICO para archivos binarios
+  return this.http.get(`${this.baseUrl}${endpoint}`, { 
+    params: httpParams, 
+    responseType: 'blob' 
+  });
+}
 
   // ==========================================
   // 📊 DASHBOARD / STATS
@@ -301,6 +354,12 @@ export class ApiService {
   getKPIs(): Observable<any> {
     return this.http.get(`${this.baseUrl}/kpis/`, this.getHeaders());
   }
+  getRanking() {
+  return this.get('/tareas/ranking/');
+}
+getCalculoNomina(inicio: string, fin: string) {
+  return this.get('/nomina/calculo/', { fecha_inicio: inicio, fecha_fin: fin });
+}
 
   saveKPI(data: any): Observable<any> {
     if(data.id) return this.http.put(`${this.baseUrl}/kpis/${data.id}/`, data, this.getHeaders());
@@ -323,5 +382,41 @@ export class ApiService {
     if(data.id) return this.http.put(`${this.baseUrl}/objetivos/${data.id}/`, data, this.getHeaders());
     return this.http.post(`${this.baseUrl}/objetivos/`, data, this.getHeaders());
   }
+  getTareas(misTareas: boolean = false) {
+  // Si misTareas es true, el backend filtrará solo las asignadas a mí
+  const params = misTareas ? { mis_tareas: 'true' } : {};
+  return this.get('/tareas/', params);
+}
+getMiPerfil() {
+  return this.get('/empleados/me/');
+}
+
+updatePerfil(data: FormData) {
+    return this.http.patch(`${this.baseUrl}/empleados/me/`, data, {
+      headers: this.getHeaders(false) 
+    });
+  }
+
+changePassword(data: any) {
+  return this.post('/empleados/change-password/', data);
+}
+crearTarea(data: any) {
+  return this.post('/tareas/', data);
+}
+
+actualizarTarea(id: number, data: any) {
+  return this.put(`/tareas/${id}/`, data);
+}
+
+eliminarTarea(id: number) {
+  return this.delete(`/tareas/${id}/`);
+}
+  getConfiguracion() {
+  return this.get('/config-nomina/mi_configuracion/');
+}
+
+updateConfiguracion(data: any) {
+  return this.put('/config-nomina/mi_configuracion/', data);
+}
 
 }

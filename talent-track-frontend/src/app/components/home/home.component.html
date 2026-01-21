@@ -1,0 +1,282 @@
+<div class="min-h-screen bg-white">
+
+  <!-- NAVBAR PROFESIONAL -->
+  <nav class="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <!-- LOGO -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+            <i class="ri-bar-chart-2-line"></i>
+          </div>
+          <span class="text-xl font-bold text-gray-900">Talent<span class="text-red-600">Track</span></span>
+        </div>
+
+        <!-- NAVEGACIÓN Y USUARIO -->
+        <div class="flex items-center gap-6">
+          <div *ngIf="isLoggedIn" class="hidden md:flex items-center gap-3">
+            <div class="w-9 h-9 bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+              {{ userName.charAt(0).toUpperCase() }}
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-gray-900">{{ userName }}</p>
+              <p class="text-xs text-gray-500">{{ userRole | titlecase }}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <a *ngIf="!isLoggedIn" href="/login" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition font-semibold">
+              Iniciar Sesión
+            </a>
+            <button *ngIf="isLoggedIn" (click)="goToDashboard()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition flex items-center gap-2">
+              <i class="ri-dashboard-line"></i> Dashboard
+            </button>
+            <button *ngIf="isLoggedIn" (click)="logout()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition">
+              <i class="ri-logout-box-line text-lg"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    
+    <!-- BIENVENIDA Y ESTADÍSTICAS -->
+    <div *ngIf="isLoggedIn" class="mb-12">
+      <div class="flex items-center gap-4 mb-2">
+        <h1 class="text-4xl font-bold text-gray-900">
+          Bienvenido, {{ userName | titlecase }}
+        </h1>
+        <span class="inline-block px-3 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full">
+          <i class="ri-checkbox-circle-line"></i> Activo
+        </span>
+      </div>
+      <p class="text-lg text-gray-600 mb-8">{{ userEmpresa }}</p>
+
+      <!-- WIDGET DE ASISTENCIA RÁPIDA -->
+      <div class="mb-12">
+        <app-attendance-quick-marker></app-attendance-quick-marker>
+      </div>
+
+      <!-- ESTADÍSTICAS (Solo para gestores) -->
+      <div *ngIf="auth.isManagement()" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
+        
+        <!-- Card 1: Empleados Activos -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Empleados Activos</p>
+              <div *ngIf="loadingStats" class="h-8 bg-gray-200 rounded animate-pulse mt-2 w-12"></div>
+              <p *ngIf="!loadingStats" class="text-4xl font-bold text-gray-900 mt-2">{{ stats.totalEmpleados }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-2xl">
+              <i class="ri-team-line"></i>
+            </div>
+          </div>
+          <div class="h-1 bg-gradient-to-r from-red-500 to-red-300 rounded-full"></div>
+        </div>
+
+        <!-- Card 2: Presentes Hoy -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Presentes Hoy</p>
+              <div *ngIf="loadingStats" class="h-8 bg-gray-200 rounded animate-pulse mt-2 w-12"></div>
+              <p *ngIf="!loadingStats" class="text-4xl font-bold text-gray-900 mt-2">{{ stats.presentesHoy }}</p>
+              <p *ngIf="!loadingStats" class="text-xs text-green-600 font-semibold mt-1">✓ En la oficina</p>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-2xl">
+              <i class="ri-check-double-line"></i>
+            </div>
+          </div>
+          <div class="h-1 bg-gradient-to-r from-green-500 to-green-300 rounded-full"></div>
+        </div>
+
+        <!-- Card 3: Solicitudes Pendientes -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer"
+             (click)="navigateTo('/solicitudes')" routerLink="/solicitudes">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Por Aprobar</p>
+              <div *ngIf="loadingStats" class="h-8 bg-gray-200 rounded animate-pulse mt-2 w-12"></div>
+              <p *ngIf="!loadingStats" class="text-4xl font-bold text-gray-900 mt-2">{{ stats.solicitudesPendientes }}</p>
+              <p *ngIf="!loadingStats" class="text-xs text-orange-600 font-semibold mt-1">⚠ Requieren acción</p>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-2xl">
+              <i class="ri-mail-check-line"></i>
+            </div>
+          </div>
+          <div class="h-1 bg-gradient-to-r from-orange-500 to-orange-300 rounded-full"></div>
+        </div>
+
+        <!-- Card 4: Asistencia Promedio -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Asistencia Promedio</p>
+              <div *ngIf="loadingStats" class="h-8 bg-gray-200 rounded animate-pulse mt-2 w-16"></div>
+              <p *ngIf="!loadingStats" class="text-4xl font-bold text-gray-900 mt-2">{{ stats.asistencia }}%</p>
+              <p *ngIf="!loadingStats" class="text-xs text-blue-600 font-semibold mt-1">→ Promedio mensual</p>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-2xl">
+              <i class="ri-bar-chart-line"></i>
+            </div>
+          </div>
+          <div class="h-1 bg-gradient-to-r from-blue-500 to-blue-300 rounded-full"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TÍTULO DE MÓDULOS -->
+    <div class="mb-10">
+      <h2 class="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+        <i class="ri-grid-3x3-gap-fill text-red-600 text-2xl"></i>
+        Accesos Rápidos
+      </h2>
+      <p class="text-gray-600">Gestiona los aspectos clave de tu organización</p>
+    </div>
+
+    <!-- MÓDULOS/CARDS (GRID RESPONSIVE) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+      <button 
+        *ngFor="let modulo of modulosVisibles"
+        (click)="navigateTo(modulo.ruta)"
+        class="group bg-white rounded-2xl border border-gray-200 hover:shadow-lg transition-all p-6 text-left hover:scale-105 transform relative overflow-hidden"
+        [ngClass]="'border-t-4 ' +
+          (modulo.color === 'red' ? 'border-t-red-600' :
+           modulo.color === 'orange' ? 'border-t-orange-600' :
+           modulo.color === 'green' ? 'border-t-green-600' :
+           modulo.color === 'blue' ? 'border-t-blue-600' :
+           modulo.color === 'purple' ? 'border-t-purple-600' :
+           'border-t-indigo-600')">
+        
+        <div class="relative z-10">
+          <div class="flex items-start justify-between mb-4">
+            <div 
+              class="w-12 h-12 rounded-lg flex items-center justify-center text-white text-2xl"
+              [ngClass]="{
+                'bg-red-600': modulo.color === 'red',
+                'bg-orange-600': modulo.color === 'orange',
+                'bg-green-600': modulo.color === 'green',
+                'bg-blue-600': modulo.color === 'blue',
+                'bg-purple-600': modulo.color === 'purple',
+                'bg-indigo-600': modulo.color === 'indigo'
+              }">
+              <i [class]="modulo.icon"></i>
+            </div>
+            <i class="ri-arrow-right-line text-gray-400 group-hover:text-gray-600 transition text-xl"></i>
+          </div>
+
+          <h3 class="text-lg font-bold text-gray-900 mb-2 group-hover:text-red-600 transition">
+            {{ modulo.titulo }}
+          </h3>
+          <p class="text-gray-600 text-sm">{{ modulo.descripcion }}</p>
+        </div>
+      </button>
+    </div>
+
+    <!-- SI NO ESTÁ LOGUEADO -->
+    <div *ngIf="!isLoggedIn" class="mt-16 space-y-16">
+      
+      <!-- HERO SECTION -->
+      <div class="bg-gradient-to-br from-red-600 to-red-500 rounded-3xl p-12 text-white relative overflow-hidden">
+        <div class="absolute -right-20 -bottom-20 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
+        
+        <div class="relative z-10 max-w-2xl">
+          <h2 class="text-5xl font-bold mb-4">
+            Gestión Integral de Recursos Humanos
+          </h2>
+          <p class="text-xl text-red-100 mb-8">
+            TalentTrack es la solución completa para administrar tu equipo, automatizar nómina, 
+            controlar asistencia y potenciar el desempeño de tu organización.
+          </p>
+          <a href="/login" class="inline-flex items-center gap-2 px-8 py-3 bg-white text-red-600 font-bold rounded-lg hover:bg-red-50 transition">
+            <i class="ri-play-fill"></i> Comenzar Ahora
+          </a>
+        </div>
+      </div>
+
+      <!-- CARACTERÍSTICAS -->
+      <div>
+        <h3 class="text-3xl font-bold text-gray-900 mb-10">¿Por qué elegirnos?</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          <div class="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-lg transition">
+            <div class="w-12 h-12 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-2xl mb-4">
+              <i class="ri-lightning-charge-fill"></i>
+            </div>
+            <h4 class="font-bold text-gray-900 mb-2 text-lg">Automatización Completa</h4>
+            <p class="text-gray-600">Nómina automática, cálculo de asistencia en tiempo real y reportes inteligentes.</p>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-lg transition">
+            <div class="w-12 h-12 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-2xl mb-4">
+              <i class="ri-shield-check-line"></i>
+            </div>
+            <h4 class="font-bold text-gray-900 mb-2 text-lg">100% Seguro</h4>
+            <p class="text-gray-600">Encriptación de datos, respaldos automáticos y cumplimiento de normativas.</p>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-lg transition">
+            <div class="w-12 h-12 rounded-lg bg-green-100 text-green-600 flex items-center justify-center text-2xl mb-4">
+              <i class="ri-cloud-line"></i>
+            </div>
+            <h4 class="font-bold text-gray-900 mb-2 text-lg">En la Nube</h4>
+            <p class="text-gray-600">Acceso desde cualquier dispositivo, en cualquier momento y lugar.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- CTA FINAL -->
+      <div class="text-center py-12">
+        <p class="text-gray-600 mb-4">¿Listo para transformar tu gestión de RRHH?</p>
+        <a href="/login" class="inline-block px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition">
+          Inicia tu prueba gratuita hoy
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-gray-200 bg-gray-50 mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+              <i class="ri-bar-chart-2-line"></i>
+            </div>
+            <span class="font-bold text-gray-900">TalentTrack</span>
+          </div>
+          <p class="text-gray-600 text-sm">Gestión moderna de Recursos Humanos</p>
+        </div>
+        <div>
+          <p class="font-bold text-gray-900 mb-2">Producto</p>
+          <ul class="space-y-1 text-sm text-gray-600">
+            <li><a href="#" class="hover:text-red-600">Características</a></li>
+            <li><a href="#" class="hover:text-red-600">Precios</a></li>
+            <li><a href="#" class="hover:text-red-600">Seguridad</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="font-bold text-gray-900 mb-2">Legal</p>
+          <ul class="space-y-1 text-sm text-gray-600">
+            <li><a href="#" class="hover:text-red-600">Términos de servicio</a></li>
+            <li><a href="#" class="hover:text-red-600">Privacidad</a></li>
+            <li><a href="#" class="hover:text-red-600">Contacto</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-gray-200 pt-8 text-center text-gray-600 text-sm">
+        <p>&copy; 2024 PuntoPymes. Todos los derechos reservados.</p>
+      </div>
+    </div>
+  </footer>
+
+</div>

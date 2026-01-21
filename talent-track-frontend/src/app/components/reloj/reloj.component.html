@@ -1,62 +1,90 @@
-<div class="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-  
-  <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md text-center border border-gray-700">
+<div class="min-h-screen bg-white flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-2xl border border-gray-100">
     
-    <div class="mb-8">
-      <h2 class="text-gray-400 text-sm uppercase tracking-wider font-semibold">Reloj Biométrico</h2>
-      <p class="text-gray-500 text-xs mt-1" *ngIf="empleado">
-        Hola, {{ empleado.nombres }}
+    <!-- Header -->
+    <div class="text-center mb-12">
+      <div class="flex items-center justify-center gap-3 mb-2">
+        <i class="ri-time-line text-4xl text-red-600"></i>
+        <h1 class="text-3xl font-bold text-gray-900">Control de Asistencia</h1>
+      </div>
+      <p class="text-gray-600" *ngIf="empleado">
+        Bienvenido, <span class="font-semibold text-gray-900">{{ empleado.nombres }}</span>
       </p>
     </div>
 
-    <div class="mb-8 relative">
-        <div class="text-6xl font-mono font-bold text-white tracking-widest relative z-10">
-            {{ horaActual }}
+    <!-- Reloj Digital -->
+    <div class="bg-gradient-to-br from-red-50 to-white rounded-2xl p-8 mb-8 border border-red-200">
+      <div class="text-center">
+        <div class="text-7xl font-mono font-bold text-red-600 tracking-tight mb-2">
+          {{ horaActual }}
         </div>
-        <div class="absolute inset-0 bg-indigo-500 blur-3xl opacity-20 rounded-full"></div>
-        <p class="text-indigo-300 mt-2 capitalize">{{ fechaActual }}</p>
+        <p class="text-lg text-gray-600 capitalize font-medium">{{ fechaActual }}</p>
+      </div>
     </div>
 
-    <div class="mb-8 min-h-[60px]">
-        <div *ngIf="cargandoUbicacion" class="flex items-center justify-center text-yellow-500 animate-pulse">
-            <i class="bi bi-geo-alt mr-2"></i> Buscando satélites...
-        </div>
+    <!-- GPS Status -->
+    <div class="mb-8 min-h-[80px] flex items-center justify-center">
+      <div *ngIf="cargandoUbicacion" class="flex items-center gap-3 text-yellow-600 animate-pulse">
+        <i class="ri-loader-4-line text-2xl animate-spin"></i>
+        <span class="font-medium">Detectando ubicación...</span>
+      </div>
 
-        <div *ngIf="gpsError" class="bg-red-900/30 text-red-400 p-3 rounded-lg text-sm border border-red-800">
-            <i class="bi bi-exclamation-triangle-fill mr-1"></i> {{ gpsError }}
-            <button (click)="obtenerUbicacion()" class="block w-full mt-2 text-white underline">Reintentar</button>
+      <div *ngIf="gpsError" class="w-full bg-red-50 text-red-700 p-4 rounded-xl border border-red-200">
+        <div class="flex items-start gap-3">
+          <i class="ri-alert-line text-2xl flex-shrink-0 mt-0.5"></i>
+          <div class="flex-1">
+            <p class="font-semibold">Error de ubicación</p>
+            <p class="text-sm text-red-600">{{ gpsError }}</p>
+            <button (click)="obtenerUbicacion()" class="mt-2 text-red-700 font-semibold hover:text-red-900 underline text-sm">
+              Reintentar
+            </button>
+          </div>
         </div>
+      </div>
 
-        <div *ngIf="ubicacion && !gpsError" class="text-green-500 flex items-center justify-center">
-            <i class="bi bi-geo-alt-fill mr-2"></i> Ubicación precisa detectada
-        </div>
+      <div *ngIf="ubicacion && !gpsError && !cargandoUbicacion" class="flex items-center gap-3 text-green-600">
+        <i class="ri-check-double-line text-2xl"></i>
+        <span class="font-medium">Ubicación verificada</span>
+      </div>
     </div>
 
-    <button (click)="marcar()" 
-            [disabled]="cargandoUbicacion || !!gpsError || procesandoMarca"
-            class="w-48 h-48 rounded-full border-8 transition-all duration-300 transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center mx-auto shadow-lg group relative overflow-hidden"
-            [ngClass]="{
-                'border-indigo-600 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400': !procesandoMarca,
-                'border-gray-600 bg-gray-700 text-gray-400 cursor-not-allowed': cargandoUbicacion || !!gpsError,
-                'border-white bg-white/10 animate-pulse': procesandoMarca
-            }">
+    <!-- Boton Marcar -->
+    <div class="flex justify-center mb-8">
+      <button (click)="marcar()" 
+              [disabled]="cargandoUbicacion || !!gpsError || procesandoMarca"
+              class="w-56 h-56 rounded-full transition-all duration-300 transform hover:scale-110 active:scale-95 flex flex-col items-center justify-center shadow-xl group relative overflow-hidden font-bold text-lg"
+              [ngClass]="{
+                  'bg-red-600 hover:bg-red-700 text-white border-4 border-red-600': !procesandoMarca && ubicacion && !gpsError,
+                  'bg-gray-200 text-gray-400 cursor-not-allowed border-4 border-gray-300': cargandoUbicacion || !!gpsError,
+                  'bg-red-600 text-white border-4 border-red-600 animate-pulse': procesandoMarca
+              }">
         
-        <i class="bi bi-fingerprint text-5xl mb-2 group-hover:text-white transition-colors"></i>
-        <span class="font-bold text-lg group-hover:text-white transition-colors">
-            {{ procesandoMarca ? 'MARCANDO...' : 'MARCAR' }}
-        </span>
-    </button>
+        <i class="ri-fingerprint-2-line text-6xl mb-3 group-hover:scale-110 transition-transform"></i>
+        <span>{{ procesandoMarca ? 'MARCANDO...' : 'MARCAR' }}</span>
+      </button>
+    </div>
 
-    <div class="mt-8">
-        <div *ngIf="mensajeExito" class="bg-green-900/50 border border-green-600 text-green-300 p-4 rounded-xl animate-fade-in-up">
-            <h3 class="font-bold text-lg">¡Marcación Exitosa!</h3>
-            <p>{{ mensajeExito }}</p>
+    <!-- Mensajes de Estado -->
+    <div class="space-y-4">
+      <div *ngIf="mensajeExito" class="bg-green-50 text-green-800 p-4 rounded-xl border-2 border-green-200 animate-fade-in">
+        <div class="flex items-start gap-3">
+          <i class="ri-check-circle-line text-2xl flex-shrink-0 text-green-600"></i>
+          <div>
+            <p class="font-bold">¡Marcación Exitosa!</p>
+            <p class="text-sm">{{ mensajeExito }}</p>
+          </div>
         </div>
+      </div>
 
-        <div *ngIf="mensajeError" class="bg-red-900/50 border border-red-600 text-red-300 p-4 rounded-xl animate-shake">
-            <h3 class="font-bold text-lg">No se pudo marcar</h3>
-            <p>{{ mensajeError }}</p>
+      <div *ngIf="mensajeError" class="bg-red-50 text-red-800 p-4 rounded-xl border-2 border-red-200 animate-shake">
+        <div class="flex items-start gap-3">
+          <i class="ri-error-warning-line text-2xl flex-shrink-0 text-red-600"></i>
+          <div>
+            <p class="font-bold">Error en Marcación</p>
+            <p class="text-sm">{{ mensajeError }}</p>
+          </div>
         </div>
+      </div>
     </div>
 
   </div>

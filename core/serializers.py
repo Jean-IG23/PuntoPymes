@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion
+from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion, ConfiguracionNomina
 from personal.models import Empleado
 
 # 1. EMPRESA
@@ -78,3 +78,8 @@ class NotificacionSerializer(serializers.ModelSerializer):
         model = Notificacion
         fields = '__all__'
 
+class ConfiguracionNominaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConfiguracionNomina
+        fields = '__all__'
+        read_only_fields = ['empresa']

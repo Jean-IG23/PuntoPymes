@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { forkJoin } from 'rxjs';
-import Swal from 'sweetalert2'; // Asegúrate de tener: npm install sweetalert2
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-empleado-list',
@@ -17,14 +17,17 @@ import Swal from 'sweetalert2'; // Asegúrate de tener: npm install sweetalert2
 export class EmpleadoListComponent implements OnInit {
   
   // --- DATOS ---
-  empleados: any[] = [];          // Lista original completa
-  empleadosFiltrados: any[] = []; // Lista filtrada que se ve en pantalla
-  sucursales: any[] = [];         // Para el dropdown de filtro
+  empleados: any[] = [];
+  empleadosFiltrados: any[] = [];
+  sucursales: any[] = [];
+  departamentos: any[] = [];
   
   // --- ESTADO DE UI ---
   loading: boolean = true;
   textoBusqueda: string = '';
-  filtroSucursal: string = '';    // ID de sucursal seleccionada (string vacía = todas)
+  filtroSucursal: string = '';
+  filtroDepartamento: string = '';
+  filtroEstado: string = '';
 
   // --- CONTEXTO ---
   currentDeptoId: number | null = null;
@@ -45,7 +48,6 @@ export class EmpleadoListComponent implements OnInit {
     this.cargarDatos();
   }
 
-  // Detecta si estamos viendo la lista general o dentro de un departamento específico
   verificarContexto() {
     const deptoId = this.route.snapshot.paramMap.get('id');
     const firstSegment = this.route.snapshot.url.length > 0 ? this.route.snapshot.url[0].path : '';
@@ -56,16 +58,15 @@ export class EmpleadoListComponent implements OnInit {
     this.currentEmpresaId = this.auth.getEmpresaId();
   }
 
-  // Carga inicial de datos
   cargarDatos() {
     this.loading = true;
     this.cd.detectChanges();
+    
     const peticiones: any = {
-      // 1. Cargar Sucursales para el filtro
       sucursales: this.api.getSucursales(this.currentEmpresaId || undefined),
+      departamentos: this.api.getDepartamentos(),
     };
 
-    // 2. Cargar Empleados (Filtrados por depto si aplica, o todos de la empresa)
     if (this.currentDeptoId) {
        peticiones.empleados = this.api.getEmpleados(undefined, this.currentDeptoId);
     } else {
@@ -74,97 +75,159 @@ export class EmpleadoListComponent implements OnInit {
 
     forkJoin(peticiones).subscribe({
         next: (res: any) => {
-            // Manejo robusto de respuestas (paginadas o array directo)
-            this.sucursales = res.sucursales.results || res.sucursales;
-            this.empleados = res.empleados.results || res.empleados;
+            this.sucursales = res.sucursales.results || res.sucursales || [];
+            this.departamentos = res.departamentos.results || res.departamentos || [];
+            this.empleados = res.empleados.results || res.empleados || [];
             
-            // Aplicar filtros iniciales (muestra todo al principio)
             this.filtrar(); 
             this.loading = false;
             this.cd.detectChanges();
         },
         error: (e) => {
             console.error("Error cargando datos:", e);
-            Swal.fire('Error', 'No se pudo cargar la lista de colaboradores', 'error');
+            Swal.fire('Error', 'No se pudo cargar la lista de empleados', 'error');
             this.loading = false;
             this.cd.detectChanges();
         }
     });
   }
 
-  // Filtra en memoria (Local) sin recargar la API
   filtrar() {
     const texto = this.textoBusqueda.toLowerCase().trim();
     const idSucursal = this.filtroSucursal;
+    const idDpto = this.filtroDepartamento;
+    const estado = this.filtroEstado;
 
     this.empleadosFiltrados = this.empleados.filter(emp => {
-      // 1. Filtro por Texto (Nombre, Apellido, Cédula, Cargo)
       const matchTexto = 
           (emp.nombres || '').toLowerCase().includes(texto) ||
           (emp.apellidos || '').toLowerCase().includes(texto) ||
           (emp.documento || '').includes(texto) ||
-          (emp.nombre_puesto || '').toLowerCase().includes(texto);
+          (emp.nombre_puesto || '').toLowerCase().includes(texto) ||
+          (emp.email || '').toLowerCase().includes(texto);
 
-      // 2. Filtro por Sucursal
       let matchSucursal = true;
       if (idSucursal && idSucursal !== '') {
-          // El backend puede devolver el objeto completo o solo el ID
           const empSucId = (typeof emp.sucursal === 'object' && emp.sucursal) ? emp.sucursal.id : emp.sucursal;
-          // Usamos '==' para comparar string "5" con number 5
           matchSucursal = empSucId == idSucursal;
       }
 
-      return matchTexto && matchSucursal;
+      let matchDpto = true;
+      if (idDpto && idDpto !== '') {
+          const empDptoId = (typeof emp.departamento === 'object' && emp.departamento) ? emp.departamento.id : emp.departamento;
+          matchDpto = empDptoId == idDpto;
+      }
+
+      let matchEstado = true;
+      if (estado && estado !== '') {
+          matchEstado = emp.estado === estado;
+      }
+
+      return matchTexto && matchSucursal && matchDpto && matchEstado;
     });
   }
 
-  // Activar / Desactivar empleado
   toggleEstado(emp: any) {
     const nuevoEstado = emp.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
-    const original = emp.estado; // Guardamos el estado anterior por si falla
+    const original = emp.estado;
 
-    // 1. Optimismo UI: Cambiamos visualmente rápido
     emp.estado = nuevoEstado;
 
-    // 2. Petición al Backend
-    this.api.updateEmpleado(emp.id, { estado: nuevoEstado }).subscribe({
+    // Enviar los datos completos del empleado con el nuevo estado
+    const dataToUpdate = {
+      nombres: emp.nombres,
+      apellidos: emp.apellidos,
+      email: emp.email,
+      documento: emp.documento,
+      fecha_ingreso: emp.fecha_ingreso,
+      estado: nuevoEstado
+    };
+
+    this.api.updateEmpleado(emp.id, dataToUpdate).subscribe({
         next: () => {
             const msg = nuevoEstado === 'ACTIVO' ? 'activado' : 'desactivado';
-            const toast = Swal.mixin({
-              toast: true, position: 'top-end', showConfirmButton: false, timer: 3000,
-              timerProgressBar: true
+            Swal.fire({
+              title: 'Listo',
+              text: `Empleado ${msg} correctamente`,
+              icon: 'success',
+              timer: 2000
             });
-            toast.fire({ icon: 'success', title: `Empleado ${msg}` });
         },
         error: (e) => {
-            // Si falla, revertimos el cambio visual
             emp.estado = original; 
             console.error(e);
-            Swal.fire('Error', 'No se pudo cambiar el estado. Intente de nuevo.', 'error');
+            Swal.fire('Error', 'No se pudo cambiar el estado', 'error');
             this.cd.detectChanges();
           }
     });
   }
 
-  // Modal informativo rápido
+  editarEmpleado(id: number) {
+    this.router.navigate(['/gestion/empleados/editar', id]);
+  }
+
+  eliminarEmpleado(emp: any) {
+    Swal.fire({
+      title: '¿Eliminar empleado?',
+      text: `¿Estás seguro de que deseas eliminar a ${emp.nombres} ${emp.apellidos}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sí, eliminar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.api.deleteEmpleado(emp.id).subscribe({
+          next: () => {
+            this.empleados = this.empleados.filter(e => e.id !== emp.id);
+            this.filtrar();
+            Swal.fire('Eliminado', 'Empleado eliminado correctamente', 'success');
+          },
+          error: () => Swal.fire('Error', 'No se pudo eliminar el empleado', 'error')
+        });
+      }
+    });
+  }
+
   verDetalles(emp: any) {
     Swal.fire({
-      title: `<span class="text-xl font-bold">${emp.nombres} ${emp.apellidos}</span>`,
+      title: `<strong>${emp.nombres} ${emp.apellidos}</strong>`,
       html: `
-        <div class="text-left bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm">
-            <div class="mb-2"><strong class="text-indigo-600">🆔 Documento:</strong> ${emp.documento}</div>
-            <div class="mb-2"><strong class="text-indigo-600">📧 Email:</strong> ${emp.email}</div>
-            <div class="mb-2"><strong class="text-indigo-600">📞 Teléfono:</strong> ${emp.telefono || 'No registrado'}</div>
-            <hr class="my-3 border-gray-300">
-            <div class="mb-1"><strong>Sucursal:</strong> ${emp.nombre_sucursal || 'Matriz'}</div>
-            <div class="mb-1"><strong>Departamento:</strong> ${emp.nombre_departamento || 'General'}</div>
-            <div class="mb-1"><strong>Puesto:</strong> ${emp.nombre_puesto || 'Sin cargo'}</div>
-            <div class="mb-1"><strong> Turno:</strong> ${emp.nombre_turno || 'Sin turno asignado'}</div>
+        <div class="text-left space-y-3 text-sm">
+            <div class="flex justify-between border-b pb-2">
+              <span class="font-semibold text-gray-700">Documento:</span>
+              <span>${emp.documento}</span>
+            </div>
+            <div class="flex justify-between border-b pb-2">
+              <span class="font-semibold text-gray-700">Email:</span>
+              <span>${emp.email}</span>
+            </div>
+            <div class="flex justify-between border-b pb-2">
+              <span class="font-semibold text-gray-700">Teléfono:</span>
+              <span>${emp.telefono || '-'}</span>
+            </div>
+            <div class="flex justify-between border-b pb-2">
+              <span class="font-semibold text-gray-700">Sucursal:</span>
+              <span>${emp.nombre_sucursal || '-'}</span>
+            </div>
+            <div class="flex justify-between border-b pb-2">
+              <span class="font-semibold text-gray-700">Departamento:</span>
+              <span>${emp.nombre_departamento || '-'}</span>
+            </div>
+            <div class="flex justify-between border-b pb-2">
+              <span class="font-semibold text-gray-700">Puesto:</span>
+              <span>${emp.nombre_puesto || '-'}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="font-semibold text-gray-700">Estado:</span>
+              <span class="px-2 py-1 rounded text-xs font-bold ${emp.estado === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                ${emp.estado}
+              </span>
+            </div>
         </div>
       `,
-      showConfirmButton: true,
       confirmButtonText: 'Cerrar',
-      confirmButtonColor: '#4F46E5' // Indigo 600
+      confirmButtonColor: '#dc2626'
     });
   }
 }

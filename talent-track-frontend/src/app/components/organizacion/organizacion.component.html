@@ -1,479 +1,616 @@
-<div class="min-h-screen bg-gray-50 p-4 sm:p-8 animate-fade-in font-sans">
+<div class="min-h-screen bg-white">
+  
+  <!-- Header -->
+  <div class="bg-white border-b border-gray-200 sticky top-16 z-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Estructura Organizacional</h1>
+          <p class="text-gray-500 text-sm mt-1">Gestiona tu estructura, sedes y configuración</p>
+        </div>
 
-  <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-    <div>
-      <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
-        <i class="bi bi-diagram-3-fill text-indigo-600"></i> Estructura Organizacional
-      </h1>
-      <p class="text-gray-500 text-sm mt-1 ml-10">Gestiona la jerarquía, sedes y configuración global.</p>
-    </div>
-    
-    <div *ngIf="isSuperAdmin && activeTab === 'EMPRESAS'">
-      <button (click)="abrirModalEmpresa()" 
-              class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 transition flex items-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0">
-        <i class="bi bi-building-add"></i> Nueva Empresa
-      </button>
-    </div>
-  </div>
-
-  <div *ngIf="isSuperAdmin" class="flex gap-6 mb-8 border-b border-gray-200">
-    <button (click)="activeTab='EMPRESAS'" 
-            [class.border-indigo-600]="activeTab==='EMPRESAS'" 
-            [class.text-indigo-600]="activeTab==='EMPRESAS'" 
-            class="pb-3 px-2 border-b-2 border-transparent hover:text-indigo-600 font-bold transition text-gray-500 flex items-center gap-2">
-      <i class="bi bi-buildings"></i> Gestión Clientes SaaS
-    </button>
-    <button (click)="activeTab='ESTRUCTURA'" 
-            [class.border-indigo-600]="activeTab==='ESTRUCTURA'" 
-            [class.text-indigo-600]="activeTab==='ESTRUCTURA'" 
-            class="pb-3 px-2 border-b-2 border-transparent hover:text-indigo-600 font-bold transition text-gray-500 flex items-center gap-2">
-      <i class="bi bi-diagram-2"></i> Mi Organización Interna
-    </button>
-  </div>
-
-  <div *ngIf="!isSuperAdmin" class="mb-6">
-      <h2 class="text-xl font-bold text-gray-800">Mi Organización</h2>
-  </div>
-
-  <div *ngIf="activeTab === 'EMPRESAS' && isSuperAdmin" class="animate-fade-in">
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-gray-500">
-          <thead class="bg-gray-50 text-gray-700 font-extrabold border-b border-gray-100 uppercase text-xs tracking-wider">
-            <tr>
-              <th class="px-6 py-4">Empresa / Razón Social</th>
-              <th class="px-6 py-4">RUC</th>
-              <th class="px-6 py-4 text-center">Estado</th>
-              <th class="px-6 py-4 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr *ngFor="let emp of empresas" class="hover:bg-gray-50 transition group">
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 shrink-0">
-                    <img *ngIf="emp.logo" [src]="emp.logo" class="w-full h-full object-cover">
-                    <i *ngIf="!emp.logo" class="bi bi-building text-gray-400 text-lg"></i>
-                  </div>
-                  <div>
-                    <p class="font-bold text-gray-900">{{ emp.nombre_comercial }}</p>
-                    <p class="text-xs text-gray-400">{{ emp.razon_social }}</p>
-                  </div>
-                </div>
-              </td>
-              <td class="px-6 py-4 font-mono text-gray-600">{{ emp.ruc }}</td>
-              <td class="px-6 py-4 text-center">
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" [checked]="emp.estado" (change)="cambiarEstadoEmpresa(emp, $event)" class="sr-only peer">
-                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </td>
-              <td class="px-6 py-4 text-right">
-                <div class="flex justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button (click)="abrirModalEmpresa(emp)" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 w-8 h-8 rounded-lg transition flex items-center justify-center" title="Editar">
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button (click)="eliminarEmpresa(emp)" class="text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition flex items-center justify-center" title="Eliminar">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr *ngIf="empresas.length === 0">
-              <td colspan="5" class="px-6 py-12 text-center text-gray-400">
-                <i class="bi bi-building-slash text-4xl mb-3 block opacity-50"></i>
-                No hay empresas registradas.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Botón Nueva según tab -->
+        <button *ngIf="isSuperAdmin && activeTab === 'EMPRESAS'" 
+                (click)="abrirModalEmpresa()"
+                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
+          ➕ Nueva Empresa
+        </button>
+        <button *ngIf="activeTab === 'ESTRUCTURA'" 
+                (click)="abrirModalSucursal()"
+                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium text-sm">
+          ➕ Nueva Sede
+        </button>
       </div>
     </div>
   </div>
 
-  <div *ngIf="activeTab === 'ESTRUCTURA'" class="animate-fade-in">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     
-    <div class="flex flex-wrap gap-2 mb-8 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 w-fit">
-        <button *ngFor="let tab of ['SUCURSALES', 'AREAS', 'DEPARTAMENTOS', 'PUESTOS', 'TURNOS']; let i = index"
-                (click)="activeSubTab = tab"
-                [class.bg-gray-900]="activeSubTab === tab"
-                [class.text-white]="activeSubTab === tab"
-                [class.text-gray-500]="activeSubTab !== tab"
-                [class.hover:bg-gray-100]="activeSubTab !== tab"
-                class="px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2">
-           <i [class]="{'bi-geo-alt-fill': i==0, 'bi-layers-fill': i==1, 'bi-grid-fill': i==2, 'bi-person-badge-fill': i==3, 'bi-clock-fill': i==4}" class="bi"></i>
-           {{ tab | titlecase }}
-        </button>
+    <!-- Tabs SuperAdmin -->
+    <div *ngIf="isSuperAdmin" class="flex gap-2 mb-8 border-b border-gray-200">
+      <button (click)="activeTab='EMPRESAS'"
+              [class.border-b-2]="activeTab==='EMPRESAS'"
+              [class.border-red-600]="activeTab==='EMPRESAS'"
+              [class.text-red-600]="activeTab==='EMPRESAS'"
+              class="pb-3 px-4 text-gray-600 hover:text-red-600 font-medium transition">
+        🏢 Gestión de Clientes
+      </button>
+      <button (click)="activeTab='ESTRUCTURA'"
+              [class.border-b-2]="activeTab==='ESTRUCTURA'"
+              [class.border-red-600]="activeTab==='ESTRUCTURA'"
+              [class.text-red-600]="activeTab==='ESTRUCTURA'"
+              class="pb-3 px-4 text-gray-600 hover:text-red-600 font-medium transition">
+        📊 Mi Organización
+      </button>
     </div>
 
-    <div *ngIf="activeSubTab === 'SUCURSALES'">
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-bold text-gray-800">Sedes y Oficinas</h3>
-            <button (click)="abrirModalSucursal()" class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-gray-800 transition flex items-center gap-2">
-              <i class="bi bi-plus-lg"></i> Nueva Sucursal
-            </button>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div *ngFor="let suc of sucursales" class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition group relative overflow-hidden">
-                <div *ngIf="suc.es_matriz" class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-3 py-1 rounded-bl-lg shadow-sm z-10">
-                  CASA MATRIZ
+    <!-- SECCIÓN: EMPRESAS (SuperAdmin) -->
+    <div *ngIf="activeTab === 'EMPRESAS' && isSuperAdmin" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="px-6 py-4 text-left font-semibold text-gray-900">Empresa</th>
+            <th class="px-6 py-4 text-left font-semibold text-gray-900">RUC</th>
+            <th class="px-6 py-4 text-left font-semibold text-gray-900">Estado</th>
+            <th class="px-6 py-4 text-right font-semibold text-gray-900">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          <tr *ngFor="let emp of empresas" class="hover:bg-gray-50 transition">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center text-red-600 font-bold">
+                  {{ emp.nombre_comercial.charAt(0) }}
                 </div>
-
-                <div class="flex items-start gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl shrink-0">
-                      <i class="bi bi-building"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-gray-900 text-lg leading-tight">{{ suc.nombre }}</h4>
-                        <p class="text-sm text-gray-500 mt-1 flex items-start gap-1">
-                          <i class="bi bi-geo-alt mt-0.5"></i> {{ suc.direccion || 'Sin dirección' }}
-                        </p>
-                    </div>
+                <div>
+                  <p class="font-semibold text-gray-900">{{ emp.nombre_comercial }}</p>
+                  <p class="text-xs text-gray-500">{{ emp.razon_social }}</p>
                 </div>
-
-                <div class="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
-                    <span class="text-xs text-gray-400 font-medium">ID: {{ suc.id }}</span>
-                    <div class="flex gap-2">
-                        <button (click)="abrirModalSucursal(suc)" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
-                        <button (click)="eliminarSucursal(suc)" class="text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-trash"></i></button>
-                    </div>
-                </div>
-            </div>
-            
-            <div *ngIf="sucursales.length === 0" class="col-span-full py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
-                <i class="bi bi-geo-alt text-gray-300 text-4xl block mb-2"></i>
-                <p class="text-gray-400">No tienes sucursales registradas.</p>
-            </div>
-        </div>
-    </div>
-
-    <ng-container *ngFor="let view of ['AREAS', 'DEPARTAMENTOS', 'PUESTOS', 'TURNOS']">
-        <div *ngIf="activeSubTab === view">
-             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-gray-800">
-                    {{ view === 'AREAS' ? 'Áreas Funcionales' : view === 'DEPARTAMENTOS' ? 'Departamentos' : view === 'PUESTOS' ? 'Catálogo de Cargos' : 'Turnos y Horarios' }}
-                </h3>
-                <button (click)="view === 'AREAS' ? abrirModalArea() : view === 'DEPARTAMENTOS' ? abrirModalDepto() : view === 'PUESTOS' ? abrirModalPuesto() : abrirModalTurno()" 
-                        class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-gray-800 transition flex items-center gap-2">
-                  <i class="bi bi-plus-lg"></i> Nuevo
+              </div>
+            </td>
+            <td class="px-6 py-4 font-mono text-gray-600">{{ emp.ruc }}</td>
+            <td class="px-6 py-4">
+              <span class="px-3 py-1 rounded-full text-xs font-semibold"
+                    [class.bg-green-100]="emp.estado"
+                    [class.text-green-700]="emp.estado"
+                    [class.bg-red-100]="!emp.estado"
+                    [class.text-red-700]="!emp.estado">
+                {{ emp.estado ? '✓ Activo' : '✕ Inactivo' }}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex justify-end gap-2">
+                <button (click)="abrirModalEmpresa(emp)" 
+                        class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                  <i class="bi bi-pencil"></i>
                 </button>
-            </div>
+                <button (click)="eliminarEmpresa(emp)"
+                        class="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="empresas.length === 0">
+            <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+              <p class="text-sm">No hay empresas registradas</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <table class="w-full text-sm text-left text-gray-600">
-                    <thead class="bg-gray-50 text-xs text-gray-800 uppercase font-bold border-b border-gray-200">
-                        <tr>
-                            <th class="px-6 py-4">Nombre</th>
-                            <th class="px-6 py-4">Detalle / Relación</th>
-                            <th class="px-6 py-4" *ngIf="view !== 'AREAS'">Ubicación / Config</th>
-                            <th class="px-6 py-4 text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        
-                        <ng-container *ngIf="view === 'AREAS'">
-                            <tr *ngFor="let item of areas" class="hover:bg-gray-50 transition duration-150 group">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                  <div class="flex items-center gap-4">
-                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg shadow-sm shrink-0"
-                                         [ngClass]="getEstiloArea(item.nombre).color">
-                                      <i class="bi" [ngClass]="getEstiloArea(item.nombre).icono"></i>
-                                    </div>
-                                    <div>
-                                      <div class="text-sm font-bold text-gray-900">{{ item.nombre }}</div>
-                                      <div class="text-xs text-gray-400">Nivel Estratégico</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                  <p class="text-sm text-gray-600 truncate max-w-xs" title="{{ item.descripcion }}">
-                                    {{ item.descripcion || 'Sin descripción' }}
-                                  </p>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                  <div class="flex justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button (click)="abrirModalArea(item)" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
-                                    <button (click)="eliminarArea(item)" class="text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-trash"></i></button>
-                                  </div>
-                                </td>
-                            </tr>
-                        </ng-container>
+    <!-- SECCIÓN: ESTRUCTURA -->
+    <div *ngIf="activeTab === 'ESTRUCTURA'" class="space-y-8">
+      
+      <!-- Tabs ESTRUCTURA -->
+      <div class="flex gap-2 border-b border-gray-200 overflow-x-auto">
+        <button *ngFor="let tab of ['SUCURSALES', 'AREAS', 'DEPARTAMENTOS', 'PUESTOS', 'TURNOS']"
+                (click)="activeSubTab = tab"
+                [class.border-b-2]="activeSubTab === tab"
+                [class.border-red-600]="activeSubTab === tab"
+                [class.text-red-600]="activeSubTab === tab"
+                class="pb-3 px-4 text-gray-600 hover:text-red-600 font-medium transition whitespace-nowrap">
+          {{ tab === 'SUCURSALES' ? '🏢 Sedes' : 
+             tab === 'AREAS' ? '📋 Áreas' : 
+             tab === 'DEPARTAMENTOS' ? '📂 Departamentos' : 
+             tab === 'PUESTOS' ? '💼 Cargos' : '⏰ Turnos' }}
+        </button>
+      </div>
 
-                        <ng-container *ngIf="view === 'DEPARTAMENTOS'">
-                            <tr *ngFor="let item of departamentos" class="hover:bg-gray-50 group">
-                                <td class="px-6 py-4 font-bold text-gray-900">{{ item.nombre }}</td>
-                                <td class="px-6 py-4">
-                                    <span class="bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-xs font-bold border border-blue-100">
-                                        {{ getNombreArea(item.area) }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-gray-500"><i class="bi bi-geo-alt"></i> {{ getNombreSucursal(item.sucursal) }}</td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button (click)="abrirModalDepto(item)" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
-                                        <button (click)="eliminarDepto(item)" class="text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-trash"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </ng-container>
+      <!-- Tabla dinámica según subtab -->
+      <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <!-- SUCURSALES -->
+              <ng-container *ngIf="activeSubTab === 'SUCURSALES'">
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Nombre</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Dirección</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Tipo</th>
+                <th class="px-6 py-4 text-right font-semibold text-gray-900">Acciones</th>
+              </ng-container>
+              <!-- AREAS -->
+              <ng-container *ngIf="activeSubTab === 'AREAS'">
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Área</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Descripción</th>
+                <th class="px-6 py-4 text-right font-semibold text-gray-900">Acciones</th>
+              </ng-container>
+              <!-- DEPARTAMENTOS -->
+              <ng-container *ngIf="activeSubTab === 'DEPARTAMENTOS'">
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Departamento</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Área</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Sede</th>
+                <th class="px-6 py-4 text-right font-semibold text-gray-900">Acciones</th>
+              </ng-container>
+              <!-- PUESTOS -->
+              <ng-container *ngIf="activeSubTab === 'PUESTOS'">
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Cargo</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Área</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Tipo</th>
+                <th class="px-6 py-4 text-right font-semibold text-gray-900">Acciones</th>
+              </ng-container>
+              <!-- TURNOS -->
+              <ng-container *ngIf="activeSubTab === 'TURNOS'">
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Turno</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Horario</th>
+                <th class="px-6 py-4 text-left font-semibold text-gray-900">Días</th>
+                <th class="px-6 py-4 text-right font-semibold text-gray-900">Acciones</th>
+              </ng-container>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            
+            <!-- SUCURSALES ROWS -->
+            <ng-container *ngIf="activeSubTab === 'SUCURSALES'">
+              <tr *ngFor="let item of sucursales" class="hover:bg-gray-50 transition">
+                <td class="px-6 py-4 font-semibold text-gray-900">{{ item.nombre }}</td>
+                <td class="px-6 py-4 text-gray-600">{{ item.direccion || '—' }}</td>
+                <td class="px-6 py-4">
+                  <span *ngIf="item.es_matriz" class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">
+                    Matriz
+                  </span>
+                  <span *ngIf="!item.es_matriz" class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                    Sede
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button (click)="abrirModalSucursal(item)" 
+                            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button (click)="eliminarSucursal(item)"
+                            class="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="sucursales.length === 0">
+                <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                  <p class="text-sm">No hay sedes registradas</p>
+                </td>
+              </tr>
+            </ng-container>
 
-                        <ng-container *ngIf="view === 'PUESTOS'">
-                            <tr *ngFor="let item of puestos" class="hover:bg-gray-50 group">
-                                <td class="px-6 py-4 font-bold text-gray-900">{{ item.nombre }}</td>
-                                <td class="px-6 py-4">
-                                    <span *ngIf="item.area" class="text-gray-600">{{ getNombreArea(item.area) }}</span>
-                                    <span *ngIf="!item.area" class="text-purple-600 bg-purple-50 px-2 py-1 rounded text-xs font-bold">UNIVERSAL</span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span *ngIf="item.es_supervision" class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-xs font-bold border border-indigo-200">SUPERVISOR</span>
-                                    <span *ngIf="!item.es_supervision" class="text-gray-400 text-xs bg-gray-100 px-2 py-1 rounded-full">Operativo</span>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button (click)="abrirModalPuesto(item)" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
-                                        <button (click)="eliminarPuesto(item)" class="text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-trash"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </ng-container>
+            <!-- AREAS ROWS -->
+            <ng-container *ngIf="activeSubTab === 'AREAS'">
+              <tr *ngFor="let item of areas" class="hover:bg-gray-50 transition">
+                <td class="px-6 py-4 font-semibold text-gray-900">{{ item.nombre }}</td>
+                <td class="px-6 py-4 text-gray-600 text-sm">{{ item.descripcion || '—' }}</td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button (click)="abrirModalArea(item)" 
+                            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button (click)="eliminarArea(item)"
+                            class="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="areas.length === 0">
+                <td colspan="3" class="px-6 py-12 text-center text-gray-400">
+                  <p class="text-sm">No hay áreas registradas</p>
+                </td>
+              </tr>
+            </ng-container>
 
-                        <ng-container *ngIf="view === 'TURNOS'">
-                            <tr *ngFor="let item of turnos" class="hover:bg-gray-50 group">
-                                <td class="px-6 py-4 font-bold text-gray-900">{{ item.nombre }}</td>
-                                <td class="px-6 py-4">
-                                     <div *ngIf="item.tipo_jornada === 'RIGIDO'" class="flex items-center gap-2 text-gray-700 font-mono text-xs">
-                                        <span class="bg-gray-100 px-2 py-1 rounded">
-                                            {{ item.hora_entrada }} - {{ item.hora_salida }}
-                                        </span>
-                                     </div>
-                                     <div *ngIf="item.tipo_jornada === 'FLEXIBLE'" class="text-green-600 font-bold text-xs bg-green-50 px-2 py-1 rounded w-fit border border-green-100">
-                                       <i class="bi bi-lightning-charge-fill"></i> Flexible: {{ item.horas_semanales_meta }}h
-                                     </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="text-xs text-gray-500">{{ getDiasStr(item.dias_laborables) }}</span>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex justify-end gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button (click)="abrirModalTurno(item)" class="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-pencil-square"></i></button>
-                                        <button (click)="eliminarTurno(item)" class="text-red-600 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg transition flex items-center justify-center"><i class="bi bi-trash"></i></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </ng-container>
+            <!-- DEPARTAMENTOS ROWS -->
+            <ng-container *ngIf="activeSubTab === 'DEPARTAMENTOS'">
+              <tr *ngFor="let item of departamentos" class="hover:bg-gray-50 transition">
+                <td class="px-6 py-4 font-semibold text-gray-900">{{ item.nombre }}</td>
+                <td class="px-6 py-4">
+                  <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">
+                    {{ getNombreArea(item.area) }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-gray-600 text-sm">{{ getNombreSucursal(item.sucursal) }}</td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button (click)="abrirModalDepto(item)" 
+                            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button (click)="eliminarDepto(item)"
+                            class="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="departamentos.length === 0">
+                <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                  <p class="text-sm">No hay departamentos registrados</p>
+                </td>
+              </tr>
+            </ng-container>
 
-                        <tr *ngIf="(view === 'AREAS' && areas.length === 0) || (view === 'DEPARTAMENTOS' && departamentos.length === 0) || (view === 'PUESTOS' && puestos.length === 0) || (view === 'TURNOS' && turnos.length === 0)">
-                            <td colspan="4" class="px-6 py-12 text-center text-gray-400">
-                                <i class="bi bi-inbox text-4xl mb-2 block opacity-30"></i>
-                                No hay registros aún.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </ng-container>
+            <!-- PUESTOS ROWS -->
+            <ng-container *ngIf="activeSubTab === 'PUESTOS'">
+              <tr *ngFor="let item of puestos" class="hover:bg-gray-50 transition">
+                <td class="px-6 py-4 font-semibold text-gray-900">{{ item.nombre }}</td>
+                <td class="px-6 py-4 text-gray-600 text-sm">{{ item.area ? getNombreArea(item.area) : 'Universal' }}</td>
+                <td class="px-6 py-4">
+                  <span *ngIf="item.es_supervision" class="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-semibold">
+                    Supervisor
+                  </span>
+                  <span *ngIf="!item.es_supervision" class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                    Operativo
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button (click)="abrirModalPuesto(item)" 
+                            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button (click)="eliminarPuesto(item)"
+                            class="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="puestos.length === 0">
+                <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                  <p class="text-sm">No hay cargos registrados</p>
+                </td>
+              </tr>
+            </ng-container>
+
+            <!-- TURNOS ROWS -->
+            <ng-container *ngIf="activeSubTab === 'TURNOS'">
+              <tr *ngFor="let item of turnos" class="hover:bg-gray-50 transition">
+                <td class="px-6 py-4 font-semibold text-gray-900">{{ item.nombre }}</td>
+                <td class="px-6 py-4 text-gray-600 text-sm font-mono">
+                  {{ item.tipo_jornada === 'RIGIDO' ? (item.hora_entrada + ' - ' + item.hora_salida) : ('Flexible: ' + item.horas_semanales_meta + 'h') }}
+                </td>
+                <td class="px-6 py-4 text-gray-600 text-sm">{{ getDiasStr(item.dias_laborables) }}</td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button (click)="abrirModalTurno(item)" 
+                            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <button (click)="eliminarTurno(item)"
+                            class="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="turnos.length === 0">
+                <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                  <p class="text-sm">No hay turnos registrados</p>
+                </td>
+              </tr>
+            </ng-container>
+
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
   </div>
-</div>
 
-<div *ngIf="showModalEmpresa" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" (click)="showModalEmpresa=false"></div>
-    <div class="bg-white rounded-2xl w-full max-w-lg z-10 p-6 shadow-2xl transform transition-all scale-100">
-        <h3 class="font-bold text-xl mb-6 text-gray-900 flex items-center gap-2">
-          <i class="bi bi-building"></i> {{ selectedId ? 'Editar' : 'Nueva' }} Empresa
-        </h3>
-        <form [formGroup]="formEmpresa" (ngSubmit)="guardarEmpresa()" class="space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-                <div class="col-span-2">
-                  <label class="text-xs font-bold text-gray-500 uppercase">Nombre Comercial *</label>
-                  <input formControlName="nombre_comercial" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej. PuntoPymes">
-                </div>
-                <div>
-                  <label class="text-xs font-bold text-gray-500 uppercase">Razón Social *</label>
-                  <input formControlName="razon_social" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500">
-                </div>
-                <div>
-                  <label class="text-xs font-bold text-gray-500 uppercase">RUC *</label>
-                  <input formControlName="ruc" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500" placeholder="13 dígitos">
-                </div>
-                <div *ngIf="!selectedId" class="col-span-2 bg-indigo-50 p-4 rounded-xl border border-indigo-100 mt-2">
-                    <p class="text-xs font-bold text-indigo-800 mb-3 flex items-center gap-2"><i class="bi bi-person-fill-lock"></i> Admin Inicial</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <input formControlName="admin_email" placeholder="Email" class="w-full border-indigo-200 rounded-lg text-sm p-2">
-                        <input formControlName="admin_password" type="password" placeholder="Clave" class="w-full border-indigo-200 rounded-lg text-sm p-2">
-                    </div>
-                </div>
+  <!-- MODALES -->
+  <!-- Modal: Sucursal -->
+  <div *ngIf="showModalSucursal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-lg w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-900">{{ isEditing ? 'Editar' : 'Nueva' }} Sede</h2>
+      </div>
+      <form [formGroup]="sucursalForm" (ngSubmit)="guardarSucursal()" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre *</label>
+          <input type="text" formControlName="nombre" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Dirección</label>
+          <textarea formControlName="direccion" rows="2"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"></textarea>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="es_matriz" formControlName="es_matriz" class="rounded">
+          <label for="es_matriz" class="text-sm font-medium text-gray-700">Es la sede principal (Matriz)</label>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Gerente Responsable</label>
+          <select formControlName="responsable" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option [ngValue]="null">Sin asignar</option>
+            <option *ngFor="let emp of empleadosList" [value]="emp.id">{{ emp.nombres }} {{ emp.apellidos }}</option>
+          </select>
+        </div>
+        <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+          <p class="text-sm font-semibold text-orange-900 mb-3">Configuración GPS</p>
+          <button type="button" (click)="obtenerUbicacionActual()" 
+                  class="text-xs bg-white border border-orange-300 text-orange-700 px-3 py-1.5 rounded font-medium mb-3">
+            📍 Obtener mi ubicación
+          </button>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Latitud</label>
+              <input type="number" step="any" formControlName="latitud" 
+                     class="w-full px-2 py-1 border border-gray-300 rounded text-xs">
             </div>
-            <div class="flex justify-end gap-2 mt-6">
-              <button type="button" (click)="showModalEmpresa=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>
-              <button type="submit" [disabled]="formEmpresa.invalid || loading" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 transition">
-                  {{ loading ? 'Guardando...' : 'Guardar' }}
-              </button>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Longitud</label>
+              <input type="number" step="any" formControlName="longitud" 
+                     class="w-full px-2 py-1 border border-gray-300 rounded text-xs">
             </div>
-        </form>
+            <div class="col-span-2">
+              <label class="block text-xs font-semibold text-gray-600 mb-1">Radio (metros)</label>
+              <input type="number" formControlName="radio_metros" 
+                     class="w-full px-2 py-1 border border-gray-300 rounded text-xs">
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-3 justify-end pt-4">
+          <button type="button" (click)="cerrarModalSucursal()" 
+                  class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="sucursalForm.invalid || loading"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50">
+            {{ loading ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
     </div>
-</div>
+  </div>
 
-<div *ngIf="showModalSucursal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" (click)="showModalSucursal=false"></div>
-    <div class="bg-white rounded-2xl w-full max-w-md z-10 p-6 shadow-2xl">
-        <h3 class="font-bold text-xl mb-4 text-gray-900">📍 Sucursal</h3>
-        <form [formGroup]="sucursalForm" (ngSubmit)="guardarSucursal()" class="space-y-4">
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Nombre</label>
-              <input formControlName="nombre" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Dirección</label>
-              <input formControlName="direccion" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500">
-            </div>
-            <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <input type="checkbox" formControlName="es_matriz" class="w-5 h-5 text-indigo-600 rounded">
-                <span class="text-sm font-bold text-gray-800">Es Casa Matriz</span>
-            </div>
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Gerente Responsable</label>
-              <select formControlName="responsable" class="w-full border-gray-300 rounded-lg p-2.5 bg-white focus:ring-indigo-500">
-                  <option [ngValue]="null">-- Sin Asignar --</option>
-                  <option *ngFor="let emp of empleadosList" [value]="emp.id">
-                      {{ emp.nombres }} {{ emp.apellidos }} ({{ emp.nombre_puesto }})
-                  </option>
-              </select>
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-              <button type="button" (click)="showModalSucursal=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" [disabled]="sucursalForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
-            </div>
-        </form>
+  <!-- Modal: Área -->
+  <div *ngIf="showModalArea" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-lg w-full max-w-sm shadow-xl">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-900">{{ isEditing ? 'Editar' : 'Nueva' }} Área</h2>
+      </div>
+      <form [formGroup]="areaForm" (ngSubmit)="guardarArea()" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre *</label>
+          <input type="text" formControlName="nombre" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Descripción</label>
+          <textarea formControlName="descripcion" rows="3"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"></textarea>
+        </div>
+        <div class="flex gap-3 justify-end pt-4">
+          <button type="button" (click)="showModalArea=false" 
+                  class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="areaForm.invalid || loading"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50">
+            Guardar
+          </button>
+        </div>
+      </form>
     </div>
-</div>
+  </div>
 
-<div *ngIf="showModalArea" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" (click)="showModalArea=false"></div>
-    <div class="bg-white rounded-2xl w-full max-w-md z-10 p-6 shadow-2xl">
-        <h3 class="font-bold text-xl mb-4 text-gray-900">🏷️ Área Funcional</h3>
-        <form [formGroup]="areaForm" (ngSubmit)="guardarArea()" class="space-y-4">
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Nombre</label>
-              <input formControlName="nombre" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Descripción</label>
-              <textarea formControlName="descripcion" rows="3" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500"></textarea>
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-              <button type="button" (click)="showModalArea=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" [disabled]="areaForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
-            </div>
-        </form>
+  <!-- Modal: Departamento -->
+  <div *ngIf="showModalDepto" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-lg w-full max-w-sm shadow-xl">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-900">{{ isEditing ? 'Editar' : 'Nuevo' }} Departamento</h2>
+      </div>
+      <form [formGroup]="deptoForm" (ngSubmit)="guardarDepto()" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre *</label>
+          <input type="text" formControlName="nombre" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Área *</label>
+          <select formControlName="area" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option [ngValue]="null">Seleccionar</option>
+            <option *ngFor="let a of areas" [value]="a.id">{{ a.nombre }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Sede *</label>
+          <select formControlName="sucursal" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option [ngValue]="null">Seleccionar</option>
+            <option *ngFor="let s of sucursales" [value]="s.id">{{ s.nombre }}</option>
+          </select>
+        </div>
+        <div class="flex gap-3 justify-end pt-4">
+          <button type="button" (click)="showModalDepto=false" 
+                  class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="deptoForm.invalid || loading"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50">
+            Guardar
+          </button>
+        </div>
+      </form>
     </div>
-</div>
+  </div>
 
-<div *ngIf="showModalDepto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" (click)="showModalDepto=false"></div>
-    <div class="bg-white rounded-2xl w-full max-w-md z-10 p-6 shadow-2xl">
-        <h3 class="font-bold text-xl mb-4 text-gray-900">📂 Departamento</h3>
-        <form [formGroup]="deptoForm" (ngSubmit)="guardarDepto()" class="space-y-4">
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Nombre</label>
-              <input formControlName="nombre" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Área</label>
-              <select formControlName="area" class="w-full border-gray-300 rounded-lg p-2.5 bg-white">
-                  <option [ngValue]="null">-- Seleccione --</option>
-                  <option *ngFor="let a of areas" [value]="a.id">{{ a.nombre }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Sucursal</label>
-              <select formControlName="sucursal" class="w-full border-gray-300 rounded-lg p-2.5 bg-white">
-                  <option [ngValue]="null">-- Seleccione --</option>
-                  <option *ngFor="let s of sucursales" [value]="s.id">{{ s.nombre }}</option>
-              </select>
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-              <button type="button" (click)="showModalDepto=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" [disabled]="deptoForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
-            </div>
-        </form>
+  <!-- Modal: Puesto -->
+  <div *ngIf="showModalPuesto" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-lg w-full max-w-sm shadow-xl">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-900">{{ isEditing ? 'Editar' : 'Nuevo' }} Cargo</h2>
+      </div>
+      <form [formGroup]="puestoForm" (ngSubmit)="guardarPuesto()" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre del Cargo *</label>
+          <input type="text" formControlName="nombre" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Área</label>
+          <select formControlName="area" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option [ngValue]="null">Universal</option>
+            <option *ngFor="let a of areas" [value]="a.id">{{ a.nombre }}</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="es_supervision" formControlName="es_supervision" class="rounded">
+          <label for="es_supervision" class="text-sm font-medium text-gray-700">Es Supervisor/Jefe</label>
+        </div>
+        <div class="flex gap-3 justify-end pt-4">
+          <button type="button" (click)="showModalPuesto=false" 
+                  class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="puestoForm.invalid || loading"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50">
+            Guardar
+          </button>
+        </div>
+      </form>
     </div>
-</div>
+  </div>
 
-<div *ngIf="showModalPuesto" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" (click)="showModalPuesto=false"></div>
-    <div class="bg-white rounded-2xl w-full max-w-md z-10 p-6 shadow-2xl">
-        <h3 class="font-bold text-xl mb-4 text-gray-900">💼 Cargo</h3>
-        <form [formGroup]="puestoForm" (ngSubmit)="guardarPuesto()" class="space-y-4">
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Nombre Cargo</label>
-              <input formControlName="nombre" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Área Relacionada</label>
-              <select formControlName="area" class="w-full border-gray-300 rounded-lg p-2.5 bg-white">
-                  <option [ngValue]="null">-- Universal --</option>
-                  <option *ngFor="let a of areas" [value]="a.id">{{ a.nombre }}</option>
-              </select>
-            </div>
-            <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <input type="checkbox" formControlName="es_supervision" class="w-5 h-5 text-blue-600 rounded">
-                <span class="text-sm font-bold text-blue-900">Es Supervisor</span>
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-              <button type="button" (click)="showModalPuesto=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button type="submit" [disabled]="puestoForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
-            </div>
-        </form>
-    </div>
-</div>
+  <!-- Modal: Turno -->
+  <div *ngIf="showModalTurno" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-lg w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-900">{{ isEditing ? 'Editar' : 'Nuevo' }} Turno</h2>
+      </div>
+      <form [formGroup]="turnoForm" (ngSubmit)="guardarTurno()" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre del Turno *</label>
+          <input type="text" formControlName="nombre" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Tipo de Jornada *</label>
+          <select formControlName="tipo_jornada" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option value="RIGIDO">Horario Fijo</option>
+            <option value="FLEXIBLE">Horario Flexible</option>
+          </select>
+        </div>
 
-<div *ngIf="showModalTurno" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" (click)="showModalTurno=false"></div>
-    <div class="bg-white rounded-2xl w-full max-w-lg z-10 p-6 shadow-2xl">
-        <h3 class="font-bold text-xl mb-4 text-gray-900">⏰ Turno</h3>
-        <form [formGroup]="turnoForm" (ngSubmit)="guardarTurno()" class="space-y-4">
+        <!-- Horario Fijo -->
+        <div *ngIf="turnoForm.get('tipo_jornada')?.value === 'RIGIDO'" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-xs font-bold text-gray-500 uppercase">Nombre</label>
-              <input formControlName="nombre" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500">
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="text-xs font-bold text-gray-500 uppercase">Tipo</label>
-                  <select formControlName="tipo_jornada" class="w-full border-gray-300 rounded-lg p-2.5 bg-white">
-                      <option value="RIGIDO">Fijo</option>
-                      <option value="FLEXIBLE">Flexible</option>
-                  </select>
-                </div>
-                <div *ngIf="turnoForm.get('tipo_jornada')?.value === 'RIGIDO'">
-                    <label class="text-xs font-bold text-gray-500 uppercase">Entrada/Salida</label>
-                    <div class="flex gap-2">
-                        <input type="time" formControlName="hora_entrada" class="w-full border-gray-300 rounded-lg p-2.5">
-                        <input type="time" formControlName="hora_salida" class="w-full border-gray-300 rounded-lg p-2.5">
-                    </div>
-                </div>
-                 <div *ngIf="turnoForm.get('tipo_jornada')?.value === 'FLEXIBLE'">
-                    <label class="text-xs font-bold text-gray-500 uppercase">Meta Horas</label>
-                    <input type="number" formControlName="horas_semanales_meta" class="w-full border-gray-300 rounded-lg p-2.5">
-                </div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Entrada</label>
+              <input type="time" formControlName="hora_entrada" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
             </div>
             <div>
-                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">Días</label>
-                <div class="flex gap-2 flex-wrap">
-                    <label *ngFor="let dia of diasSemana" class="cursor-pointer">
-                        <input type="checkbox" class="hidden peer" [checked]="isDiaChecked(dia.id)" (change)="onDiaChange($event, dia.id)">
-                        <div class="px-3 py-2 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 bg-gray-50 peer-checked:bg-indigo-600 peer-checked:text-white transition shadow-sm">
-                            {{ dia.nombre.substring(0,3) }}
-                        </div>
-                    </label>
-                </div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">Salida</label>
+              <input type="time" formControlName="hora_salida" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
             </div>
-            <div class="flex justify-end gap-2 mt-4">
-              <button type="button" (click)="showModalTurno=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              
-              <button type="submit" [disabled]="turnoForm.invalid || loading" class="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50">Guardar</button>
-            </div>
-        </form>
+          </div>
+        </div>
+
+        <!-- Horario Flexible -->
+        <div *ngIf="turnoForm.get('tipo_jornada')?.value === 'FLEXIBLE'">
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Horas Semanales Meta</label>
+          <input type="number" formControlName="horas_semanales_meta" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Días Laborables</label>
+          <div class="grid grid-cols-4 gap-2">
+            <label *ngFor="let dia of diasSemana" class="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" class="rounded" 
+                     [checked]="isDiaChecked(dia.id)" 
+                     (change)="onDiaChange($event, dia.id)">
+              <span class="text-xs font-medium text-gray-600">{{ dia.nombre.substring(0,3) }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex gap-3 justify-end pt-4">
+          <button type="button" (click)="showModalTurno=false" 
+                  class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="turnoForm.invalid || loading"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50">
+            Guardar
+          </button>
+        </div>
+      </form>
     </div>
+  </div>
+
+  <!-- Modal: Empresa -->
+  <div *ngIf="showModalEmpresa" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div class="bg-white rounded-lg w-full max-w-md shadow-xl">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-900">{{ isEditing ? 'Editar' : 'Nueva' }} Empresa</h2>
+      </div>
+      <form [formGroup]="formEmpresa" (ngSubmit)="guardarEmpresa()" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre Comercial *</label>
+          <input type="text" formControlName="nombre_comercial" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Razón Social *</label>
+          <input type="text" formControlName="razon_social" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">RUC *</label>
+          <input type="text" formControlName="ruc" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                 placeholder="13 dígitos">
+        </div>
+        <div *ngIf="!isEditing" class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <p class="text-xs font-semibold text-blue-900 mb-3">Admin Inicial</p>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <input type="email" formControlName="admin_email" placeholder="Email" 
+                   class="px-2 py-1.5 border border-blue-200 rounded text-sm">
+            <input type="password" formControlName="admin_password" placeholder="Clave" 
+                   class="px-2 py-1.5 border border-blue-200 rounded text-sm">
+          </div>
+        </div>
+        <div class="flex gap-3 justify-end pt-4">
+          <button type="button" (click)="showModalEmpresa=false" 
+                  class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="formEmpresa.invalid || loading"
+                  class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50">
+            {{ loading ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>

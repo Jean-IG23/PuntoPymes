@@ -23,7 +23,7 @@ class Empleado(models.Model):
     email = models.EmailField()
     telefono = models.CharField(max_length=100, blank=True)
     direccion = models.TextField(blank=True)
-    foto = models.ImageField(upload_to='fotos_perfil/', null=True, blank=True)
+    foto = models.ImageField(upload_to='empleados/', null=True, blank=True, verbose_name="Foto de Perfil")
     documento = models.CharField(max_length=100, null=True, blank=True, verbose_name="Cédula/DNI")
     # --- VINCULACIÓN EMPRESARIAL ---
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='empleados')
@@ -45,6 +45,7 @@ class Empleado(models.Model):
     # Datos Laborales
     fecha_ingreso = models.DateField()
     sueldo = models.DecimalField(max_digits=10, decimal_places=2, default=460)
+    es_mensualizado = models.BooleanField(default=True, help_text="True=Pago Mensual, False=Pago por Hora")
     saldo_vacaciones = models.IntegerField(default=15)
     turno_asignado = models.ForeignKey(Turno, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Turno Fijo")
     estado = models.CharField(max_length=100, default='ACTIVO', choices=[('ACTIVO', 'Activo'), ('INACTIVO', 'Inactivo')])
@@ -72,7 +73,7 @@ class Empleado(models.Model):
         super().save(*args, **kwargs)
     def __str__(self):
         return f"{self.nombres} {self.apellidos} ({self.rol})"
-
+    
 
 # 2. DOCUMENTOS DEL EMPLEADO
 class DocumentoEmpleado(models.Model):
@@ -132,4 +133,43 @@ class SolicitudAusencia(models.Model):
     aprobado_por = models.ForeignKey(Empleado, related_name='ausencias_aprobadas', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self): return f"Solicitud {self.empleado} ({self.estado})"
+class Tarea(models.Model):
+    PRIORIDAD_CHOICES = [
+        ('BAJA', 'Baja'),
+        ('MEDIA', 'Media'),
+        ('ALTA', 'Alta'),
+        ('URGENTE', 'Urgente 🔥'),
+    ]
     
+    ESTADO_CHOICES = [
+        ('PENDIENTE', 'Por Hacer'),
+        ('PROGRESO', 'En Curso'),
+        ('REVISION', 'En Revisión'),
+        ('COMPLETADA', 'Completada ✅'),
+    ]
+
+    empresa = models.ForeignKey('core.Empresa', on_delete=models.CASCADE)
+    
+    # Detalle
+    titulo = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True, null=True)
+    
+    # Responsables
+    asignado_a = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='tareas_asignadas')
+    creado_por = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, related_name='tareas_creadas')
+    
+    # Gestión
+    fecha_limite = models.DateTimeField(null=True, blank=True)
+    prioridad = models.CharField(max_length=10, choices=PRIORIDAD_CHOICES, default='MEDIA')
+    estado = models.CharField(max_length=15, choices=ESTADO_CHOICES, default='PENDIENTE')
+    
+    # Gamificación / Productividad
+    puntos_valor = models.IntegerField(default=1, help_text="Puntos que gana el empleado al completar (1-10)")
+    
+    # Tiempos
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completado_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.titulo} ({self.asignado_a})"

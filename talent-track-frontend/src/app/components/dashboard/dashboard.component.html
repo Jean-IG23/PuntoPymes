@@ -2,7 +2,7 @@
 
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
       <div class="flex items-center gap-4">
-          <div class="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-2xl font-bold border-2 border-indigo-50">
+          <div class="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-2xl font-bold border-2 border-indigo-50 uppercase">
               {{ stats.nombres.charAt(0) }}
           </div>
           <div>
@@ -160,7 +160,6 @@
       </h2>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          
           <a routerLink="/personal" class="block bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer group flex flex-col items-center text-center">
               <div class="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3 group-hover:bg-purple-600 group-hover:text-white transition">
                   <i class="bi bi-people-fill text-2xl"></i>
@@ -192,7 +191,6 @@
               <h3 class="font-bold text-gray-800">Configuración</h3>
               <p class="text-xs text-gray-500 mt-1">Próximamente</p>
           </div>
-
       </div>
   </div>
 
@@ -200,13 +198,18 @@
 
 <div *ngIf="showModalSolicitud" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" (click)="showModalSolicitud=false"></div>
-    <div class="bg-white rounded-2xl w-full max-w-md z-10 p-6 shadow-2xl transform transition-all scale-100">
+    <div class="bg-white rounded-2xl w-full max-w-md z-10 p-6 shadow-2xl transform transition-all scale-100 flex flex-col max-h-[90vh]">
         
         <div class="flex justify-between items-center mb-6">
-            <h3 class="font-bold text-xl text-gray-900 flex items-center gap-2">
-              <i class="bi bi-send-fill text-indigo-600"></i> Nueva Solicitud
-            </h3>
-            <button (click)="showModalSolicitud=false" class="text-gray-400 hover:text-red-500 transition">
+            <div>
+                <h3 class="font-bold text-xl text-gray-900 flex items-center gap-2">
+                  <i class="bi bi-send-fill text-indigo-600"></i> Nueva Solicitud
+                </h3>
+                <p class="text-xs text-gray-500 mt-1">
+                    Saldo disponible: <span class="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{{ stats.saldo_vacaciones }} días</span>
+                </p>
+            </div>
+            <button (click)="showModalSolicitud=false" class="text-gray-400 hover:text-red-500 transition rounded-full p-1 hover:bg-red-50">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
@@ -215,7 +218,7 @@
             
             <div>
               <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Tipo de Ausencia</label>
-              <select formControlName="tipo_ausencia" class="w-full border-gray-300 rounded-lg p-2.5 bg-white focus:ring-indigo-500 focus:border-indigo-500 transition">
+              <select formControlName="tipo_ausencia" class="w-full border-gray-300 rounded-lg p-2.5 bg-white focus:ring-indigo-500 focus:border-indigo-500 transition text-sm">
                   <option value="">-- Seleccione --</option>
                   <option *ngFor="let t of tiposAusencia" [value]="t.id">{{ t.nombre }}</option>
               </select>
@@ -224,29 +227,49 @@
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Desde</label>
-                <input type="date" 
-                       formControlName="fecha_inicio" 
-                       [min]="minDate" 
-                       class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition">
+                <input type="date" formControlName="fecha_inicio" [min]="minDate" 
+                       class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition text-sm">
               </div>
               <div>
                 <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Hasta</label>
-                <input type="date" 
-                       formControlName="fecha_fin" 
-                       [min]="minDate"
-                       class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition">
+                <input type="date" formControlName="fecha_fin" [min]="formSolicitud.get('fecha_inicio')?.value || minDate"
+                       class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition text-sm">
               </div>
+            </div>
+
+            <div *ngIf="formSolicitud.get('fecha_inicio')?.value && formSolicitud.get('fecha_fin')?.value" 
+                 class="p-3 rounded-xl border flex justify-between items-center text-sm font-bold transition-all duration-300"
+                 [ngClass]="{
+                    'bg-red-50 text-red-600 border-red-200': diasCalculados > stats.saldo_vacaciones || diasCalculados <= 0,
+                    'bg-green-50 text-green-700 border-green-200': diasCalculados <= stats.saldo_vacaciones && diasCalculados > 0
+                 }">
+                
+                <div class="flex items-center gap-2">
+                    <i *ngIf="diasCalculados > 0 && diasCalculados <= stats.saldo_vacaciones" class="bi bi-check-circle-fill"></i>
+                    <i *ngIf="diasCalculados > stats.saldo_vacaciones" class="bi bi-exclamation-triangle-fill"></i>
+                    <i *ngIf="diasCalculados <= 0" class="bi bi-x-circle-fill"></i>
+                    
+                    <span *ngIf="diasCalculados > 0">Duración: {{ diasCalculados }} días</span>
+                    <span *ngIf="diasCalculados <= 0">Fechas incorrectas</span>
+                </div>
+                
+                <span *ngIf="diasCalculados > stats.saldo_vacaciones" class="text-xs bg-white px-2 py-1 rounded border border-red-200 shadow-sm">Excedes saldo</span>
             </div>
 
             <div>
               <label class="text-xs font-bold text-gray-500 uppercase mb-1 block">Motivo</label>
-              <textarea formControlName="motivo" rows="3" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition resize-none" placeholder="Explica brevemente..."></textarea>
+              <textarea formControlName="motivo" rows="3" class="w-full border-gray-300 rounded-lg p-2.5 focus:ring-indigo-500 transition resize-none text-sm" placeholder="Explica brevemente..."></textarea>
+              <p *ngIf="formSolicitud.get('motivo')?.touched && formSolicitud.get('motivo')?.errors?.['minlength']" class="text-red-500 text-xs mt-1 animate-pulse">Mínimo 5 caracteres.</p>
             </div>
 
             <div class="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
               <button type="button" (click)="showModalSolicitud=false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-bold text-sm transition">Cancelar</button>
-              <button type="submit" [disabled]="formSolicitud.invalid || procesandoSolicitud" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 transition shadow-md">
-                  {{ procesandoSolicitud ? 'Enviando...' : 'Enviar Solicitud' }}
+              
+              <button type="submit" 
+                      [disabled]="formSolicitud.invalid || procesandoSolicitud || diasCalculados <= 0 || diasCalculados > stats.saldo_vacaciones" 
+                      class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md flex items-center gap-2">
+                  <span *ngIf="procesandoSolicitud">Enviando...</span>
+                  <span *ngIf="!procesandoSolicitud"><i class="bi bi-send-fill"></i> Enviar</span>
               </button>
             </div>
         </form>

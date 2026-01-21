@@ -9,12 +9,9 @@ from math import radians, cos, sin, asin, sqrt
 from .models import Jornada
 from personal.models import Empleado
 
-# Serializers (Asegúrate de que existan en asistencia/serializers.py)
+# Serializers
 from .serializers import JornadaSerializer 
 
-# ==================================================
-# 1. VIEWSET PARA VER HISTORIAL (JornadaViewSet)
-# ==================================================
 class JornadaViewSet(viewsets.ModelViewSet):
     queryset = Jornada.objects.all()
     serializer_class = JornadaSerializer
@@ -22,44 +19,40 @@ class JornadaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Si es superusuario, ve todo
         if user.is_superuser:
-            return Jornada.objects.all()
+            return Jornada.objects.all().order_by('-fecha', '-hora_entrada')
         
         try:
-            # Empleado normal: Ve solo SUS marcas
-            empleado = Empleado.objects.get(email=user.email)
-            
-            # Si es Gerente/Admin de empresa, podría ver las de su empresa
-            if empleado.rol in ['ADMIN', 'SUPERVISOR']:
-                return Jornada.objects.filter(empleado__empresa=empleado.empresa)
-            
-            # Empleado raso: Solo las suyas
-            return Jornada.objects.filter(empleado=empleado)
-            
+            empleado = Empleado.objects.get(usuario=user)
+            # Admin/Gerente ven su empresa, Empleado ve solo lo suyo
+            if empleado.rol in ['ADMIN', 'RRHH', 'GERENTE']:
+                return Jornada.objects.filter(empresa=empleado.empresa).order_by('-fecha', '-hora_entrada')
+            return Jornada.objects.filter(empleado=empleado).order_by('-fecha', '-hora_entrada')
         except Empleado.DoesNotExist:
             return Jornada.objects.none()
 
-# ==================================================
-# 2. VIEWSET PARA MARCAR (AsistenciaViewSet)
-# ==================================================
-class AsistenciaViewSet(viewsets.ModelViewSet):
+class AsistenciaViewSet(viewsets.ViewSet):
     """
-    Este ViewSet se encarga de la lógica de negocio del reloj:
-    Cálculo de distancias, validación de geocerca y registro de entrada/salida.
+    ViewSet lógico para el reloj checador. No necesita queryset base.
     """
-    queryset = Jornada.objects.all()
-    serializer_class = JornadaSerializer
     permission_classes = [IsAuthenticated]
 
-    # Función auxiliar: Calcular distancia en metros (Haversine)
-    def calcular_distancia(self, lat1, lon1, lat2, lon2):
-        R = 6371000 # Radio de la Tierra en metros
-        dLat = radians(lat2 - lat1)
-        dLon = radians(lon2 - lon1)
-        a = sin(dLat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dLon / 2)**2
-        c = 2 * asin(sqrt(a))
-        return R * c
+    def _haversine(self, lat1, lon1, lat2, lon2):
+        """
+        Calcula distancia en metros. Convierte inputs a float para evitar errores con Decimal de Django.
+        """
+        try:
+            # CONVERSIÓN CRÍTICA A FLOAT
+            lat1, lon1, lat2, lon2 = map(float, [lat1, lon1, lat2, lon2])
+            
+            R = 6371000 # Radio Tierra en metros
+            dLat = radians(lat2 - lat1)
+            dLon = radians(lon2 - lon1)
+            a = sin(dLat / 2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dLon / 2)**2
+            c = 2 * asin(sqrt(a))
+            return R * c
+        except (ValueError, TypeError):
+            return float('inf') # Si fallan los datos, distancia infinita (bloqueo)
 
     @action(detail=False, methods=['post'], url_path='marcar')
     def marcar_asistencia(self, request):
@@ -67,68 +60,81 @@ class AsistenciaViewSet(viewsets.ModelViewSet):
         
         # 1. Identificar Empleado
         try:
-            empleado = Empleado.objects.get(email=user.email)
+            empleado = Empleado.objects.select_related('sucursal', 'empresa').get(usuario=user)
         except Empleado.DoesNotExist:
-            return Response({'error': 'No eres un empleado activo.'}, status=400)
+            return Response({'error': 'No tienes perfil de empleado.'}, status=400)
 
-        # 2. Obtener datos del GPS del celular
-        lat_usuario = request.data.get('lat')
-        lng_usuario = request.data.get('lng')
+        # 2. Validar Datos GPS (Frontend envía 'latitud'/'longitud' o 'lat'/'lng')
+        lat_user = request.data.get('latitud') or request.data.get('lat')
+        lng_user = request.data.get('longitud') or request.data.get('lng')
 
-        if not lat_usuario or not lng_usuario:
+        if not lat_user or not lng_user:
             return Response({'error': 'Ubicación no detectada. Activa el GPS.'}, status=400)
 
-        # 3. Obtener ubicación de la Sucursal
-        if not empleado.departamento or not empleado.departamento.sucursal:
-            return Response({'error': 'No tienes una sucursal asignada.'}, status=400)
+        # 3. Identificar Sucursal (Lógica robusta)
+        # Prioridad: Sucursal asignada directa -> Sucursal del departamento
+        sucursal = empleado.sucursal
+        if not sucursal and empleado.departamento:
+            sucursal = empleado.departamento.sucursal
             
-        sucursal = empleado.departamento.sucursal
-        
-        # 4. Validar Geocerca (Si la sucursal tiene coordenadas)
+        if not sucursal:
+            return Response({'error': 'Error de Configuración: No tienes sucursal asignada.'}, status=400)
+
+        # 4. Validar Geocerca (Solo si la sucursal tiene coordenadas)
+        distancia = 0
         if sucursal.latitud and sucursal.longitud:
-            try:
-                distancia = self.calcular_distancia(
-                    float(lat_usuario), float(lng_usuario),
-                    float(sucursal.latitud), float(sucursal.longitud)
-                )
-                
-                radio_permitido = sucursal.radio_metros or 50
-                
-                if distancia > radio_permitido:
-                    return Response({
-                        'error': f'Estás fuera de rango ({int(distancia)}m). Acércate a la oficina.'
-                    }, status=400)
-            except Exception as e:
-                print(f"Error calculando distancia: {e}")
-                # Si falla el cálculo, permitimos marcar por seguridad (fail-open) o bloqueamos
-                pass
+            distancia = self._haversine(lat_user, lng_user, sucursal.latitud, sucursal.longitud)
+            
+            # Radio por defecto 100m si no está definido
+            radio_max = getattr(sucursal, 'radio_permitido', 100) or 100
+            
+            print(f"📍 Marcaje: {empleado.nombres} | Distancia: {int(distancia)}m | Max: {radio_max}m") # DEBUG
 
-        # 5. REGISTRAR LA MARCACIÓN
-        ahora = timezone.now()
-        fecha_hoy = ahora.date()
-        hora_actual = ahora.time()
-
-        # Buscamos si ya marcó entrada hoy
-        jornada, created = Jornada.objects.get_or_create(
-            empleado=empleado,
-            fecha=fecha_hoy,
-            defaults={'hora_entrada': hora_actual}
-        )
-
-        if not created:
-            # Si ya existe entrada, marcamos salida
-            if not jornada.hora_salida:
-                jornada.hora_salida = hora_actual
-                jornada.save()
-                tipo = 'SALIDA'
-            else:
-                return Response({'error': 'Ya marcaste salida hoy.'}, status=400)
+            if distancia > radio_max:
+                return Response({
+                    'error': f'Estás fuera de rango ({int(distancia)}m). Acércate a {sucursal.nombre}.'
+                }, status=400)
         else:
-            tipo = 'ENTRADA'
+            print("⚠️ ADVERTENCIA: Sucursal sin coordenadas configuradas. Se permite marcaje libre.")
+
+        # 5. Registrar en Base de Datos
+        ahora = timezone.now()
+        hoy = ahora.date()
+        
+        # Buscamos jornada abierta (entrada sin salida)
+        jornada = Jornada.objects.filter(
+            empleado=empleado, 
+            fecha=hoy, 
+            hora_salida__isnull=True
+        ).first()
+
+        tipo_accion = ""
+
+        if jornada:
+            jornada.hora_salida = ahora.time()
+            jornada.lat_salida = lat_user
+            jornada.lng_salida = lng_user
+            jornada.save()
+            tipo_accion = "SALIDA"
+        else:
+            ya_trabajo = Jornada.objects.filter(empleado=empleado, fecha=hoy).exists()
+            if ya_trabajo:
+                 pass 
+
+            Jornada.objects.create(
+                empleado=empleado,
+                empresa=empleado.empresa,
+                fecha=hoy,
+                hora_entrada=ahora.time(),
+                # ✅ GUARDAR GPS ENTRADA
+                lat_entrada=lat_user,
+                lng_entrada=lng_user,
+                estado='INCOMPLETA'
+            )
+            tipo_accion = "ENTRADA"
 
         return Response({
-            'status': 'OK',
-            'tipo': tipo,
-            'hora': hora_actual.strftime("%H:%M"),
-            'mensaje': f'Marcación de {tipo} exitosa'
+            'mensaje': f'✅ {tipo_accion} registrada a las {ahora.strftime("%H:%M")}',
+            'distancia': f"{int(distancia)} metros",
+            'sucursal': sucursal.nombre
         })

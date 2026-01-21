@@ -237,6 +237,7 @@ export class ApiService {
   getSolicitudes(): Observable<any> {
     return this.http.get(`${this.baseUrl}/solicitudes/`, this.getHeaders());
   }
+  
 
   createSolicitud(data: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/solicitudes/`, data, this.getHeaders());

@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime, date
-
+import math
 def calcular_dias_habiles(fecha_inicio, fecha_fin):
     """
     Calcula días hábiles excluyendo sábados y domingos.
@@ -19,3 +19,24 @@ def calcular_dias_habiles(fecha_inicio, fecha_fin):
         fecha_actual += timedelta(days=1)
         
     return dias_habiles
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    """
+    Calcula la distancia en metros entre dos coordenadas usando la fórmula de Haversine.
+    """
+    if not lat1 or not lon1 or not lat2 or not lon2:
+        return float('inf') # Distancia infinita si faltan datos
+
+    R = 6371000  # Radio de la Tierra en metros
+    phi1 = math.radians(float(lat1))
+    phi2 = math.radians(float(lat2))
+    delta_phi = math.radians(float(lat2) - float(lat1))
+    delta_lambda = math.radians(float(lon2) - float(lon1))
+
+    a = math.sin(delta_phi / 2.0) ** 2 + \
+        math.cos(phi1) * math.cos(phi2) * \
+        math.sin(delta_lambda / 2.0) ** 2
+    
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    distancia = R * c
+    return round(distancia, 2) # Devuelve metros

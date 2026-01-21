@@ -188,7 +188,10 @@ class SolicitudSerializer(serializers.ModelSerializer):
     nombre_empleado = serializers.CharField(source='empleado.usuario.get_full_name', read_only=True)
     nombre_tipo = serializers.CharField(source='tipo_ausencia.nombre', read_only=True)
     
+    dias_solicitados = serializers.IntegerField(required=False)
+
     class Meta:
         model = SolicitudAusencia
         fields = '__all__'
+        # ⚠️ IMPORTANTE: Eliminamos 'dias_solicitados' de esta lista
         read_only_fields = ['empleado', 'empresa', 'estado', 'fecha_solicitud', 'fecha_resolucion', 'aprobado_por']

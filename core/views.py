@@ -335,7 +335,7 @@ def dashboard_stats(request):
         data['nombres'] = f"{perfil.nombres} {perfil.apellidos}".split()[0]
         data['rol'] = perfil.get_rol_display()
         data['puesto'] = perfil.puesto.nombre if perfil.puesto else "Sin puesto"
-        data['saldo_vacaciones'] = perfil.saldo_vacaciones or 0
+        data['saldo_vacaciones'] = perfil.saldo_vacaciones 
         data['estado'] = perfil.estado
         data['es_lider'] = perfil.rol in ['GERENTE', 'RRHH', 'ADMIN', 'SUPERADMIN']
 

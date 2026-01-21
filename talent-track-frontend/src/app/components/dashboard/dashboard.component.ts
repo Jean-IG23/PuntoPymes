@@ -1,17 +1,18 @@
 import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common'; // Agregado DatePipe
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-import { filter } from 'rxjs/operators';
+import { filter, finalize } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, RouterModule, ReactiveFormsModule, FormsModule],
-  templateUrl: './dashboard.component.html'
+  templateUrl: './dashboard.component.html',
+  providers: [DatePipe] // Proveedor necesario para fechas
 })
 export class DashboardComponent implements OnInit, OnDestroy {
 
@@ -20,13 +21,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     nombres: 'Usuario',
     rol: '',
     puesto: '',
-    saldo_vacaciones: 0,
-    solicitudes_pendientes: 0, // Para líderes (cuántas deben aprobar)
+    saldo_vacaciones: 0, // CRÍTICO para la validación
+    solicitudes_pendientes: 0,
     es_lider: false,
     estado: '...'
   };
 
-  // Datos específicos para EMPLEADOS (Auto-gestión)
+  // Datos específicos para EMPLEADOS
   misUltimasSolicitudes: any[] = [];
   tiposAusencia: any[] = [];
 
@@ -36,10 +37,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   intervaloReloj: any;
   loading = true;
 
-  // --- MODAL SOLICITUD ---
+  // --- MODAL SOLICITUD & VALIDACIÓN (LO QUE FALTABA) ---
   showModalSolicitud = false;
   formSolicitud: FormGroup;
   procesandoSolicitud = false;
+  minDate: string = '';
+  diasCalculados: number = 0; // <--- FALTABA ESTO
 
   constructor(
     private api: ApiService,
@@ -48,7 +51,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private router: Router,
     private fb: FormBuilder
   ) {
-    // Formulario para pedir vacaciones desde el Dashboard
+    // Inicializar fecha mínima para el HTML
+    this.minDate = new Date().toISOString().split('T')[0];
+
+    // Formulario
     this.formSolicitud = this.fb.group({
       tipo_ausencia: ['', Validators.required],
       fecha_inicio: ['', Validators.required],
@@ -56,16 +62,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       motivo: ['', [Validators.required, Validators.minLength(5)]]
     });
 
-    // Recarga al navegar (mantiene datos frescos)
+    // Recarga al navegar
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => this.cargarDashboard());
   }
-  minDate: string = '';
+
   ngOnInit() {
     this.iniciarReloj();
     this.cargarDashboard();
-    this.minDate = new Date().toISOString().split('T')[0];
+    
+    // --- ESCUCHA ACTIVA DE FECHAS (NUEVO) ---
+    // Esto calcula los días automáticamente cuando el usuario cambia las fechas
+    this.formSolicitud.valueChanges.subscribe(val => {
+      if (val.fecha_inicio && val.fecha_fin) {
+        this.calcularDias(val.fecha_inicio, val.fecha_fin);
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -80,7 +93,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // ================================================================
-  // 1. CARGA DE DATOS (INTELIGENTE SEGÚN ROL)
+  // 1. CARGA DE DATOS
   // ================================================================
   cargarDashboard() {
     this.loading = true;
@@ -89,7 +102,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.stats = res;
         this.loading = false;
         
-        // Si NO es líder (es Empleado base), cargamos sus herramientas personales
         if (!this.stats.es_lider) {
           this.cargarDatosEmpleado();
         }
@@ -104,106 +116,169 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   cargarDatosEmpleado() {
-    // 1. Tipos de ausencia para el select
     this.api.getTiposAusencia().subscribe((res: any) => {
       this.tiposAusencia = Array.isArray(res) ? res : res.results;
     });
 
-    // 2. Historial reciente (limitado a 3)
     this.api.getSolicitudes().subscribe((res: any) => {
-      // Como es empleado, el backend ya filtra las suyas en getSolicitudes
       const lista = Array.isArray(res) ? res : res.results;
-      this.misUltimasSolicitudes = lista.slice(0, 3); // Solo las 3 últimas
+      this.misUltimasSolicitudes = lista.slice(0, 3);
     });
   }
 
   // ================================================================
-  // 2. SOLICITUDES RÁPIDAS (NUEVO)
+  // 2. LÓGICA DE CÁLCULO DE DÍAS (NUEVO - REQUERIDO POR HTML)
+  // ================================================================
+  calcularDias(inicio: string, fin: string) {
+    const dInicio = new Date(inicio);
+    const dFin = new Date(fin);
+
+    // Si fecha fin es menor que inicio, error
+    if (dFin < dInicio) {
+      this.diasCalculados = -1; 
+      return;
+    }
+
+    const diffTime = Math.abs(dFin.getTime() - dInicio.getTime());
+    // +1 para incluir el día de inicio
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+    
+    this.diasCalculados = diffDays;
+  }
+
+  // ================================================================
+  // 3. SOLICITUDES (CON VALIDACIÓN DE SALDO)
   // ================================================================
   abrirModalSolicitud() {
     this.showModalSolicitud = true;
     this.formSolicitud.reset();
+    this.diasCalculados = 0; // Reiniciar contador
   }
 
   enviarSolicitud() {
     if (this.formSolicitud.invalid) {
-      Swal.fire('Formulario Incompleto', 'Por favor llena todos los campos correctamente.', 'warning');
+      Swal.fire('Formulario Incompleto', 'Por favor llena todos los campos.', 'warning');
       return;
     }
 
-    this.procesandoSolicitud = true;
-    this.api.createSolicitud(this.formSolicitud.value).subscribe({
-      next: () => {
-        this.procesandoSolicitud = false;
-        this.showModalSolicitud = false; // Cerrar modal
-        
-        // Alerta de Éxito
-        Swal.fire({
-          icon: 'success',
-          title: '¡Solicitud Enviada!',
-          text: 'Tu solicitud ha sido registrada y tu jefe notificado.',
-          timer: 2500,
-          showConfirmButton: false
-        });
+    // --- VALIDACIÓN DE NEGOCIO (NUEVO) ---
+    // Verificar si pide más días de los que tiene
+    const tipoId = this.formSolicitud.value.tipo_ausencia;
+    const tipo = this.tiposAusencia.find(t => t.id == tipoId);
+    
+    // Asumimos que si contiene "Vacaciones" o tiene un flag 'afecta_sueldo'
+    const esVacaciones = tipo?.nombre.toLowerCase().includes('vacaciones') || tipo?.afecta_sueldo;
 
-        this.formSolicitud.reset();
-        
-        this.cargarDashboard(); 
-      },
-      error: (e) => {
-        this.procesandoSolicitud = false;
-        
-        // Obtenemos el mensaje exacto que escribimos en Python
-        const serverError = e.error?.error || 'Ocurrió un error inesperado.';
-        
-        Swal.fire({
-          icon: 'error',
-          title: 'Solicitud Rechazada',
-          text: serverError, // Aquí se verá el mensaje detallado
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#d33'
-        });
-      }
-    });
+    if (esVacaciones && this.diasCalculados > this.stats.saldo_vacaciones) {
+       Swal.fire('Saldo Insuficiente', `Solo tienes ${this.stats.saldo_vacaciones} días disponibles.`, 'error');
+       return;
+    }
+    // -------------------------------------
+
+    this.procesandoSolicitud = true;
+    
+    // Inyectamos dias_solicitados
+    const payload = { 
+        ...this.formSolicitud.value, 
+        dias_solicitados: this.diasCalculados 
+    };
+
+    this.api.createSolicitud(payload)
+      .pipe(finalize(() => {
+          this.procesandoSolicitud = false;
+          this.cdr.detectChanges();
+      }))
+      .subscribe({
+        next: () => {
+          this.showModalSolicitud = false;
+          
+          Swal.fire({
+            icon: 'success',
+            title: '¡Solicitud Enviada!',
+            text: 'Tu solicitud ha sido registrada.',
+            timer: 2000,
+            showConfirmButton: false
+          });
+
+          this.formSolicitud.reset();
+          this.diasCalculados = 0;
+          this.cargarDashboard(); 
+        },
+        error: (e) => {
+          const serverError = e.error?.error || 'Ocurrió un error inesperado.';
+          Swal.fire({
+            icon: 'error',
+            title: 'Solicitud Rechazada',
+            text: serverError,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#d33'
+          });
+        }
+      });
   }
 
   // ================================================================
-  // 3. ASISTENCIA (GEOLOCALIZACIÓN)
+  // 4. ASISTENCIA
   // ================================================================
-  marcarAsistencia(tipo: 'ENTRADA' | 'SALIDA') {
+  marcarAsistencia(tipo: string) { 
     Swal.fire({
-      title: `¿Registrar ${tipo}?`,
-      text: "Se guardará tu ubicación actual.",
+      title: `¿Registrar ${tipo}?`, // <--- Usamos la variable aquí para el UX
+      text: "Se validará tu ubicación GPS.",
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Sí, registrar',
-      confirmButtonColor: '#4F46E5'
+      confirmButtonColor: '#4F46E5',
+      cancelButtonText: 'Cancelar'
     }).then((result) => {
       if (result.isConfirmed) {
-        this.ejecutarMarcaje(tipo);
+        this.ejecutarMarcaje(); // Al backend no le enviamos el tipo, él es inteligente y sabe qué toca.
       }
     });
   }
 
-  ejecutarMarcaje(tipo: string) {
+  ejecutarMarcaje() {
+    // Feedback visual de carga
+    Swal.fire({
+      title: 'Localizando...',
+      text: 'Buscando señal GPS',
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading(); }
+    });
+
     if (!navigator.geolocation) {
-      this.enviarAlBackend({ lat: 0, lng: 0, tipo });
+      Swal.fire('Error', 'Tu navegador no soporta GPS.', 'error');
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        this.enviarAlBackend({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          tipo: tipo
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        
+        // Enviamos solo coordenadas, el backend calcula si es Entrada o Salida
+        this.api.marcarAsistencia(lat, lng).subscribe({
+          next: (res: any) => {
+            Swal.fire({
+              icon: 'success',
+              title: res.mensaje, // "Entrada registrada" o "Salida registrada"
+              text: `Ubicación: ${res.sucursal || 'Detectada'} | Distancia: ${res.distancia || 'OK'}`,
+              timer: 3000
+            });
+            this.cargarDashboard(); // Actualizamos las tarjetas del dashboard
+          },
+          error: (e) => {
+            Swal.fire('Error', e.error?.error || 'No se pudo registrar la marca.', 'error');
+          }
         });
       },
       (err) => {
-        console.warn('GPS falló, enviando sin ubicación');
-        this.enviarAlBackend({ lat: 0, lng: 0, tipo });
+        let msg = 'Error de GPS.';
+        if (err.code === 1) msg = 'Permiso de ubicación denegado.';
+        if (err.code === 2) msg = 'Ubicación no disponible.';
+        if (err.code === 3) msg = 'Tiempo de espera agotado.';
+        Swal.fire('Error GPS', msg, 'warning');
       },
-      { timeout: 5000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }
 
@@ -211,7 +286,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.api.registrarAsistencia(data).subscribe({
       next: (res) => {
         Swal.fire('Correcto', res.mensaje || 'Asistencia registrada', 'success');
-        this.cargarDashboard(); // Actualizar estado visual
+        this.cargarDashboard();
       },
       error: (e) => {
         Swal.fire('Error', e.error?.error || 'No se pudo registrar', 'error');

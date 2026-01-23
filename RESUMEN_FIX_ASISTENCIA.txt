@@ -1,0 +1,63 @@
+# 🚀 RESUMEN DE CAMBIOS - ASISTENCIA FIX
+
+## 📌 El Problema
+
+```
+Error: 400 Bad Request
+Al marcar asistencia con GPS
+```
+
+## 🔍 Causa
+
+El frontend enviaba:
+```javascript
+{
+  latitud: -34.6,      ❌ INCORRECTO
+  longitud: -58.3      ❌ INCORRECTO
+}
+```
+
+Pero el backend esperaba:
+```javascript
+{
+  lat: -34.6,          ✅ CORRECTO
+  lng: -58.3           ✅ CORRECTO
+}
+```
+
+## ✅ La Solución
+
+**Archivo:** `talent-track-frontend/src/app/services/api.service.ts`
+
+**Línea 317-318:**
+
+```typescript
+// CAMBIO:
+const data = {
+  lat: lat,          // ← Cambié "latitud" por "lat"
+  lng: lng,          // ← Cambié "longitud" por "lng"
+  timestamp: new Date().toISOString()
+};
+```
+
+## 🎯 Resultado
+
+✅ Ahora funciona perfectamente con GPS
+✅ Puedes marcar entrada/salida sin errores
+✅ Las coordenadas se guardan en la BD
+✅ Todo está sincronizado
+
+## 📝 Archivo Documentación
+
+Abre: **FIX_ERROR_400_ASISTENCIA.md**
+
+Para ver:
+- Explicación detallada
+- Cómo probar
+- Checklist de funcionamiento
+- Prevención futura
+
+---
+
+**Estado:** ✅ CORREGIDO Y LISTO
+

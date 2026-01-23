@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -26,6 +27,12 @@ export class TareasComponent implements OnInit {
   
   // Filtros
   verMisTareas: boolean = false; // Toggle para ver solo mías o de todo el equipo
+  
+  // Rol actual
+  rolActual: string = '';
+  esGerente: boolean = false;
+  esAdmin: boolean = false;
+  esRRHH: boolean = false;
 
   // Modal
   showModal = false;
@@ -34,7 +41,12 @@ export class TareasComponent implements OnInit {
   isEditing = false;
   selectedId: number | null = null;
 
-  constructor(private api: ApiService, private fb: FormBuilder) {
+  constructor(
+    private api: ApiService, 
+    private fb: FormBuilder,
+    private cdr: ChangeDetectorRef,
+    private auth: AuthService
+  ) {
     this.form = this.fb.group({
       titulo: ['', Validators.required],
       descripcion: [''],
@@ -46,8 +58,24 @@ export class TareasComponent implements OnInit {
   }
 
   ngOnInit() {
+    // Obtener rol actual
+    this.api.getMiPerfil().subscribe({
+      next: (perfil: any) => {
+        this.rolActual = perfil.rol;
+        this.esGerente = ['GERENTE', 'ADMIN', 'RRHH', 'SUPERADMIN'].includes(perfil.rol);
+        this.esAdmin = ['ADMIN', 'SUPERADMIN'].includes(perfil.rol);
+        this.esRRHH = ['RRHH', 'SUPERADMIN'].includes(perfil.rol);
+        console.log('Rol cargado:', this.rolActual);
+      }
+    });
+    
     this.cargarEmpleados();
     this.cargarTareas();
+  }
+
+  // Manejo de error de imagen
+  onFotoError(event: any) {
+    event.target.style.display = 'none';
   }
 
   cargarEmpleados() {
@@ -60,10 +88,18 @@ export class TareasComponent implements OnInit {
     this.loading = true;
     this.api.getTareas(this.verMisTareas).subscribe({
       next: (res: any) => {
-        this.todasLasTareas = Array.isArray(res) ? res : res.results;
+        this.todasLasTareas = Array.isArray(res) ? res : res.results || [];
         this.loading = false;
+        this.cdr.markForCheck(); // Force change detection
+        console.log('✓ Tareas cargadas:', this.todasLasTareas.length);
       },
-      error: () => this.loading = false
+      error: (err: any) => {
+        console.error('Error al cargar tareas:', err);
+        this.loading = false;
+        this.todasLasTareas = [];
+        this.cdr.markForCheck();
+        Swal.fire('Error', 'No se pudieron cargar las tareas', 'error');
+      }
     });
   }
 
@@ -77,10 +113,33 @@ export class TareasComponent implements OnInit {
     const estadoAnterior = tarea.estado;
     tarea.estado = nuevoEstado;
 
-    this.api.actualizarTarea(tarea.id, { estado: nuevoEstado, asignado_a: tarea.asignado_a }).subscribe({
-      error: () => {
-        tarea.estado = estadoAnterior; // Revertir si falla
-        Swal.fire('Error', 'No se pudo mover la tarea', 'error');
+    // Enviar el objeto completo para que el serializer valide correctamente
+    const datosActualizados = {
+      ...tarea,
+      estado: nuevoEstado,
+      asignado_a: Number(tarea.asignado_a) || tarea.asignado_a.id // Asegurar que es ID numérico
+    };
+
+    this.api.actualizarTarea(tarea.id, datosActualizados).subscribe({
+      next: (response: any) => {
+        // Éxito silencioso - la UI ya está actualizada
+        console.log('✓ Tarea actualizada:', tarea.titulo);
+      },
+      error: (err: any) => {
+        // Revertir si falla
+        tarea.estado = estadoAnterior;
+        console.error('Error al cambiar estado:', err);
+        
+        let mensajeError = 'No se pudo mover la tarea';
+        if (err.error?.detail) {
+          mensajeError = err.error.detail;
+        } else if (err.error?.estado) {
+          mensajeError = Array.isArray(err.error.estado) ? err.error.estado[0] : err.error.estado;
+        } else if (err.error?.titulo) {
+          mensajeError = Array.isArray(err.error.titulo) ? err.error.titulo[0] : err.error.titulo;
+        }
+        
+        Swal.fire('Error', mensajeError, 'error');
       }
     });
   }
@@ -106,19 +165,41 @@ export class TareasComponent implements OnInit {
   }
 
   guardar() {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      Swal.fire('Validación', 'Por favor completa todos los campos requeridos', 'warning');
+      return;
+    }
+    
+    const formData = {
+      ...this.form.value,
+      asignado_a: Number(this.form.get('asignado_a')?.value) // Asegurar que es número
+    };
     
     const req = this.isEditing 
-      ? this.api.actualizarTarea(this.selectedId!, this.form.value)
-      : this.api.crearTarea(this.form.value);
+      ? this.api.actualizarTarea(this.selectedId!, formData)
+      : this.api.crearTarea(formData);
 
     req.subscribe({
       next: () => {
         this.showModal = false;
+        this.form.reset({ prioridad: 'MEDIA', puntos_valor: 1 });
         this.cargarTareas();
         Swal.fire('Éxito', 'Tarea guardada correctamente', 'success');
       },
-      error: (e) => Swal.fire('Error', e.error?.detail || 'Error al guardar', 'error')
+      error: (err: any) => {
+        console.error('Error al guardar tarea:', err);
+        let mensajeError = 'Error al guardar la tarea';
+        
+        if (err.error?.detail) {
+          mensajeError = err.error.detail;
+        } else if (err.error?.titulo) {
+          mensajeError = Array.isArray(err.error.titulo) ? err.error.titulo[0] : err.error.titulo;
+        } else if (err.error?.asignado_a) {
+          mensajeError = Array.isArray(err.error.asignado_a) ? err.error.asignado_a[0] : err.error.asignado_a;
+        }
+        
+        Swal.fire('Error', mensajeError, 'error');
+      }
     });
   }
 
@@ -132,6 +213,65 @@ export class TareasComponent implements OnInit {
     }).then((r) => {
       if (r.isConfirmed) {
         this.api.eliminarTarea(id).subscribe(() => this.cargarTareas());
+      }
+    });
+  }
+
+  aprobarTarea(tarea: any) {
+    Swal.fire({
+      title: '¿Aprobar tarea?',
+      text: `"${tarea.titulo}" será marcada como completada`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, aprobar',
+      confirmButtonColor: '#22c55e'
+    }).then((r) => {
+      if (r.isConfirmed) {
+        this.api.aprobarTarea(tarea.id).subscribe({
+          next: () => {
+            Swal.fire('Éxito', 'Tarea aprobada correctamente', 'success');
+            this.cargarTareas();
+          },
+          error: (err: any) => {
+            const msg = err.error?.error || 'Error al aprobar la tarea';
+            Swal.fire('Error', msg, 'error');
+          }
+        });
+      }
+    });
+  }
+
+  rechazarTarea(tarea: any) {
+    Swal.fire({
+      title: '¿Rechazar tarea?',
+      input: 'textarea',
+      inputLabel: 'Motivo del rechazo',
+      inputPlaceholder: 'Especifica por qué rechazas esta tarea...',
+      inputAttributes: {
+        required: 'true'
+      },
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Rechazar',
+      confirmButtonColor: '#ef4444',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Debes especificar un motivo';
+        }
+        return null;
+      }
+    }).then((r) => {
+      if (r.isConfirmed && r.value) {
+        this.api.rechazarTarea(tarea.id, r.value).subscribe({
+          next: () => {
+            Swal.fire('Rechazada', 'La tarea fue devuelta al empleado para revisión', 'info');
+            this.cargarTareas();
+          },
+          error: (err: any) => {
+            const msg = err.error?.error || 'Error al rechazar la tarea';
+            Swal.fire('Error', msg, 'error');
+          }
+        });
       }
     });
   }

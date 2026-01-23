@@ -244,14 +244,15 @@ class SucursalViewSet(EmpresaContextMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        # Intentamos obtener la empresa del usuario (incluso si es SuperAdmin)
-        empresa = get_empresa_usuario(self.request.user)
+        # Si es superuser, mostrar todas las sucursales
+        if self.request.user.is_superuser:
+            return self.queryset.all()
         
+        # Si no es superuser, filtrar por empresa del usuario
+        empresa = get_empresa_usuario(self.request.user)
         if empresa:
-            # Si tiene empresa asignada, filtra por ella
             return self.queryset.filter(empresa=empresa)
         
-        # Si es SuperAdmin PERO NO TIENE empresa asignada (caso raro), no ve nada
         return self.queryset.none()
 
 # 2. ÁREA (Limpio)
@@ -261,6 +262,11 @@ class AreaViewSet(EmpresaContextMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # Si es superuser, mostrar todas las áreas
+        if self.request.user.is_superuser:
+            return self.queryset.all()
+        
+        # Si no es superuser, filtrar por empresa del usuario
         empresa = get_empresa_usuario(self.request.user)
         if empresa:
             return self.queryset.filter(empresa=empresa)
@@ -273,6 +279,11 @@ class DepartamentoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
+        # Si es superuser, mostrar todos los departamentos
+        if self.request.user.is_superuser:
+            return self.queryset.all()
+        
+        # Si no es superuser, filtrar por empresa del usuario
         empresa = get_empresa_usuario(self.request.user)
         if empresa:
             qs = self.queryset.filter(sucursal__empresa=empresa)
@@ -290,6 +301,11 @@ class PuestoViewSet(EmpresaContextMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # Si es superuser, mostrar todos los puestos
+        if self.request.user.is_superuser:
+            return self.queryset.all()
+        
+        # Si no es superuser, filtrar por empresa del usuario
         empresa = get_empresa_usuario(self.request.user)
         if empresa:
             qs = self.queryset.filter(empresa=empresa)
@@ -306,6 +322,11 @@ class TurnoViewSet(EmpresaContextMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        # Si es superuser, mostrar todos los turnos
+        if self.request.user.is_superuser:
+            return self.queryset.all()
+        
+        # Si no es superuser, filtrar por empresa del usuario
         empresa = get_empresa_usuario(self.request.user)
         if empresa:
             return self.queryset.filter(empresa=empresa)
@@ -333,11 +354,16 @@ def dashboard_stats(request):
         'solicitudes_pendientes': 0,
         'es_lider': False,
         'estado': 'Activo',
-        'jornada_abierta': False
+        'jornada_abierta': False,
+        'total_empleados': 0,
+        'presentes_hoy': 0,
+        'ausentes_hoy': 0,
+        'porcentaje_asistencia': 0
     }
 
     try:
         perfil = Empleado.objects.get(usuario=user)
+        empresa = perfil.empresa
         data['nombres'] = f"{perfil.nombres} {perfil.apellidos}".split()[0]
         data['rol'] = perfil.get_rol_display()
         data['puesto'] = perfil.puesto.nombre if perfil.puesto else "Sin puesto"
@@ -350,26 +376,46 @@ def dashboard_stats(request):
         ).exists()
         
         data['jornada_abierta'] = jornada_activa
-        if perfil.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
+        
+        # ===== DATOS DE ASISTENCIA DE HOY =====
+        if perfil.rol in ['ADMIN', 'RRHH']:
+            empleados_empresa = Empleado.objects.filter(empresa=empresa, estado='ACTIVO')
             data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
-                estado='PENDIENTE'
+                estado='PENDIENTE',
+                empresa=empresa
             ).exclude(empleado=perfil).count()
         elif perfil.rol == 'GERENTE':
-            # Verificamos si manda en sucursales
             sucursales_a_cargo = perfil.sucursales_a_cargo.all()
-            
             if sucursales_a_cargo.exists():
-                # Cuenta pendientes de TODA la sucursal
+                empleados_empresa = Empleado.objects.filter(empresa=empresa, sucursal__in=sucursales_a_cargo, estado='ACTIVO')
                 data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
                     estado='PENDIENTE',
+                    empresa=empresa,
                     empleado__sucursal__in=sucursales_a_cargo
                 ).exclude(empleado=perfil).count()
             else:
-                # Cuenta solo de su departamento (Jefe de Área)
+                empleados_empresa = Empleado.objects.filter(empresa=empresa, departamento=perfil.departamento, estado='ACTIVO')
                 data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
                     estado='PENDIENTE',
+                    empresa=empresa,
                     empleado__departamento=perfil.departamento
                 ).exclude(empleado=perfil).count()
+        else:
+            empleados_empresa = Empleado.objects.filter(id=perfil.id)
+        
+        # Calcular asistencia hoy
+        total_empleados = empleados_empresa.count()
+        presentes_hoy = Jornada.objects.filter(empleado__in=empleados_empresa, fecha=hoy).count()
+        ausencias_autorizadas = SolicitudAusencia.objects.filter(
+            fecha_inicio__lte=hoy, fecha_fin__gte=hoy, 
+            estado='APROBADA', empleado__in=empleados_empresa
+        ).count()
+        ausentes_hoy = total_empleados - presentes_hoy - ausencias_autorizadas
+        
+        data['total_empleados'] = total_empleados
+        data['presentes_hoy'] = presentes_hoy
+        data['ausentes_hoy'] = max(0, ausentes_hoy)
+        data['porcentaje_asistencia'] = round((presentes_hoy / total_empleados * 100), 1) if total_empleados > 0 else 0
 
     except Empleado.DoesNotExist:
         if user.is_superuser:
@@ -392,10 +438,28 @@ class ConfiguracionNominaViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get', 'put', 'patch'])
     def mi_configuracion(self, request):
         try:
-            empleado = Empleado.objects.get(usuario=request.user)
+            empresa = None
+            
+            # Si es superuser, obtener su empresa del request
+            if request.user.is_superuser:
+                try:
+                    empresa = get_empresa_usuario(request.user)
+                except:
+                    empresa = None
+                
+                if not empresa:
+                    # Si no tiene empresa, intentar obtener la primera empresa del sistema
+                    from .models import Empresa as EmpresaModel
+                    empresa = EmpresaModel.objects.first()
+                    if not empresa:
+                        return Response({'error': 'No hay empresas configuradas en el sistema.'}, status=400)
+            else:
+                empleado = Empleado.objects.get(usuario=request.user)
+                empresa = empleado.empresa
+            
             # Buscamos la config de SU empresa, o la creamos si no existe
             config, created = ConfiguracionNomina.objects.get_or_create(
-                empresa=empleado.empresa
+                empresa=empresa
             )
             
             if request.method == 'GET':
@@ -403,9 +467,11 @@ class ConfiguracionNominaViewSet(viewsets.GenericViewSet):
                 return Response(serializer.data)
             
             elif request.method in ['PUT', 'PATCH']:
-                # Solo Admin o RRHH pueden editar esto
-                if empleado.rol not in ['ADMIN', 'RRHH', 'SUPERADMIN']:
-                    return Response({'error': 'No tienes permisos para editar la nómina.'}, status=403)
+                # Solo Admin, RRHH, SUPERADMIN o Superuser pueden editar
+                if not request.user.is_superuser:
+                    empleado = Empleado.objects.get(usuario=request.user)
+                    if empleado.rol not in ['ADMIN', 'RRHH', 'SUPERADMIN']:
+                        return Response({'error': 'No tienes permisos para editar la nómina.'}, status=403)
 
                 serializer = self.get_serializer(config, data=request.data, partial=True)
                 if serializer.is_valid():
@@ -415,18 +481,33 @@ class ConfiguracionNominaViewSet(viewsets.GenericViewSet):
 
         except Empleado.DoesNotExist:
             return Response({'error': 'Usuario no es empleado.'}, status=403)
+        except Exception as e:
+            import traceback
+            print(f"ERROR en mi_configuracion: {e}")
+            print(traceback.format_exc())
+            return Response({'error': f'Error interno: {str(e)}'}, status=500)
 class DashboardChartsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
         try:
-            empleado = Empleado.objects.get(usuario=user)
-            empresa = empleado.empresa
+            # Si es superuser, obtener empresa del contexto
+            if user.is_superuser:
+                empresa = get_empresa_usuario(user)
+                if not empresa:
+                    from .models import Empresa as EmpresaModel
+                    empresa = EmpresaModel.objects.first()
+                    if not empresa:
+                        return Response({'error': 'No hay empresas configuradas.'}, status=400)
+            else:
+                empleado = Empleado.objects.get(usuario=user)
+                empresa = empleado.empresa
+            
             hoy = timezone.now().date()
             
             # --- GRÁFICO 1: ASISTENCIA DE HOY (Pie Chart) ---
-            total_empleados = Empleado.objects.filter(empresa=empresa, activo=True).count()
+            total_empleados = Empleado.objects.filter(empresa=empresa, estado='ACTIVO').count()
             jornadas_hoy = Jornada.objects.filter(empresa=empresa, fecha=hoy)
             
             presentes = jornadas_hoy.count()
@@ -473,3 +554,10 @@ class DashboardChartsView(APIView):
 
         except Empleado.DoesNotExist:
             return Response({'error': 'No autorizado'}, status=403)
+        except Exception as e:
+            import traceback
+            error_msg = str(e)
+            traceback._print_exc()
+            print(f"ERROR en DashboardChartsView: {error_msg}")
+            print(traceback.format_exc())
+            return Response({'error': f'Error interno: {error_msg}'}, status=500)

@@ -28,8 +28,17 @@ class JornadaViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Jornada.objects.all().order_by('-fecha', '-entrada')
 
-        # 1. SEGURIDAD (Ya lo tenías, lo mantenemos)
-        if not user.is_superuser:
+        # 1. SEGURIDAD
+        if user.is_superuser:
+            # SuperUser obtiene jornadas de su empresa
+            from core.views import get_empresa_usuario
+            empresa = get_empresa_usuario(user)
+            if empresa:
+                queryset = queryset.filter(empresa=empresa)
+            else:
+                # Si no tiene empresa asignada, retorna todas las jornadas del sistema
+                pass
+        else:
             try:
                 empleado = Empleado.objects.get(usuario=user)
                 if empleado.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
@@ -57,49 +66,55 @@ class JornadaViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def exportar_excel(self, request):
-        # 1. Reutilizamos los filtros del get_queryset para que baje LO MISMO que se ve en pantalla
-        jornadas = self.filter_queryset(self.get_queryset())
+        try:
+            # 1. Reutilizamos los filtros del get_queryset para que baje LO MISMO que se ve en pantalla
+            jornadas = self.filter_queryset(self.get_queryset())
 
-        # 2. Crear el libro de Excel
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Reporte Asistencia"
+            # 2. Crear el libro de Excel
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Reporte Asistencia"
 
-        # 3. Encabezados
-        headers = ["Empleado", "Fecha", "Entrada", "Salida", "Horas Trab.", "Estado", "Nota"]
-        ws.append(headers)
+            # 3. Encabezados
+            headers = ["Empleado", "Fecha", "Entrada", "Salida", "Horas Trab.", "Estado", "Nota"]
+            ws.append(headers)
 
-        # 4. Llenar filas
-        for j in jornadas:
-            nombre = f"{j.empleado.nombres} {j.empleado.apellidos}"
-            fecha = j.fecha.strftime('%d/%m/%Y')
-            entrada = j.entrada.strftime('%H:%M:%S') if j.entrada else '--'
-            salida = j.salida.strftime('%H:%M:%S') if j.salida else '--'
-            estado = "ATRASO" if j.es_atraso else "PUNTUAL"
+            # 4. Llenar filas
+            for j in jornadas:
+                nombre = f"{j.empleado.nombres} {j.empleado.apellidos}"
+                fecha = j.fecha.strftime('%d/%m/%Y')
+                entrada = j.entrada.strftime('%H:%M:%S') if j.entrada else '--'
+                salida = j.salida.strftime('%H:%M:%S') if j.salida else '--'
+                estado = "ATRASO" if j.es_atraso else "PUNTUAL"
+                
+                ws.append([
+                    nombre, 
+                    fecha, 
+                    entrada, 
+                    salida, 
+                    j.horas_trabajadas, 
+                    estado,
+                    f"{j.minutos_atraso} min tarde" if j.es_atraso else ""
+                ])
+
+            # 5. Ajustar ancho de columnas (Estético)
+            for col in ['A', 'B', 'C', 'D', 'E', 'F']:
+                ws.column_dimensions[col].width = 15
+            ws.column_dimensions['A'].width = 30
+
+            # 6. Preparar respuesta HTTP como archivo
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            )
+            response['Content-Disposition'] = f'attachment; filename=Reporte_Asistencia_{request.user.username}.xlsx'
             
-            ws.append([
-                nombre, 
-                fecha, 
-                entrada, 
-                salida, 
-                j.horas_trabajadas, 
-                estado,
-                f"{j.minutos_atraso} min tarde" if j.es_atraso else ""
-            ])
-
-        # 5. Ajustar ancho de columnas (Estético)
-        for col in ['A', 'B', 'C', 'D', 'E', 'F']:
-            ws.column_dimensions[col].width = 15
-        ws.column_dimensions['A'].width = 30
-
-        # 6. Preparar respuesta HTTP como archivo
-        response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-        response['Content-Disposition'] = f'attachment; filename=Reporte_Asistencia_{request.user.username}.xlsx'
-        
-        wb.save(response)
-        return response
+            wb.save(response)
+            return response
+        except Exception as e:
+            import traceback
+            print(f"ERROR en exportar_excel: {e}")
+            print(traceback.format_exc())
+            return Response({'error': f'Error al exportar: {str(e)}'}, status=500)
 # =========================================================================
 # 2. VIEWSET DE EVENTOS CRUDOS (BITÁCORA) - Antes llamado AsistenciaViewSet
 # =========================================================================
@@ -253,7 +268,7 @@ class CalculoNominaView(APIView):
 
         # 3. Filtrar Empleados a Calcular
         # (Si es Admin ve todos, si es Gerente ve sus sucursales...)
-        empleados = Empleado.objects.filter(empresa=empresa, activo=True)
+        empleados = Empleado.objects.filter(empresa=empresa, estado='ACTIVO')
 
         reporte_nomina = []
 

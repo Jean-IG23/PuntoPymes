@@ -64,12 +64,26 @@
 
                     <div class="flex items-center justify-between border-t border-gray-50 pt-3 mt-2">
                         <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold" title="Asignado a: {{ tarea.asignado_nombre }}">
-                                {{ tarea.asignado_nombre ? tarea.asignado_nombre.charAt(0) : '?' }}
+                            <!-- FOTO DE PERFIL DEL ASIGNADO -->
+                            <div class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold overflow-hidden flex-shrink-0 group relative"
+                                 title="Asignado a: {{ tarea.asignado_nombre }} {{ tarea.asignado_apellido }}">
+                                <img *ngIf="tarea.asignado_foto" 
+                                     [src]="tarea.asignado_foto.startsWith('http') ? tarea.asignado_foto : 'http://localhost:8000' + tarea.asignado_foto" 
+                                     class="w-full h-full object-cover"
+                                     (error)="onFotoError($event)">
+                                <span *ngIf="!tarea.asignado_foto" class="text-[10px] font-bold">
+                                    {{ tarea.asignado_nombre ? tarea.asignado_nombre.charAt(0) : '?' }}
+                                </span>
                             </div>
-                            <span class="text-[10px] text-gray-400 font-medium">
-                                {{ tarea.fecha_limite | date:'dd MMM' }}
-                            </span>
+                            <!-- NOMBRE DEL ASIGNADO -->
+                            <div class="flex flex-col">
+                                <span class="text-[10px] font-bold text-gray-700">
+                                    {{ tarea.asignado_nombre }}
+                                </span>
+                                <span class="text-[9px] text-gray-400">
+                                    {{ tarea.fecha_limite | date:'dd MMM' }}
+                                </span>
+                            </div>
                         </div>
                         
                         <div class="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 flex items-center gap-1">
@@ -78,24 +92,39 @@
                     </div>
 
                     <div class="mt-3 grid grid-cols-2 gap-2" *ngIf="col.id !== 'COMPLETADA'">
-                        <button *ngIf="col.id === 'PENDIENTE'" (click)="cambiarEstado(tarea, 'PROGRESO')" 
+                        <!-- EMPLEADO: Solo puede ir PENDIENTE → PROGRESO -->
+                        <button *ngIf="col.id === 'PENDIENTE' && !esGerente" (click)="cambiarEstado(tarea, 'PROGRESO')" 
                                 class="col-span-2 text-xs bg-blue-50 text-blue-600 py-1.5 rounded-lg font-bold hover:bg-blue-100 transition">
                             Empezar <i class="bi bi-play-fill"></i>
                         </button>
                         
-                        <button *ngIf="col.id === 'PROGRESO'" (click)="cambiarEstado(tarea, 'REVISION')" 
+                        <!-- EMPLEADO: PROGRESO → REVISIÓN -->
+                        <button *ngIf="col.id === 'PROGRESO' && !esGerente" (click)="cambiarEstado(tarea, 'REVISION')" 
                                 class="col-span-2 text-xs bg-yellow-50 text-yellow-600 py-1.5 rounded-lg font-bold hover:bg-yellow-100 transition">
-                            A Revisión <i class="bi bi-eye-fill"></i>
+                            Enviar a Revisión <i class="bi bi-eye-fill"></i>
                         </button>
 
-                        <button *ngIf="col.id === 'REVISION'" (click)="cambiarEstado(tarea, 'PROGRESO')" 
-                                class="text-xs bg-gray-50 text-gray-500 py-1.5 rounded-lg font-bold hover:bg-gray-100 transition">
-                            <i class="bi bi-arrow-counterclockwise"></i> Devolver
+                        <!-- GERENTE: Puede manejar cambios en REVISIÓN -->
+                        <button *ngIf="col.id === 'REVISION' && esGerente" (click)="rechazarTarea(tarea)" 
+                                class="text-xs bg-red-50 text-red-600 py-1.5 rounded-lg font-bold hover:bg-red-100 transition flex items-center justify-center gap-1">
+                            <i class="bi bi-x-lg"></i> Rechazar
                         </button>
-                        <button *ngIf="col.id === 'REVISION'" (click)="cambiarEstado(tarea, 'COMPLETADA')" 
-                                class="text-xs bg-green-50 text-green-600 py-1.5 rounded-lg font-bold hover:bg-green-100 transition">
-                            Aprobar <i class="bi bi-check-lg"></i>
+                        <button *ngIf="col.id === 'REVISION' && esGerente" (click)="aprobarTarea(tarea)" 
+                                class="text-xs bg-green-50 text-green-600 py-1.5 rounded-lg font-bold hover:bg-green-100 transition flex items-center justify-center gap-1">
+                            <i class="bi bi-check-lg"></i> Aprobar
                         </button>
+                        
+                        <!-- GERENTE: Si ve PROGRESO, puede enviar a revisión -->
+                        <button *ngIf="col.id === 'PROGRESO' && esGerente" (click)="cambiarEstado(tarea, 'REVISION')" 
+                                class="col-span-2 text-xs bg-yellow-50 text-yellow-600 py-1.5 rounded-lg font-bold hover:bg-yellow-100 transition">
+                            Enviar a Revisión <i class="bi bi-eye-fill"></i>
+                        </button>
+                    </div>
+
+                    <!-- Mostrar motivo de rechazo si existe -->
+                    <div *ngIf="tarea.motivo_rechazo && col.id === 'PROGRESO'" class="mt-2 p-2 bg-red-50 border-l-4 border-red-400 rounded">
+                        <p class="text-[10px] font-bold text-red-600 mb-1">⚠️ Motivo del rechazo:</p>
+                        <p class="text-[10px] text-red-700">{{ tarea.motivo_rechazo }}</p>
                     </div>
 
                 </div>

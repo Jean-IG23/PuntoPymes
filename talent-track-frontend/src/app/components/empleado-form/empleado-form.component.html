@@ -31,32 +31,44 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Nombres <span class="text-red-500">*</span></label>
             <input type="text" formControlName="nombres" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Ej. Juan Carlos">
-            <p *ngIf="empleadoForm.get('nombres')?.invalid && empleadoForm.get('nombres')?.touched" class="text-xs text-red-500 mt-1">Campo obligatorio.</p>
+            <p *ngIf="empleadoForm.get('nombres')?.invalid && empleadoForm.get('nombres')?.touched" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i class="bi bi-exclamation-circle"></i> {{ getErrorMessage('Nombres', 'nombres') }}
+            </p>
           </div>
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos <span class="text-red-500">*</span></label>
             <input type="text" formControlName="apellidos" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Ej. Pérez López">
-            <p *ngIf="empleadoForm.get('apellidos')?.invalid && empleadoForm.get('apellidos')?.touched" class="text-xs text-red-500 mt-1">Campo obligatorio.</p>
+            <p *ngIf="empleadoForm.get('apellidos')?.invalid && empleadoForm.get('apellidos')?.touched" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i class="bi bi-exclamation-circle"></i> {{ getErrorMessage('Apellidos', 'apellidos') }}
+            </p>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Cédula / DNI <span class="text-red-500">*</span></label>
-            <input type="text" formControlName="documento" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition">
-            <p class="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                <i class="bi bi-info-circle"></i> Será la contraseña inicial de acceso.
+            <input type="text" formControlName="documento" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Ej. 1234567890" inputmode="numeric" (input)="onDocumentoInput($event)">
+            <p *ngIf="empleadoForm.get('documento')?.invalid && empleadoForm.get('documento')?.touched" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i class="bi bi-exclamation-circle"></i> {{ getErrorMessage('Cédula/DNI', 'documento') }}
+            </p>
+            <p *ngIf="!empleadoForm.get('documento')?.invalid && empleadoForm.get('documento')?.touched" class="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                <i class="bi bi-info-circle"></i> Solo números (sin guiones ni espacios)
             </p>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico <span class="text-red-500">*</span></label>
             <input type="email" formControlName="email" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="nombre@empresa.com">
-            <p *ngIf="empleadoForm.get('email')?.invalid && empleadoForm.get('email')?.touched" class="text-xs text-red-500 mt-1">Ingrese un correo válido.</p>
+            <p *ngIf="empleadoForm.get('email')?.invalid && empleadoForm.get('email')?.touched" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i class="bi bi-exclamation-circle"></i> {{ getErrorMessage('Correo', 'email') }}
+            </p>
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-            <input type="text" formControlName="telefono" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition">
+            <input type="text" formControlName="telefono" class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Ej. +1 (555) 123-4567 o 123-456-7890" inputmode="tel">
+            <p *ngIf="empleadoForm.get('telefono')?.invalid && empleadoForm.get('telefono')?.touched" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i class="bi bi-exclamation-circle"></i> {{ getErrorMessage('Teléfono', 'telefono') }}
+            </p>
           </div>
 
           <div>
@@ -85,13 +97,20 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">Departamento <span class="text-red-500">*</span></label>
             <select formControlName="departamento"  class="w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white cursor-pointer"
                     [class.bg-gray-100]="!empleadoForm.get('sucursal')?.value" 
+                    [class.opacity-50]="!empleadoForm.get('sucursal')?.value"
                     [attr.disabled]="!empleadoForm.get('sucursal')?.value ? '' : null">
               <option [ngValue]="null">-- Seleccione --</option>
               <option *ngFor="let d of departamentosFiltrados" [value]="d.id">{{ d.nombre }}</option>
             </select>
-            <p *ngIf="!empleadoForm.get('sucursal')?.value" class="text-xs text-orange-500 mt-1">Seleccione primero una sucursal.</p>
-            <p *ngIf="empleadoForm.get('sucursal')?.value && departamentosFiltrados.length === 0" class="text-xs text-red-500 mt-1">
-                Esta sucursal no tiene departamentos registrados.
+            <p *ngIf="!empleadoForm.get('sucursal')?.value" class="text-xs text-orange-500 mt-1 flex items-center gap-1">
+              <i class="bi bi-exclamation-triangle"></i> Seleccione primero una sucursal.
+            </p>
+            <p *ngIf="empleadoForm.get('sucursal')?.value && departamentosFiltrados.length === 0" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i class="bi bi-exclamation-circle"></i> ❌ Esta sucursal no tiene departamentos registrados. Crea uno en Organización.
+            </p>
+            <!-- Debug info (solo en desarrollo) -->
+            <p *ngIf="empleadoForm.get('sucursal')?.value && departamentosFiltrados.length > 0" class="text-[10px] text-gray-400 mt-1">
+              {{departamentosFiltrados.length}} departamentos disponibles
             </p>
           </div>
 
@@ -114,6 +133,43 @@
         </div>
       </div>
 
+      <div class="p-6 border-b border-gray-100 bg-indigo-50/30">
+        <h3 class="text-sm font-bold text-indigo-600 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <i class="bi bi-image"></i> Foto de Perfil
+        </h3>
+
+        <div class="flex flex-col md:flex-row items-center gap-6">
+          <!-- Preview -->
+          <div class="flex-shrink-0">
+            <div class="w-24 h-24 rounded-lg border-2 border-dashed border-indigo-300 bg-indigo-50 flex items-center justify-center overflow-hidden cursor-pointer hover:bg-indigo-100 transition group relative"
+                 (click)="fileInput.click()">
+              <img *ngIf="fotoPreview" [src]="fotoPreview" class="w-full h-full object-cover">
+              <span *ngIf="!fotoPreview" class="text-2xl font-bold text-indigo-400 group-hover:text-indigo-600">
+                {{ empleadoForm.get('nombres')?.value?.charAt(0)?.toUpperCase() || '?' }}
+              </span>
+              <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                <i class="bi bi-cloud-upload text-white text-2xl"></i>
+              </div>
+              <input type="file" #fileInput hidden (change)="onFotoSelected($event)" accept="image/*" class="hidden">
+            </div>
+          </div>
+
+          <!-- Info -->
+          <div class="flex-grow">
+            <p class="text-sm text-gray-600 mb-3">
+              Sube una foto de perfil clara. Se mostrará en toda la plataforma cuando este empleado se mencione en tareas, objetivos y reportes.
+            </p>
+            <button type="button" (click)="fileInput.click()" 
+                    class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium hover:bg-indigo-200 transition text-sm flex items-center gap-2">
+              <i class="bi bi-pencil"></i> Cambiar Foto
+            </button>
+            <p *ngIf="fotoPreview" class="text-xs text-green-600 mt-2 flex items-center gap-1">
+              <i class="bi bi-check-circle"></i> Foto seleccionada
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div class="p-6">
         <h3 class="text-sm font-bold text-indigo-600 uppercase tracking-wider mb-4 flex items-center gap-2">
           <i class="bi bi-briefcase"></i> Datos Contractuales
@@ -127,13 +183,19 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Sueldo Base ($)</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Sueldo Base <span class="text-red-500">*</span></label>
                 <div class="relative rounded-md shadow-sm">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <span class="text-gray-500 sm:text-sm">$</span>
                     </div>
-                    <input type="number" formControlName="sueldo" class="pl-7 w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="0.00">
+                    <input type="number" formControlName="sueldo" class="pl-7 w-full border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="460.00" min="260">
                 </div>
+                <p *ngIf="empleadoForm.get('sueldo')?.invalid && empleadoForm.get('sueldo')?.touched" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <i class="bi bi-exclamation-circle"></i> {{ getErrorMessage('Sueldo', 'sueldo') }}
+                </p>
+                <p *ngIf="!empleadoForm.get('sueldo')?.invalid && empleadoForm.get('sueldo')?.touched" class="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                  <i class="bi bi-info-circle"></i> Mínimo permitido: $260
+                </p>
             </div>
 
             <div>

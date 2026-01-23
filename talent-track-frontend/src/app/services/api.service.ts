@@ -208,7 +208,7 @@ export class ApiService {
   }
 
   getJornadas(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/asistencia/jornadas/`, this.getHeaders());
+    return this.http.get(`${this.baseUrl}/jornadas/`, this.getHeaders());
   }
 
   // ==========================================
@@ -256,13 +256,19 @@ export class ApiService {
     this.http.get(`${this.baseUrl}/empleados/download_plantilla/`, { 
       headers: headers, 
       responseType: 'blob' 
-    }).subscribe((blob: Blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'plantilla_empleados.xlsx';
-      a.click();
-      window.URL.revokeObjectURL(url);
+    }).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'plantilla_empleados.xlsx';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        console.error('Error descargando plantilla:', err);
+        alert('Error al descargar la plantilla. Por favor intenta nuevamente.');
+      }
     });
   }
 
@@ -309,8 +315,8 @@ export class ApiService {
   // ==========================================
   marcarAsistencia(lat: number, lng: number): Observable<any> {
     const data = {
-      latitud: lat,
-      longitud: lng,
+      lat: lat,
+      lng: lng,
       timestamp: new Date().toISOString()
     };
     return this.http.post(`${this.baseUrl}/marcar/`, data, this.getHeaders());
@@ -378,9 +384,17 @@ getCalculoNomina(inicio: string, fin: string) {
     return this.http.get(`${this.baseUrl}/objetivos/?empleado=${empleadoId}`, this.getHeaders());
   }
 
+  getObjetivoById(id: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/objetivos/${id}/`, this.getHeaders());
+  }
+
   saveObjetivo(data: any): Observable<any> {
     if(data.id) return this.http.put(`${this.baseUrl}/objetivos/${data.id}/`, data, this.getHeaders());
     return this.http.post(`${this.baseUrl}/objetivos/`, data, this.getHeaders());
+  }
+
+  deleteObjetivo(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/objetivos/${id}/`, this.getHeaders());
   }
   getTareas(misTareas: boolean = false) {
   // Si misTareas es true, el backend filtrará solo las asignadas a mí
@@ -406,6 +420,14 @@ crearTarea(data: any) {
 
 actualizarTarea(id: number, data: any) {
   return this.put(`/tareas/${id}/`, data);
+}
+
+aprobarTarea(id: number) {
+  return this.post(`/tareas/${id}/aprobar/`, {});
+}
+
+rechazarTarea(id: number, motivo: string) {
+  return this.post(`/tareas/${id}/rechazar/`, { motivo });
 }
 
 eliminarTarea(id: number) {

@@ -102,6 +102,14 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/marcar/', MarcarAsistenciaView.as_view()), # Ruta especial para el botón
 ]
+
+# ======================================================
+# ERROR HANDLERS (Manejo Seguro de Errores)
+# ======================================================
+handler400 = 'PuntoPymes.error_handlers.handler400'
+handler403 = 'PuntoPymes.error_handlers.handler403'
+handler404 = 'PuntoPymes.error_handlers.handler404'
+handler500 = 'PuntoPymes.error_handlers.handler500'
     
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

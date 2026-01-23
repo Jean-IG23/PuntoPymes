@@ -157,6 +157,7 @@ class Tarea(models.Model):
     # Responsables
     asignado_a = models.ForeignKey(Empleado, on_delete=models.CASCADE, related_name='tareas_asignadas')
     creado_por = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, related_name='tareas_creadas')
+    revisado_por = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='tareas_revisadas')
     
     # Gestión
     fecha_limite = models.DateTimeField(null=True, blank=True)
@@ -165,6 +166,9 @@ class Tarea(models.Model):
     
     # Gamificación / Productividad
     puntos_valor = models.IntegerField(default=1, help_text="Puntos que gana el empleado al completar (1-10)")
+    
+    # Auditoría
+    motivo_rechazo = models.TextField(blank=True, null=True, help_text="Razón por la que fue rechazada")
     
     # Tiempos
     created_at = models.DateTimeField(auto_now_add=True)

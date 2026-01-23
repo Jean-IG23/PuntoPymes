@@ -145,6 +145,59 @@
       <!-- COLUMNA DERECHA - FORMULARIOS DE EDICIÓN -->
       <div class="lg:col-span-2 space-y-8">
 
+        <!-- CAMBIAR FOTO DE PERFIL -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <i class="ri-image-line text-red-600"></i> Foto de Perfil
+          </h3>
+
+          <div class="flex flex-col md:flex-row items-center gap-8">
+            <!-- Preview -->
+            <div class="flex-shrink-0">
+              <div class="w-32 h-32 rounded-lg border-4 border-dashed border-red-300 bg-red-50 flex items-center justify-center overflow-hidden cursor-pointer hover:bg-red-100 transition group relative"
+                   (click)="fotoInput.click()">
+                <img *ngIf="imagePreview" [src]="imagePreview" class="w-full h-full object-cover">
+                <span *ngIf="!imagePreview" class="text-4xl font-bold text-red-600 group-hover:text-red-700">
+                  {{ empleado.nombres?.charAt(0).toUpperCase() }}
+                </span>
+                <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                  <i class="bi bi-cloud-upload text-white text-3xl"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Info y Botones -->
+            <div class="flex-grow">
+              <p class="text-gray-600 text-sm mb-4">
+                Selecciona una nueva foto de perfil. Se mostará en toda la plataforma cuando se mencione tu nombre en tareas, objetivos y reportes.
+              </p>
+              
+              <div class="space-y-3">
+                <button type="button" 
+                        (click)="fotoInput.click()"
+                        class="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex items-center justify-center gap-2">
+                  <i class="bi bi-cloud-upload"></i> Seleccionar Foto
+                </button>
+
+                <button type="button"
+                        (click)="guardarPerfil()"
+                        [disabled]="!selectedFile || loading"
+                        class="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">
+                  <span *ngIf="loading" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                  <i *ngIf="!loading" class="bi bi-check-circle"></i>
+                  {{ selectedFile ? 'Guardar Foto' : 'Ninguna foto seleccionada' }}
+                </button>
+              </div>
+
+              <p *ngIf="selectedFile" class="text-xs text-green-600 mt-3 flex items-center gap-1">
+                <i class="bi bi-check-circle-fill"></i> {{ selectedFile.name }} listo para guardar
+              </p>
+            </div>
+          </div>
+
+          <input type="file" #fotoInput hidden (change)="onFileSelected($event)" accept="image/*" class="hidden">
+        </div>
+
         <!-- EDITAR CONTACTO -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -158,8 +211,11 @@
                 <input 
                   type="text" 
                   formControlName="telefono" 
-                  placeholder="123-456-7890"
+                  placeholder="123-456-7890 o +1 (555) 123-4567"
                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent">
+                <p *ngIf="perfilForm.get('telefono')?.invalid && perfilForm.get('telefono')?.touched" class="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <i class="bi bi-exclamation-circle"></i> {{ getErrorMessage('Teléfono', 'telefono') }}
+                </p>
               </div>
               <div class="md:col-span-2">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Dirección</label>

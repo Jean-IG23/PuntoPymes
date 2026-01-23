@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
@@ -57,7 +57,8 @@ export class OrganizacionComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private api: ApiService,
-    private auth: AuthService
+    private auth: AuthService,
+    private cd: ChangeDetectorRef
   ) {
     // 1. EMPRESA
     this.formEmpresa = this.fb.group({
@@ -70,43 +71,43 @@ export class OrganizacionComponent implements OnInit {
 
     // 2. SUCURSAL
     this.sucursalForm = this.fb.group({
-      nombre: ['', Validators.required],
+      nombre: ['', [Validators.required, Validators.minLength(3)]],
       direccion: [''],
       es_matriz: [false],
       responsable: [null],
-      latitud: [null], 
-      longitud: [null],
-      radio_metros: [50, [Validators.min(10)]]
+      latitud: [null, [Validators.pattern(/^-?[0-9]+(\.[0-9]+)?$/)]], 
+      longitud: [null, [Validators.pattern(/^-?[0-9]+(\.[0-9]+)?$/)]], 
+      radio_metros: [50, [Validators.required, Validators.min(10), Validators.max(5000), Validators.pattern(/^[0-9]+$/)]]
     });
 
     // 3. ÁREA
     this.areaForm = this.fb.group({
-      nombre: ['', Validators.required],
+      nombre: ['', [Validators.required, Validators.minLength(3)]],
       descripcion: ['']
     });
 
     // 4. DEPARTAMENTO
     this.deptoForm = this.fb.group({
-      nombre: ['', Validators.required],
+      nombre: ['', [Validators.required, Validators.minLength(3)]],
       area: [null, Validators.required],
       sucursal: [null, Validators.required]
     });
 
     // 5. PUESTO
     this.puestoForm = this.fb.group({
-      nombre: ['', Validators.required],
+      nombre: ['', [Validators.required, Validators.minLength(3)]],
       area: [null],
       es_supervision: [false]
     });
 
     // 6. TURNO
     this.turnoForm = this.fb.group({
-      nombre: ['', Validators.required],
-      tipo_jornada: ['RIGIDO'],
-      hora_entrada: ['09:00'],
-      hora_salida: ['18:00'],
-      horas_semanales_meta: [40],
-      dias_laborables: [[]] 
+      nombre: ['', [Validators.required, Validators.minLength(3)]],
+      tipo_jornada: ['RIGIDO', Validators.required],
+      hora_entrada: ['09:00', [Validators.required, Validators.pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)]],
+      hora_salida: ['18:00', [Validators.required, Validators.pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)]],
+      horas_semanales_meta: [40, [Validators.required, Validators.min(1), Validators.max(168), Validators.pattern(/^[0-9]{1,3}$/)]],
+      dias_laborables: [[]]
     });
   }
 
@@ -155,6 +156,9 @@ export class OrganizacionComponent implements OnInit {
         this.empleadosList = Array.isArray(res.empleados) ? res.empleados : (res.empleados.results || []);
         
         this.loading = false;
+        
+        // Forzar detección de cambios para actualizar la vista
+        this.cd.detectChanges();
       },
       error: (e) => {
         console.error('Error cargando datos de organización:', e);
@@ -196,7 +200,6 @@ export class OrganizacionComponent implements OnInit {
     req.subscribe({
       next: () => {
         this.finishSave('Empresa guardada');
-        this.showModalEmpresa = false;
       },
       error: (e) => this.handleError(e)
     });
@@ -281,6 +284,7 @@ export class OrganizacionComponent implements OnInit {
 
   guardarSucursal() {
     if (this.sucursalForm.invalid) return;
+    this.loading = true;
     
     const data = this.sucursalForm.value;
     // Asignar empresa actual si no eres superadmin gestionando otra
@@ -295,7 +299,6 @@ export class OrganizacionComponent implements OnInit {
     request.subscribe({
       next: () => {
         this.finishSave('Sucursal guardada');
-        this.cerrarModalSucursal();
       },
       error: (e) => this.handleError(e)
     });
@@ -325,7 +328,6 @@ export class OrganizacionComponent implements OnInit {
     req.subscribe({
       next: () => {
         this.finishSave('Área guardada');
-        this.showModalArea = false;
       },
       error: (e) => this.handleError(e)
     });
@@ -355,7 +357,6 @@ export class OrganizacionComponent implements OnInit {
     req.subscribe({
       next: () => {
         this.finishSave('Departamento guardado');
-        this.showModalDepto = false;
       },
       error: (e) => this.handleError(e)
     });
@@ -385,7 +386,6 @@ export class OrganizacionComponent implements OnInit {
     req.subscribe({
       next: () => {
         this.finishSave('Cargo guardado');
-        this.showModalPuesto = false;
       },
       error: (e) => this.handleError(e)
     });
@@ -428,7 +428,6 @@ export class OrganizacionComponent implements OnInit {
     req.subscribe({
       next: () => {
         this.finishSave('Turno configurado');
-        this.showModalTurno = false;
       },
       error: (e) => this.handleError(e)
     });
@@ -462,15 +461,61 @@ export class OrganizacionComponent implements OnInit {
   private finishSave(msg: string) {
     this.loading = false;
     this.selectedId = null;
-    this.cargarTodo();
+    
+    // Cerrar automáticamente los modales después de guardar
+    this.showModalEmpresa = false;
+    this.showModalSucursal = false;
+    this.showModalArea = false;
+    this.showModalDepto = false;
+    this.showModalPuesto = false;
+    this.showModalTurno = false;
+    
+    // Mostrar éxito
     Swal.fire('¡Éxito!', msg, 'success');
+    
+    // Recargar datos en background (sin bloquear)
+    setTimeout(() => {
+      this.cargarTodo();
+      // Forzar change detection después de cargar
+      this.cd.detectChanges();
+    }, 500);
   }
 
   private handleError(e: any) {
     this.loading = false;
-    console.error(e);
-    const msg = e.error?.error || e.error?.detail || 'Error en el servidor';
-    Swal.fire('Error', msg, 'error');
+    console.error('Error completo:', e);
+    
+    // Extraer mensaje de error del servidor
+    let msg = 'Error en el servidor';
+    
+    // Intentar obtener el mensaje de diferentes formatos
+    if (e.error?.error) msg = e.error.error;
+    else if (e.error?.detail) msg = e.error.detail;
+    else if (e.error?.non_field_errors?.[0]) msg = e.error.non_field_errors[0];
+    else if (typeof e.error === 'string') msg = e.error;
+    else if (e.statusText) msg = e.statusText;
+    
+    // Si hay errores de campos específicos, mostrarlos
+    let detalles = '';
+    if (e.error && typeof e.error === 'object') {
+      const campos = Object.keys(e.error)
+        .filter(k => k !== 'error' && k !== 'detail' && k !== 'non_field_errors')
+        .map(k => {
+          const valor = e.error[k];
+          const txtError = Array.isArray(valor) ? valor[0] : valor;
+          return `<strong>${k}:</strong> ${txtError}`;
+        });
+      if (campos.length > 0) {
+        detalles = '<div class="text-left text-sm mt-2 space-y-1">' + campos.join('<br/>') + '</div>';
+      }
+    }
+    
+    Swal.fire({
+      title: '❌ Error',
+      html: msg + detalles,
+      icon: 'error',
+      confirmButtonColor: '#d33'
+    });
   }
 
   private confirmDelete(id: number, deleteFn: (id: number) => any, entityName: string) {

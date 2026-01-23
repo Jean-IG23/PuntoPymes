@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { soloLetras, soloNumeros, documentoValido, telefonoValido, getErrorMessage } from '../../services/custom-validators';
 import { forkJoin } from 'rxjs'; 
 import Swal from 'sweetalert2';
 
@@ -34,6 +35,10 @@ export class EmpleadoFormComponent implements OnInit {
   // --- LISTAS FILTRADAS ---
   departamentosFiltrados: any[] = []; // Lista reducida según sucursal
   
+  // --- FOTO DE PERFIL ---
+  selectedFoto: File | null = null;
+  fotoPreview: string | ArrayBuffer | null = null;
+  
   constructor(
     private fb: FormBuilder,
     private api: ApiService, 
@@ -42,6 +47,13 @@ export class EmpleadoFormComponent implements OnInit {
     private auth: AuthService,
     private cd: ChangeDetectorRef
   ) {}
+  
+  // Helper para mensajes de error
+  getErrorMessage(fieldName: string, controlName: string): string {
+    const control = this.empleadoForm.get(controlName);
+    if (!control?.errors || !control?.touched) return '';
+    return getErrorMessage(fieldName, control.errors);
+  }
   
   ngOnInit(): void {
     this.initForm();       // 1. Crear el cascarón del formulario
@@ -52,11 +64,11 @@ export class EmpleadoFormComponent implements OnInit {
   initForm() {
     this.empleadoForm = this.fb.group({
       // Datos Personales
-      nombres: ['', Validators.required],
-      apellidos: ['', Validators.required],
-      documento: ['', Validators.required],
+      nombres: ['', [Validators.required, Validators.minLength(3), soloLetras()]],
+      apellidos: ['', [Validators.required, Validators.minLength(3), soloLetras()]],
+      documento: ['', [Validators.required, Validators.minLength(5), soloNumeros()]],
       email: ['', [Validators.required, Validators.email]],
-      telefono: [''],
+      telefono: ['', [telefonoValido()]],
       direccion: [''],
       
       // Estructura (IDs)
@@ -67,7 +79,7 @@ export class EmpleadoFormComponent implements OnInit {
       
       // Contratación
       fecha_ingreso: [new Date().toISOString().substring(0, 10), Validators.required],
-      sueldo: [460, [Validators.required, Validators.min(0)]],
+      sueldo: [460, [Validators.required, Validators.min(260)]],
       rol: ['EMPLEADO', Validators.required],
       estado: ['ACTIVO']
     });
@@ -91,6 +103,19 @@ export class EmpleadoFormComponent implements OnInit {
         this.departamentos = res.deptos.results || res.deptos;
         this.puestos = res.puestos.results || res.puestos;
         this.turnos = res.turnos.results || res.turnos;
+        
+        // Debug: Mostrar estructura COMPLETA de departamentos
+        console.log('=== DEPARTAMENTOS CARGADOS ===');
+        console.log('Total:', this.departamentos.length);
+        this.departamentos.forEach((d: any, i: number) => {
+          console.log(`[${i}] ID:${d.id} Nombre:"${d.nombre}" sucursal:${d.sucursal} sucursal_id:${d.sucursal_id}`, d);
+        });
+        
+        console.log('=== SUCURSALES CARGADAS ===');
+        console.log('Total:', this.sucursales.length);
+        this.sucursales.forEach((s: any, i: number) => {
+          console.log(`[${i}] ID:${s.id} Nombre:"${s.nombre}"`);
+        });
         
         // Una vez tenemos los catálogos, verificamos si es edición
         this.verificarRuta(); 
@@ -181,13 +206,70 @@ export class EmpleadoFormComponent implements OnInit {
   filtrarDepartamentos(sucursalId: number | null) {
     if (!sucursalId) {
         this.departamentosFiltrados = [];
+        console.log('❌ Sucursal no seleccionada');
         return;
     }
+    
+    console.log(`\n🔍 FILTRANDO para sucursal ID: ${sucursalId}`);
+    console.log(`Total departamentos disponibles: ${this.departamentos.length}`);
+    
     // Filtramos la lista maestra
     this.departamentosFiltrados = this.departamentos.filter(d => {
-        const dSucId = (typeof d.sucursal === 'object') ? d.sucursal.id : d.sucursal;
-        return Number(dSucId) === Number(sucursalId);
+        // Obtener ID de sucursal del departamento
+        let dSucId: any;
+        let source = '';
+        
+        if (d.sucursal_id !== undefined && d.sucursal_id !== null) {
+            dSucId = d.sucursal_id;
+            source = 'sucursal_id';
+        } else if (typeof d.sucursal === 'object' && d.sucursal && d.sucursal.id !== undefined) {
+            dSucId = d.sucursal.id;
+            source = 'sucursal.id';
+        } else if (typeof d.sucursal === 'number') {
+            dSucId = d.sucursal;
+            source = 'sucursal (directo)';
+        } else {
+            console.warn(`⚠️ Departamento "${d.nombre}" (ID ${d.id}) NO tiene sucursal asociada:`, d);
+            return false;
+        }
+        
+        const match = Number(dSucId) === Number(sucursalId);
+        const status = match ? '✓' : '✗';
+        console.log(`${status} [${d.id}] "${d.nombre}" → sucursal=${dSucId} (${source})`);
+        
+        return match;
     });
+    
+    console.log(`\n📊 RESULTADO: ${this.departamentosFiltrados.length} departamentos encontrados`);
+    if (this.departamentosFiltrados.length === 0) {
+        console.warn(`⚠️ NO hay departamentos para la sucursal ${sucursalId}`);
+        console.log('Posibles causas:');
+        console.log('  1. Los departamentos no existen en la BD');
+        console.log('  2. Los departamentos existen pero tienen otra sucursal asignada');
+        console.log('  3. El serializer no está incluyendo el campo sucursal correctamente');
+    }
+  }
+
+  // MANEJO DE FOTO
+  onFotoSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.selectedFoto = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.fotoPreview = reader.result;
+        this.cd.markForCheck();
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  // FILTRAR DOCUMENTO: solo permitir números
+  onDocumentoInput(event: any) {
+    const input = event.target;
+    const value = input.value.replace(/[^0-9]/g, ''); // Remover todo lo que no sea número
+    this.empleadoForm.patchValue({ documento: value }, { emitEvent: false });
+    input.value = value;
   }
 
   // 6. GUARDAR DATOS
@@ -204,16 +286,35 @@ export class EmpleadoFormComponent implements OnInit {
 
     this.saving = true;
     this.cd.detectChanges();
-    const data = this.empleadoForm.value;
+    
+    // Preparar datos: si hay foto, usar FormData, sino objeto normal
+    let dataToSend: any = this.empleadoForm.value;
+    
+    if (this.selectedFoto) {
+      const formData = new FormData();
+      // Añadir todos los campos del formulario
+      Object.keys(this.empleadoForm.value).forEach(key => {
+        const value = this.empleadoForm.value[key];
+        if (value !== null && value !== undefined) {
+          formData.append(key, String(value));
+        }
+      });
+      // Añadir foto
+      formData.append('foto', this.selectedFoto);
+      dataToSend = formData;
+    }
     
     // Inyectar empresa si es nuevo
-    if (!this.isEditing) {
-      data.empresa = this.auth.getEmpresaId();
+    const empresaId: string = String(this.auth.getEmpresaId() ?? '');
+    if (!this.isEditing && !(dataToSend instanceof FormData)) {
+      dataToSend.empresa = empresaId;
+    } else if (!this.isEditing && dataToSend instanceof FormData) {
+      dataToSend.append('empresa', empresaId);
     }
 
     const request = this.isEditing && this.empleadoId
-      ? this.api.updateEmpleado(this.empleadoId, data)
-      : this.api.createEmpleado(data);
+      ? this.api.updateEmpleado(this.empleadoId, dataToSend)
+      : this.api.createEmpleado(dataToSend);
 
     request.subscribe({
       next: () => {

@@ -6,6 +6,7 @@ from django.db.models.signals import post_save
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
+from django.contrib.auth import update_session_auth_hash
 from django.db import transaction
 from django.db.models import Q, F, Sum, Count
 from django.utils import timezone
@@ -17,8 +18,10 @@ from .utils import notificar_solicitud
 from .models import Empleado, Contrato, DocumentoEmpleado, SolicitudAusencia, TipoAusencia, Tarea   
 from .serializers import (
     CargaMasivaEmpleadoSerializer, EmpleadoSerializer, ContratoSerializer, 
-    DocumentoSerializer, SolicitudSerializer, TipoAusenciaSerializer, TareaSerializer
+    DocumentoSerializer, SolicitudSerializer, TipoAusenciaSerializer, TareaSerializer,
+    PasswordChangeSerializer
 )
+from core.views import get_empresa_usuario
 
 # =========================================================================
 # 1. VIEWSET DE EMPLEADOS
@@ -310,6 +313,32 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
                 return Response(serializer.errors, status=400)
                 
         except Empleado.DoesNotExist:
+            # Si es Super User pero no tiene perfil de Empleado, crear uno genérico
+            if request.user.is_superuser:
+                if request.method == 'GET':
+                    # Retornar datos básicos del usuario sin Empleado
+                    user_data = {
+                        'id': request.user.id,
+                        'usuario': {'id': request.user.id, 'username': request.user.username, 'email': request.user.email},
+                        'nombres': request.user.first_name or request.user.username,
+                        'apellidos': request.user.last_name or 'Super Admin',
+                        'email': request.user.email,
+                        'telefono': '',
+                        'direccion': '',
+                        'documento': '',
+                        'empresa': None,
+                        'rol': 'SUPERADMIN',
+                        'puesto': None,
+                        'departamento': None,
+                        'sucursal': None,
+                        'turno': None,
+                        'foto': None,
+                        'fecha_ingreso': request.user.date_joined.date(),
+                        'sueldo': None,
+                        'estado': 'ACTIVO'
+                    }
+                    return Response(user_data)
+            
             return Response({'error': 'Perfil no encontrado'}, status=404)
 
     # 👇 2. ACCIÓN: CAMBIAR CONTRASEÑA
@@ -318,13 +347,14 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         serializer = PasswordChangeSerializer(data=request.data)
         if serializer.is_valid():
             user = request.user
+            validated_data = serializer.validated_data
             
             # Verificar contraseña anterior
-            if not user.check_password(serializer.data['old_password']):
+            if not user.check_password(validated_data['old_password']):
                 return Response({'old_password': ['La contraseña actual es incorrecta.']}, status=400)
             
             # Guardar nueva contraseña
-            user.set_password(serializer.data['new_password'])
+            user.set_password(validated_data['new_password'])
             user.save()
             
             # Mantener sesión activa
@@ -344,14 +374,16 @@ class ContratoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = Contrato.objects.all()
-        if user.is_superuser: return queryset
         
         try:
             perfil = Empleado.objects.get(usuario=user)
-            if perfil.rol in ['ADMIN', 'RRHH']:
+            # SuperUser, ADMIN y RRHH ven contratos de su empresa
+            if user.is_superuser or perfil.rol in ['ADMIN', 'RRHH']:
                 return queryset.filter(empresa=perfil.empresa)
+            # Empleados normales ven solo sus contratos
             return queryset.filter(empleado=perfil)
-        except: return Contrato.objects.none()
+        except: 
+            return Contrato.objects.none()
 
 
 # =========================================================================
@@ -365,17 +397,15 @@ class SolicitudViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser:
-            return SolicitudAusencia.objects.all().order_by('-fecha_inicio')
-
+        
         try:
             perfil = Empleado.objects.get(usuario=user)
             
-            # 1. ADMIN / RRHH / CLIENTE (RRHH GLOBAL)
-            if perfil.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
+            # SuperUser y ADMIN/RRHH deben ver SOLO SU empresa
+            if user.is_superuser or perfil.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
                 return SolicitudAusencia.objects.filter(empresa=perfil.empresa).order_by('-fecha_inicio')
 
-            # 2. GERENTE (LÍDER)
+            # GERENTE (LÍDER)
             if perfil.rol == 'GERENTE':
                 sucursales = perfil.sucursales_a_cargo.all()
                 
@@ -390,7 +420,7 @@ class SolicitudViewSet(viewsets.ModelViewSet):
 
                 return SolicitudAusencia.objects.filter(query, empresa=perfil.empresa).distinct().order_by('-fecha_inicio')
 
-            # 3. EMPLEADO NORMAL
+            # EMPLEADO NORMAL
             return SolicitudAusencia.objects.filter(empleado=perfil).order_by('-fecha_inicio')
 
         except Empleado.DoesNotExist:
@@ -508,7 +538,23 @@ class SolicitudViewSet(viewsets.ModelViewSet):
 
             solicitud.estado = nuevo_estado
             solicitud.motivo_rechazo = comentario if nuevo_estado == 'RECHAZADA' else ''
-            solicitud.aprobado_por = Empleado.objects.get(usuario=request.user) # Asegúrate que esto no falle
+            
+            # Obtener el empleado que gestiona
+            if request.user.is_superuser:
+                # Para superuser, buscar un empleado disponible o crear uno temporal
+                try:
+                    empleado_gestor = Empleado.objects.filter(empresa__isnull=False).first()
+                    if not empleado_gestor:
+                        return Response({'error': 'No hay empleados en el sistema.'}, status=400)
+                except:
+                    return Response({'error': 'Error al obtener gestor.'}, status=500)
+            else:
+                try:
+                    empleado_gestor = Empleado.objects.get(usuario=request.user)
+                except Empleado.DoesNotExist:
+                    return Response({'error': 'No tienes perfil de empleado.'}, status=403)
+            
+            solicitud.aprobado_por = empleado_gestor
             solicitud.fecha_resolucion = timezone.now().date()
             solicitud.save()
 
@@ -526,14 +572,16 @@ class DocumentoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = DocumentoEmpleado.objects.all()
-        if user.is_superuser: return queryset
         
         try:
             perfil = Empleado.objects.get(usuario=user)
-            if perfil.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
+            # SuperUser, ADMIN, RRHH y CLIENTE ven documentos de su empresa
+            if user.is_superuser or perfil.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
                 return queryset.filter(empresa=perfil.empresa)
+            # Empleados normales ven solo sus documentos
             return queryset.filter(empleado=perfil)
-        except: return DocumentoEmpleado.objects.none()
+        except: 
+            return DocumentoEmpleado.objects.none()
 
 
 # =========================================================================
@@ -545,24 +593,61 @@ class TipoAusenciaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        """Filtra tipos de ausencia por empresa del usuario autenticado"""
         user = self.request.user
-        if user.is_superuser:
-            return TipoAusencia.objects.all()
         
         try:
+            # Si es superuser, obtener empresa del contexto
+            if user.is_superuser:
+                empresa = get_empresa_usuario(user)
+                if not empresa:
+                    return TipoAusencia.objects.none()
+                return TipoAusencia.objects.filter(empresa=empresa).order_by('nombre')
+            
+            # Si es usuario normal, obtener su empleado
             empleado = Empleado.objects.get(usuario=user)
-            return TipoAusencia.objects.filter(empresa=empleado.empresa)
+            return TipoAusencia.objects.filter(empresa=empleado.empresa).order_by('nombre')
         except Empleado.DoesNotExist:
             return TipoAusencia.objects.none()
 
     def perform_create(self, serializer):
+        """Valida permisos y asigna la empresa automáticamente"""
         try:
+            # Si es superuser, obtener empresa del contexto
+            if self.request.user.is_superuser:
+                empresa = get_empresa_usuario(self.request.user)
+                if not empresa:
+                    raise ValueError("Superuser sin empresa asignada.")
+                serializer.save(empresa=empresa)
+                return
+            
+            # Si es usuario normal, verificar rol
             empleado = Empleado.objects.get(usuario=self.request.user)
-            if empleado.rol not in ['ADMIN', 'RRHH', 'CLIENTE']:
-                raise PermissionError("Solo los administradores pueden configurar tipos de ausencia.")
+            
+            # FIX: Roles correctos que pueden crear tipos de ausencia
+            # ADMIN (cliente), RRHH (recursos humanos), GERENTE (jefe), SUPERADMIN
+            if empleado.rol not in ['ADMIN', 'RRHH', 'GERENTE', 'SUPERADMIN']:
+                raise PermissionError(f"El rol '{empleado.rol}' no puede configurar tipos de ausencia. Solo ADMIN, RRHH o GERENTE pueden.")
+            
+            # FIX: Asignar la empresa del usuario autenticado
             serializer.save(empresa=empleado.empresa)
         except Empleado.DoesNotExist:
-            raise ValueError("Usuario sin perfil de empleado.")
+            raise ValueError("El usuario autenticado no tiene perfil de empleado asociado.")
+    
+    def perform_destroy(self, instance):
+        """Valida antes de eliminar un tipo de ausencia"""
+        # No permitir eliminar "Vacaciones" porque es crítico
+        if instance.nombre.lower().strip() == 'vacaciones':
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("No se puede eliminar el tipo 'Vacaciones'. Es crítico para el sistema.")
+        
+        # Validar que no haya solicitudes usando este tipo
+        solicitudes_count = SolicitudAusencia.objects.filter(tipo_ausencia=instance).count()
+        if solicitudes_count > 0:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(f"No se puede eliminar. Hay {solicitudes_count} solicitud(es) usando este tipo.")
+        
+        instance.delete()
 class TareaViewSet(viewsets.ModelViewSet):
     serializer_class = TareaSerializer
     permission_classes = [IsAuthenticated]
@@ -593,49 +678,178 @@ class TareaViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-prioridad', 'fecha_limite')
 
     def perform_create(self, serializer):
-        """Asigna automáticamente la empresa y el creador"""
-        empleado = Empleado.objects.get(usuario=self.request.user)
-        serializer.save(
-            empresa=empleado.empresa,
-            creado_por=self.request.user
-        )
+        """Asigna automáticamente la empresa y el creador, y valida permisos"""
+        try:
+            # Si es superuser, obtener empresa del contexto
+            if self.request.user.is_superuser:
+                empresa = get_empresa_usuario(self.request.user)
+                if not empresa:
+                    raise ValueError("Superuser sin empresa asignada.")
+                serializer.save(
+                    empresa=empresa,
+                    creado_por=self.request.user
+                )
+                return
+            
+            # Si es usuario normal, validar rol
+            empleado = Empleado.objects.get(usuario=self.request.user)
+            
+            # Validar que solo ADMIN, RRHH, GERENTE pueden crear tareas
+            if empleado.rol not in ['ADMIN', 'RRHH', 'GERENTE', 'SUPERADMIN']:
+                raise PermissionError(f"El rol '{empleado.rol}' no puede crear tareas. Solo ADMIN, RRHH o GERENTE pueden.")
+            
+            serializer.save(
+                empresa=empleado.empresa,
+                creado_por=self.request.user
+            )
+        except Empleado.DoesNotExist:
+            raise ValidationError("El usuario no tiene un perfil de empleado asociado.")
 
     def perform_update(self, serializer):
-        """Si la tarea se marca como COMPLETADA, guardamos la fecha"""
-        instance = serializer.save()
-        if instance.estado == 'COMPLETADA' and not instance.completado_at:
-            instance.completado_at = timezone.now()
-            instance.save()
-        elif instance.estado != 'COMPLETADA':
-            instance.completado_at = None
-            instance.save()
+        """Valida permisos antes de cambiar estado y registra auditoría"""
+        try:
+            empleado = Empleado.objects.get(usuario=self.request.user)
+            instance = serializer.save()
+            
+            # VALIDACIÓN: Empleado normal solo puede cambiar PENDIENTE→PROGRESO o PROGRESO→REVISIÓN
+            if empleado.rol == 'EMPLEADO':
+                # Un empleado no puede cambiar una tarea que no le fue asignada
+                if instance.asignado_a.id != empleado.id:
+                    raise PermissionError("No puedes cambiar una tarea que no te fue asignada.")
+                
+                # Un empleado no puede marcar como COMPLETADA (solo hasta REVISIÓN)
+                if instance.estado == 'COMPLETADA':
+                    raise PermissionError("Solo un supervisor puede marcar tareas como completadas.")
+            
+            # Guardar fecha de completación
+            if instance.estado == 'COMPLETADA' and not instance.completado_at:
+                instance.completado_at = timezone.now()
+                instance.save()
+            elif instance.estado != 'COMPLETADA':
+                instance.completado_at = None
+                instance.save()
+                
+        except Empleado.DoesNotExist:
+            raise ValidationError("El usuario no tiene un perfil de empleado asociado.")
+
+    @action(detail=True, methods=['post'])
+    def aprobar(self, request, pk=None):
+        """Aprueba una tarea (cambiar REVISIÓN → COMPLETADA)"""
+        try:
+            # Verificar permisos
+            if request.user.is_superuser:
+                # Superuser siempre puede aprobar
+                pass
+            else:
+                empleado = Empleado.objects.get(usuario=request.user)
+                # Solo GERENTE, RRHH, ADMIN pueden aprobar
+                if empleado.rol not in ['GERENTE', 'RRHH', 'ADMIN', 'SUPERADMIN']:
+                    return Response(
+                        {'error': 'Solo supervisores pueden aprobar tareas.'}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            
+            tarea = self.get_object()
+            
+            # Solo se pueden aprobar tareas en REVISIÓN
+            if tarea.estado != 'REVISION':
+                return Response(
+                    {'error': f'Solo se pueden aprobar tareas en REVISIÓN. Estado actual: {tarea.estado}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Cambiar estado y registrar quién aprobó
+            tarea.estado = 'COMPLETADA'
+            tarea.revisado_por = request.user
+            tarea.completado_at = timezone.now()
+            tarea.motivo_rechazo = None  # Limpiar si estaba rechazada antes
+            tarea.save()
+            
+            serializer = self.get_serializer(tarea)
+            return Response({
+                'status': 'Tarea aprobada correctamente',
+                'data': serializer.data
+            })
+        except Empleado.DoesNotExist:
+            return Response({'error': 'Usuario sin perfil de empleado'}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def rechazar(self, request, pk=None):
+        """Rechaza una tarea (cambiar REVISIÓN → PROGRESO con motivo)"""
+        try:
+            # Verificar permisos
+            if request.user.is_superuser:
+                # Superuser siempre puede rechazar
+                pass
+            else:
+                empleado = Empleado.objects.get(usuario=request.user)
+                # Solo GERENTE, RRHH, ADMIN pueden rechazar
+                if empleado.rol not in ['GERENTE', 'RRHH', 'ADMIN', 'SUPERADMIN']:
+                    return Response(
+                        {'error': 'Solo supervisores pueden rechazar tareas.'}, 
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+            
+            tarea = self.get_object()
+            
+            # Solo se pueden rechazar tareas en REVISIÓN
+            if tarea.estado != 'REVISION':
+                return Response(
+                    {'error': f'Solo se pueden rechazar tareas en REVISIÓN. Estado actual: {tarea.estado}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Cambiar estado y guardar motivo
+            motivo = request.data.get('motivo', 'Sin especificar')
+            tarea.estado = 'PROGRESO'
+            tarea.revisado_por = request.user
+            tarea.motivo_rechazo = motivo
+            tarea.completado_at = None
+            tarea.save()
+            
+            serializer = self.get_serializer(tarea)
+            return Response({
+                'status': 'Tarea rechazada. Empleado debe revisar.',
+                'data': serializer.data
+            })
+        except Empleado.DoesNotExist:
+            return Response({'error': 'Usuario sin perfil de empleado'}, status=status.HTTP_400_BAD_REQUEST)
     @action(detail=False, methods=['get'])
     def ranking(self, request):
         """
         Devuelve el Top de empleados basado en puntos de tareas completadas.
         Filtro opcional: ?periodo=mes (por defecto histórico)
         """
-        empleado_solicitante = Empleado.objects.get(usuario=request.user)
-        empresa = empleado_solicitante.empresa
+        try:
+            if request.user.is_superuser:
+                # Superuser obtiene empresa del contexto
+                empresa = get_empresa_usuario(request.user)
+                if not empresa:
+                    return Response({'error': 'Superuser sin empresa asignada.'}, status=400)
+            else:
+                empleado_solicitante = Empleado.objects.get(usuario=request.user)
+                empresa = empleado_solicitante.empresa
 
-        # Base: Tareas completadas de la empresa
-        queryset = Tarea.objects.filter(
-            empresa=empresa, 
-            estado='COMPLETADA'
-        )
+            # Base: Tareas completadas de la empresa
+            queryset = Tarea.objects.filter(
+                empresa=empresa, 
+                estado='COMPLETADA'
+            )
 
-        # Filtro de fecha (Opcional: Implementar lógica de 'este mes')
-        # ...
+            # Filtro de fecha (Opcional: Implementar lógica de 'este mes')
+            # ...
 
-        # AGREGACIÓN (La magia de SQL)
-        ranking = queryset.values(
-            'asignado_a__id',
-            'asignado_a__usuario__first_name',
-            'asignado_a__usuario__last_name',
-            'asignado_a__puesto__nombre'
-        ).annotate(
-            total_puntos=Sum('puntos_valor'),
-            total_tareas=Count('id')
-        ).order_by('-total_puntos') # Ordenar del más alto al más bajo
+            # AGREGACIÓN (La magia de SQL)
+            ranking = queryset.values(
+                'asignado_a__id',
+                'asignado_a__usuario__first_name',
+                'asignado_a__usuario__last_name',
+                'asignado_a__puesto__nombre'
+            ).annotate(
+                total_puntos=Sum('puntos_valor'),
+                total_tareas=Count('id')
+            ).order_by('-total_puntos') # Ordenar del más alto al más bajo
 
-        return Response(ranking)
+            return Response(ranking)
+        except Empleado.DoesNotExist:
+            return Response({'error': 'Usuario sin perfil de empleado'}, status=status.HTTP_400_BAD_REQUEST)

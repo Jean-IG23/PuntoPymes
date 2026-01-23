@@ -28,3 +28,4 @@ class ObjetivoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Objetivo
         fields = '__all__'
+        read_only_fields = ['empresa']  # Se asigna automáticamente en perform_create

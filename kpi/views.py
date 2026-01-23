@@ -1,10 +1,13 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from .models import KPI, EvaluacionDesempeno, Objetivo
 from .serializers import KPISerializer, EvaluacionSerializer, ObjetivoSerializer
 from personal.models import Empleado
 from .services import CalculadoraDesempeno
+from core.views import get_empresa_usuario
 class KPIViewSet(viewsets.ModelViewSet):
     queryset = KPI.objects.all()
     serializer_class = KPISerializer
@@ -25,18 +28,41 @@ class ObjetivoViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Objetivo.objects.all()
 
-        if user.is_superuser:
-            return queryset
-
         try:
-            empleado = Empleado.objects.get(email=user.email)
-            if user.is_staff: 
+            empleado = Empleado.objects.get(usuario=user)
+            # SuperUser, staff y todos ven objetivos de su empresa
+            if user.is_superuser or user.is_staff: 
                 return queryset.filter(empresa=empleado.empresa)
+            # Empleados normales ven solo sus objetivos
             return queryset.filter(empleado=empleado)
 
         except Empleado.DoesNotExist:
             return Objetivo.objects.none()
+
+    def perform_create(self, serializer):
+        """Valida permisos y asigna la empresa automáticamente"""
+        try:
+            # Si es superuser, obtener empresa del contexto
+            if self.request.user.is_superuser:
+                empresa = get_empresa_usuario(self.request.user)
+                if not empresa:
+                    raise ValueError("Superuser sin empresa asignada.")
+                serializer.save(empresa=empresa)
+                return
+            
+            # Si es usuario normal, validar rol
+            empleado = Empleado.objects.get(usuario=self.request.user)
+            
+            # Validar que solo ADMIN, RRHH, GERENTE pueden crear objetivos
+            if empleado.rol not in ['ADMIN', 'RRHH', 'GERENTE', 'SUPERADMIN']:
+                raise PermissionError(f"El rol '{empleado.rol}' no puede crear objetivos. Solo ADMIN, RRHH o GERENTE pueden.")
+            
+            # Asignar la empresa del usuario autenticado
+            serializer.save(empresa=empleado.empresa)
+        except Empleado.DoesNotExist:
+            raise ValidationError("El usuario no tiene un perfil de empleado asociado.")
         
+
 class EvaluacionViewSet(viewsets.ModelViewSet):
     queryset = EvaluacionDesempeno.objects.all()
     serializer_class = EvaluacionSerializer

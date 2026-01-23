@@ -3,8 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { telefonoValido, getErrorMessage } from '../../services/custom-validators';
 import Swal from 'sweetalert2';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-perfil',
@@ -39,7 +41,7 @@ export class PerfilComponent implements OnInit {
   ) {
     // 1. Formulario de Datos Personales
     this.perfilForm = this.fb.group({
-      telefono: [''],
+      telefono: ['', [telefonoValido()]],
       direccion: ['']
     });
 
@@ -58,6 +60,13 @@ export class PerfilComponent implements OnInit {
     return pass === confirm ? null : { notSame: true };
   }
 
+  // Helper para mensajes de error
+  getErrorMessage(fieldName: string, controlName: string): string {
+    const control = this.perfilForm.get(controlName);
+    if (!control?.errors || !control?.touched) return '';
+    return getErrorMessage(fieldName, control.errors);
+  }
+
   ngOnInit() {
     this.cargarDatos();
   }
@@ -68,13 +77,13 @@ export class PerfilComponent implements OnInit {
     // Cargar perfil + objetivos + solicitudes en paralelo
     forkJoin({
       perfil: this.api.getMiPerfil(),
-      solicitudes: this.api.getSolicitudes(),
-      kpis: this.api.getKPIs()
+      solicitudes: this.api.getSolicitudes().pipe(catchError(() => of([]))),
+      kpis: this.api.getKPIs().pipe(catchError(() => of([])))
     }).subscribe({
       next: (res: any) => {
         this.empleado = res.perfil;
-        this.solicitudes = res.solicitudes || [];
-        this.kpis = res.kpis || [];
+        this.solicitudes = Array.isArray(res.solicitudes) ? res.solicitudes : res.solicitudes?.results || [];
+        this.kpis = Array.isArray(res.kpis) ? res.kpis : res.kpis?.results || [];
         
         // Si el empleado tiene ID, cargar sus objetivos
         if (this.empleado?.id) {
@@ -95,13 +104,13 @@ export class PerfilComponent implements OnInit {
           this.cdr.detectChanges();
         }
 
-        // Llenar formulario con datos actuales
+        // Llenar formulario con datos actuales (valores por defecto si son null)
         this.perfilForm.patchValue({
-          telefono: res.perfil.telefono,
-          direccion: res.perfil.direccion
+          telefono: res.perfil.telefono || '',
+          direccion: res.perfil.direccion || ''
         });
         
-        // Precargar foto
+        // Precargar foto si existe
         if (res.perfil.foto) {
           this.imagePreview = res.perfil.foto.startsWith('http') 
             ? res.perfil.foto 
@@ -113,7 +122,8 @@ export class PerfilComponent implements OnInit {
       error: (e) => {
         console.error("Error cargando datos:", e);
         this.loading = false;
-        Swal.fire('Error', 'No se pudieron cargar los datos del perfil', 'error');
+        const mensajeError = e?.error?.error || 'No se pudieron cargar los datos del perfil';
+        Swal.fire('Error', mensajeError, 'error');
         this.cdr.detectChanges();
       }
     });

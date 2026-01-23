@@ -40,11 +40,14 @@ export class AsistenciaAdminComponent implements OnInit {
   cargarReporte() {
     this.loading = true;
     
-    // Aquí podrías agregar parámetros de fecha al getJornadas en el futuro
-    // Por ahora traemos todo y filtramos en memoria (Para MVP está bien)
-    this.api.getJornadas().subscribe({
+    const params = {
+      fecha_inicio: this.fechaInicio,
+      fecha_fin: this.fechaFin
+    };
+    
+    this.api.get('jornadas/', params).subscribe({
       next: (res: any) => {
-        const data = res.results || res;
+        const data = Array.isArray(res) ? res : res.results || res;
         this.procesarDatos(data);
         this.loading = false;
       },

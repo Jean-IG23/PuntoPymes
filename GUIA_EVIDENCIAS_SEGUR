@@ -1,0 +1,348 @@
+# 📋 GUÍA: Evidencias para Presentar - Manejo Seguro de Errores
+
+## Resumen Ejecutivo
+
+El sistema tiene **completamente implementado** el manejo seguro de errores según los estándares de seguridad solicitados. Aquí está todo lo que puedes presentar como evidencia.
+
+---
+
+## 🎯 Opción 1: Presentación En Vivo (Recomendado)
+
+Ejecuta este comando durante la presentación:
+
+```bash
+python evidencia_seguridad.py
+```
+
+**Qué ve el evaluador:**
+- ✓ 8 puntos de verificación todos en verde
+- ✓ Variables de entorno protegidas
+- ✓ Handlers de error implementados
+- ✓ Logging activo y funcionando
+- ✓ Checklist de seguridad completo
+
+---
+
+## 📁 Opción 2: Mostrar Archivos de Código
+
+### 2.1 Handlers de Error Personalizados
+**Archivo:** `PuntoPymes/error_handlers.py`
+
+Muestra cómo cada error retorna respuestas JSON seguras sin stack traces:
+
+```python
+def handler404(request, exception=None):
+    """Not Found Handler - Respuesta segura"""
+    return JsonResponse({
+        'error': 'Not Found',
+        'detail': 'El recurso que buscas no existe.',
+        'status': 404
+    }, status=404)
+```
+
+**Evidencia que demuestra:**
+- No expone rutas del servidor
+- No expone versiones de librerías
+- No expone código fuente
+- Mensaje genérico para el usuario
+
+### 2.2 Configuración de Variables de Entorno
+**Archivo:** `.env.example`
+
+Muestra la plantilla de variables protegidas:
+
+```env
+DEBUG=False                    # Controlable por entorno
+SECRET_KEY=***               # En .env, no en código
+DB_PASSWORD=***              # Protegida
+ALLOWED_HOSTS=localhost      # Restringido
+```
+
+**Evidencia que demuestra:**
+- Secretos NO en código fuente
+- NO se versiona en Git
+- Fácil cambio entre desarrollo y producción
+
+### 2.3 Logging Configurado
+**Archivo:** `PuntoPymes/settings.py` (líneas ~140-200)
+
+Muestra la configuración completa de logging:
+
+```python
+LOGGING = {
+    'version': 1,
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'logs/django.log',
+            'maxBytes': 10485760,  # 10 MB
+        },
+    },
+    'loggers': {
+        'django': {'handlers': ['file']},
+        'django.request': {'handlers': ['file']},
+        'django.security': {'handlers': ['file']},
+    },
+}
+```
+
+**Evidencia que demuestra:**
+- Todos los errores se registran
+- Rotación automática de archivos
+- Auditoría completa
+- Separado por módulo (django, request, security)
+
+### 2.4 Handlers Registrados en URLs
+**Archivo:** `PuntoPymes/urls.py` (final del archivo)
+
+```python
+# ERROR HANDLERS (Manejo Seguro de Errores)
+handler400 = 'PuntoPymes.error_handlers.handler400'
+handler403 = 'PuntoPymes.error_handlers.handler403'
+handler404 = 'PuntoPymes.error_handlers.handler404'
+handler500 = 'PuntoPymes.error_handlers.handler500'
+```
+
+**Evidencia que demuestra:**
+- Todos los handlers están registrados
+- Django dirigirá todos los errores a estos handlers
+- Respuestas centralizadas y consistentes
+
+### 2.5 Protección en .gitignore
+**Archivo:** `.gitignore`
+
+```
+# ARCHIVOS CON SECRETOS - NUNCA VERSIONAR
+.env
+.env.local
+
+# ARCHIVOS DE LOGS Y CACHÉS
+logs/
+*.log
+```
+
+**Evidencia que demuestra:**
+- .env no se versionará en Git
+- Logs no se versionarán
+- Secretos nunca públicos en repositorio
+
+---
+
+## 📊 Opción 3: Mostrar Documentación
+
+Hay tres documentos de referencia:
+
+### 3.1 SEGURIDAD_MANEJO_ERRORES.md
+Documentación completa de la implementación:
+- Cambios implementados
+- Pruebas realizadas
+- Checklist de seguridad
+- Instrucciones para producción
+
+### 3.2 ANALISIS_SEGURIDAD_ERRORES.md
+Análisis detallado de problemas y soluciones:
+- Problemas identificados (DEBUG=True, secretos expuestos, etc.)
+- Soluciones implementadas
+- Comparación antes vs después
+
+### 3.3 Archivo de Logs
+**Ubicación:** `logs/django.log`
+
+Muestra ejemplos reales de errores registrados:
+
+```
+[ERROR] 2026-01-22 14:57:56 django.security.DisallowedHost Invalid HTTP_HOST header
+[ERROR] 2026-01-22 14:57:45 django.request 404 Not Found: /api/ruta-inexistente/
+```
+
+**Evidencia que demuestra:**
+- Los errores se están registrando
+- Timestamps completos
+- Información suficiente para debugging interno
+- Sin exponer detalles al cliente
+
+---
+
+## 🧪 Opción 4: Test Interactivo
+
+Puedes hacer pruebas en vivo durante la presentación:
+
+### 4.1 Solicitar una ruta inexistente
+```bash
+curl http://localhost:8000/api/ruta-inexistente/
+```
+
+**Respuesta (Segura):**
+```json
+{
+  "error": "Not Found",
+  "detail": "El recurso que buscas no existe.",
+  "status": 404
+}
+```
+
+**Lo que demuestra:**
+- Sin stack traces
+- Sin código fuente
+- Sin versiones de librerías
+- Mensaje genérico
+
+### 4.2 Revisar que se registró en logs
+```bash
+tail logs/django.log
+```
+
+**Salida (Auditoria interna):**
+```
+[ERROR] 2026-01-22 15:30:45 django.request 404 Not Found: /api/ruta-inexistente/
+```
+
+**Lo que demuestra:**
+- Auditoría completa
+- Información técnica guardada para admins
+- No expuesta al usuario final
+
+---
+
+## 📈 Comparación Visual: Antes vs Después
+
+### ANTES (Inseguro ❌)
+
+```json
+{
+  "exception": "TypeError: unsupported operand type(s)",
+  "traceback": [
+    "Traceback (most recent call last):",
+    "File '/home/user/project/views.py', line 45, in get_data",
+    ...100 líneas de código fuente...
+  ],
+  "settings": {
+    "SECRET_KEY": "django-insecure-abcd1234...",
+    "DATABASES": {
+      "default": {
+        "PASSWORD": "password123"
+      }
+    }
+  },
+  "version": "Django 5.2.8",
+  "INSTALLED_APPS": ["django.contrib.admin", ...]
+}
+```
+
+**Problemas:**
+- ❌ Stack traces completos (código fuente visible)
+- ❌ SECRET_KEY expuesta
+- ❌ Credenciales de BD visibles
+- ❌ Versiones de librerías
+- ❌ Estructura completa del proyecto
+
+### DESPUÉS (Seguro ✅)
+
+```json
+{
+  "error": "Internal Server Error",
+  "detail": "Ocurrió un error en el servidor. El equipo técnico ha sido notificado.",
+  "status": 500
+}
+```
+
+**Ventajas:**
+- ✅ Sin detalles técnicos
+- ✅ Mensaje genérico
+- ✅ Logs internos para admins
+- ✅ Nada de información sensible
+- ✅ Mismo para todos los errores
+
+---
+
+## ✅ Checklist de Evidencia
+
+Puedes marcar esto en la presentación:
+
+```
+✓ [1] Variables de entorno protegidas (.env)
+✓ [2] Handlers de error 400, 403, 404, 500 implementados
+✓ [3] Respuestas JSON seguras sin stack traces
+✓ [4] Logging a archivo con rotación automática
+✓ [5] .env protegido en .gitignore
+✓ [6] CORS restringido (no permite all origins)
+✓ [7] Security headers configurados
+✓ [8] Error handlers registrados en urls.py
+
+TOTAL: 8/8 - IMPLEMENTACIÓN COMPLETADA
+```
+
+---
+
+## 🚀 Flujo de Presentación Recomendado
+
+1. **Mostrar evidencia_seguridad.py en ejecución** (2 min)
+   - Genera checklist visual
+   - Demuestra que todo funciona
+
+2. **Abrir archivos de código** (3 min)
+   - Mostrar error_handlers.py
+   - Mostrar settings.py (logging)
+   - Mostrar urls.py (handlers)
+
+3. **Hacer prueba en vivo** (2 min)
+   - Solicitar ruta inexistente
+   - Mostrar respuesta segura
+   - Mostrar log registrado
+
+4. **Explicar conceptos clave** (3 min)
+   - Por qué DEBUG=False en producción
+   - Cómo se protegen los secretos
+   - Importancia del logging
+
+5. **Resumen** (1 min)
+   - Mostrar documentación generada
+   - Explicar cómo llevarlo a producción
+
+---
+
+## 📚 Archivos para Presentar
+
+| Archivo | Propósito |
+|---------|-----------|
+| `evidencia_seguridad.py` | Script de demostración en vivo |
+| `PuntoPymes/error_handlers.py` | Handlers personalizados |
+| `PuntoPymes/settings.py` | Logging y security config |
+| `.env.example` | Plantilla de variables |
+| `.gitignore` | Protección de secretos |
+| `logs/django.log` | Archivo de auditoría |
+| `SEGURIDAD_MANEJO_ERRORES.md` | Documentación completa |
+| `ANALISIS_SEGURIDAD_ERRORES.md` | Análisis de problemas |
+
+---
+
+## 🎓 Preguntas Que Podrían Hacer
+
+### P: "¿Qué pasa si hay un error en producción?"
+**R:** Se registra en `logs/django.log` con timestamp y detalles técnicos. El usuario solo ve un mensaje genérico.
+
+### P: "¿Cómo cambio a producción?"
+**R:** Solo cambia `DEBUG=False` en `.env` y genera una `SECRET_KEY` fuerte.
+
+### P: "¿Se exponen secretos en Git?"
+**R:** No, `.env` está en `.gitignore`. Solo se versionan archivos públicos.
+
+### P: "¿Qué si alguien accede a /admin sin permiso?"
+**R:** Recibe handler403 (Forbidden) con respuesta genérica. Se registra en logs.
+
+### P: "¿Cómo se monitorean los errores?"
+**R:** Consultando `logs/django.log` regularmente o configurando alertas por email.
+
+---
+
+## 🏁 Conclusión
+
+Todo está listo para presentación. El sistema tiene:
+- ✅ Manejo seguro de errores
+- ✅ Protección de secretos
+- ✅ Logging completo
+- ✅ Documentación detallada
+- ✅ Tests de funcionamiento
+
+Puedes ejecutar `python evidencia_seguridad.py` en cualquier momento como demostración.

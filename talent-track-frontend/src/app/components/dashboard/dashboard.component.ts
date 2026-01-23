@@ -160,28 +160,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.loadingCharts = true;
     this.api.getDashboardCharts().subscribe({
       next: (res: any) => {
-        // Asignar datos Pie
-        this.pieChartData.labels = res.asistencia.labels;
-        this.pieChartData.datasets[0].data = res.asistencia.data;
+        console.log('Datos gráficos recibidos:', res);
+        
+        // Validar que los datos existan
+        if (res?.asistencia && res?.productividad) {
+          this.pieChartData.labels = res.asistencia.labels;
+          this.pieChartData.datasets[0].data = res.asistencia.data;
 
-        // Asignar datos Barras
-        this.barChartData.labels = res.productividad.labels;
-        this.barChartData.datasets[0].data = res.productividad.data;
-
+          this.barChartData.labels = res.productividad.labels;
+          this.barChartData.datasets[0].data = res.productividad.data;
+        } else {
+          console.warn('Datos incompletos en respuesta:', res);
+        }
+        
         this.loadingCharts = false;
       },
-      error: () => this.loadingCharts = false
+      error: (err) => {
+        console.error('Error cargando gráficos:', err);
+        this.loadingCharts = false;
+      }
     });
   }
 
 
   cargarListas() {
-    this.api.getTiposAusencia().subscribe((res: any) => this.tiposAusencia = Array.isArray(res) ? res : res.results);
-    // Cargar últimas solicitudes del empleado (si aplica)
-    if (this.userRole === 'EMPLEADO' || this.userRole === 'GERENTE') {
-        // Asumiendo que tienes este endpoint
-        // this.api.getMisSolicitudes().subscribe(...) 
-    }
+    // FIX: Manejar ambos formatos de respuesta
+    this.api.getTiposAusencia().subscribe({
+      next: (res: any) => {
+        if (Array.isArray(res)) {
+          this.tiposAusencia = res;
+        } else if (res?.results && Array.isArray(res.results)) {
+          this.tiposAusencia = res.results;
+        } else {
+          this.tiposAusencia = [];
+        }
+      },
+      error: (e) => {
+        console.error('Error cargando tipos de ausencia:', e);
+        this.tiposAusencia = [];
+      }
+    });
   }
 
   // ================================================================

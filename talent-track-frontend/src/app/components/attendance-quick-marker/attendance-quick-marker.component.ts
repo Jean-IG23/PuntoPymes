@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
@@ -13,6 +13,9 @@ import Swal from 'sweetalert2';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AttendanceQuickMarkerComponent implements OnInit, OnDestroy {
+
+  // Output para notificar al padre cuando se marca asistencia
+  @Output() asistenciaMarcada = new EventEmitter<any>();
 
   // Estado de la jornada
   jornadaAbierta: boolean = false;
@@ -123,6 +126,9 @@ export class AttendanceQuickMarkerComponent implements OnInit, OnDestroy {
             // Actualizar estado de jornada
             this.jornadaAbierta = res.tipo === 'ENTRADA';
             this.cdr.markForCheck();
+            
+            // Emitir evento para que el dashboard se actualice
+            this.asistenciaMarcada.emit({ tipo: res.tipo, hora: hora });
             
             Swal.fire({
                 title: res.tipo === 'ENTRADA' ? '¡Bienvenido!' : '¡Hasta pronto!',

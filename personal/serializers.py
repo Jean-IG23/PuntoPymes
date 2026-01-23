@@ -197,15 +197,50 @@ class SolicitudSerializer(serializers.ModelSerializer):
         read_only_fields = ['empleado', 'empresa', 'estado', 'fecha_solicitud', 'fecha_resolucion', 'aprobado_por']
 class TareaSerializer(serializers.ModelSerializer):
     # Campos de solo lectura para mostrar nombres bonitos en el frontend
-    asignado_nombre = serializers.CharField(source='asignado_a.usuario.first_name', read_only=True)
-    asignado_apellido = serializers.CharField(source='asignado_a.usuario.last_name', read_only=True)
-    asignado_puesto = serializers.CharField(source='asignado_a.puesto.nombre', read_only=True, default='')
-    creado_por_nombre = serializers.CharField(source='creado_por.username', read_only=True)
+    # Usar SerializerMethodField para mayor control sobre valores nulos
+    asignado_nombre = serializers.SerializerMethodField()
+    asignado_apellido = serializers.SerializerMethodField()
+    asignado_puesto = serializers.SerializerMethodField()
+    asignado_foto = serializers.SerializerMethodField()
+    creado_por_nombre = serializers.CharField(source='creado_por.username', read_only=True, default='Sistema')
+    revisado_por_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model = Tarea
         fields = '__all__'
-        read_only_fields = ['empresa', 'creado_por', 'created_at', 'updated_at', 'completado_at']
+        read_only_fields = ['empresa', 'creado_por', 'created_at', 'updated_at', 'completado_at', 'revisado_por']
+
+    def get_asignado_nombre(self, obj):
+        try:
+            return obj.asignado_a.usuario.first_name or obj.asignado_a.nombres
+        except:
+            return 'Sin asignar'
+
+    def get_asignado_apellido(self, obj):
+        try:
+            return obj.asignado_a.usuario.last_name or obj.asignado_a.apellidos
+        except:
+            return ''
+
+    def get_asignado_puesto(self, obj):
+        try:
+            return obj.asignado_a.puesto.nombre if obj.asignado_a.puesto else 'Sin cargo'
+        except:
+            return 'Sin cargo'
+
+    def get_asignado_foto(self, obj):
+        try:
+            if obj.asignado_a and obj.asignado_a.foto:
+                return obj.asignado_a.foto.url
+            return None
+        except:
+            return None
+
+    def get_revisado_por_nombre(self, obj):
+        try:
+            return obj.revisado_por.get_full_name() or obj.revisado_por.username
+        except:
+            return None
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
@@ -214,4 +249,6 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError("Las nuevas contraseñas no coinciden.")
+        # Remover confirm_password ya que no se necesita para el cambio
+        data.pop('confirm_password', None)
         return data

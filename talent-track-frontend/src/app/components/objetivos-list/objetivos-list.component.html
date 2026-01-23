@@ -1,75 +1,175 @@
-<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-  
-  <div class="md:flex md:items-center md:justify-between mb-6">
-    <div class="flex-1 min-w-0">
-      <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-        Mis Objetivos
-      </h2>
-      <p class="mt-1 text-sm text-gray-500">Gestiona tus metas y reporta tu avance.</p>
-    </div>
-    <div class="mt-4 flex md:mt-0 md:ml-4">
-      <button routerLink="/objetivos/nuevo" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-        <i class="bi bi-plus-lg mr-2"></i> Nuevo Objetivo
-      </button>
-    </div>
-  </div>
-
-  <div *ngIf="loading" class="text-center py-10">
-    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
-  </div>
-
-  <div *ngIf="error" class="bg-red-100 text-red-700 p-4 rounded mb-4">
-    {{ error }}
-  </div>
-
-  <div *ngIf="!loading && objetivos.length === 0" class="text-center py-12 bg-white rounded-lg shadow border border-dashed border-gray-300">
-    <i class="bi bi-clipboard-check text-4xl text-gray-400 mb-3 block"></i>
-    <h3 class="mt-2 text-sm font-medium text-gray-900">No tienes objetivos asignados</h3>
-    <p class="mt-1 text-sm text-gray-500">Comienza creando uno nuevo para medir tu desempeño.</p>
-    <div class="mt-6">
-      <button routerLink="/objetivos/nuevo" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200">
-        Crear mi primer objetivo
-      </button>
-    </div>
-  </div>
-
-  <div *ngIf="!loading && objetivos.length > 0" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-10 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-7xl mx-auto">
     
-    <div *ngFor="let obj of objetivos" class="bg-white overflow-hidden shadow rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-      <div class="px-4 py-5 sm:p-6">
-        <div class="flex items-center justify-between mb-4">
-            <span [ngClass]="{
-                'bg-yellow-100 text-yellow-800': obj.estado === 'PENDIENTE',
-                'bg-green-100 text-green-800': obj.estado === 'COMPLETADO',
-                'bg-gray-100 text-gray-800': obj.estado === 'CANCELADO'
-            }" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-              {{ obj.estado }}
-            </span>
-            <span class="text-xs text-gray-500">Vence: {{ obj.fecha_limite | date:'shortDate' }}</span>
+    <!-- Header -->
+    <div class="mb-10">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 class="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">🎯 Mis Objetivos</h1>
+          <p class="text-gray-600 mt-2">Gestiona tus metas, prioridades y avance</p>
         </div>
-        
-        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-2 truncate" title="{{obj.titulo}}">
-            {{ obj.titulo }}
-        </h3>
-        
-        <p class="text-sm text-gray-500 h-10 overflow-hidden text-ellipsis mb-4">
-            {{ obj.descripcion || 'Sin descripción' }}
-        </p>
+        <button routerLink="/gestion/objetivos/nuevo" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-bold shadow-lg hover:shadow-xl transition flex items-center gap-2">
+          <i class="bi bi-plus-lg"></i> Nuevo Objetivo
+        </button>
+      </div>
 
-        <div class="mb-2 flex justify-between text-xs font-medium">
-            <span>Progreso</span>
-            <span>{{ obj.avance_actual }} / {{ obj.meta_numerica }}</span>
-        </div>
-        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-            <div class="bg-indigo-600 h-2.5 rounded-full" [style.width.%]="getAvance(obj)"></div>
-        </div>
+      <!-- Filtros y búsqueda -->
+      <div class="bg-white rounded-xl shadow-md p-4 border border-blue-100">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- Búsqueda -->
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-2">🔍 Buscar</label>
+            <input [(ngModel)]="busqueda" (ngModelChange)="aplicarFiltros()" 
+                   type="text" placeholder="Título o descripción..."
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+          </div>
 
-        <div class="flex justify-end space-x-2">
-            <button [routerLink]="['/objetivos/editar', obj.id]" class="text-indigo-600 hover:text-indigo-900 text-sm font-medium">
-                Editar
+          <!-- Filtro Estado -->
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-2">📊 Estado</label>
+            <select [(ngModel)]="filtroEstado" (ngModelChange)="aplicarFiltros()"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="">Todos</option>
+              <option value="PENDIENTE">⏳ Pendiente</option>
+              <option value="EN_PROGRESO">⚡ En Progreso</option>
+              <option value="COMPLETADO">✅ Completado</option>
+              <option value="CANCELADO">❌ Cancelado</option>
+            </select>
+          </div>
+
+          <!-- Filtro Orden -->
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-2">📋 Ordenar por</label>
+            <select [(ngModel)]="filtroOrden" (ngModelChange)="aplicarFiltros()"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="fecha_limite">📅 Fecha Límite</option>
+              <option value="prioridad">🎯 Prioridad</option>
+              <option value="progreso">📈 Progreso</option>
+            </select>
+          </div>
+
+          <!-- Botón Refrescar -->
+          <div class="flex items-end">
+            <button (click)="refrescar()" 
+                    class="w-full px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2">
+              <i class="bi bi-arrow-clockwise"></i> Refrescar
             </button>
+          </div>
         </div>
       </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="flex justify-center items-center py-20">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
+        <p class="text-gray-600 font-medium">Cargando objetivos...</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error && !loading" class="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg mb-6">
+      <div class="flex items-start gap-4">
+        <i class="bi bi-exclamation-circle-fill text-2xl text-red-600 flex-shrink-0"></i>
+        <div>
+          <p class="font-bold text-red-800">Error</p>
+          <p class="text-red-700 text-sm mt-1">{{ error }}</p>
+          <button (click)="cargarObjetivos()" class="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-bold">
+            Reintentar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && !error && objetivosFiltrados.length === 0" class="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-blue-200 shadow-lg">
+      <div class="text-6xl mb-4">📭</div>
+      <h3 class="text-2xl font-bold text-gray-800 mb-2">No hay objetivos</h3>
+      <p class="text-gray-600 mb-6">
+        <span *ngIf="!busqueda && !filtroEstado">Crea tu primer objetivo para comenzar a medir tu desempeño</span>
+        <span *ngIf="busqueda || filtroEstado">No se encontraron objetivos con los filtros aplicados</span>
+      </p>
+      <button *ngIf="!busqueda && !filtroEstado" routerLink="/gestion/objetivos/nuevo" 
+              class="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition inline-flex items-center gap-2">
+        <i class="bi bi-plus-lg"></i> Crear Primer Objetivo
+      </button>
+      <button *ngIf="busqueda || filtroEstado" (click)="busqueda = ''; filtroEstado = ''; aplicarFiltros()"
+              class="px-6 py-3 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-700 transition inline-flex items-center gap-2">
+        <i class="bi bi-arrow-counterclockwise"></i> Limpiar Filtros
+      </button>
+    </div>
+
+    <!-- Objetivos Grid -->
+    <div *ngIf="!loading && !error && objetivosFiltrados.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      
+      <div *ngFor="let obj of objetivosFiltrados" 
+           [class]="'bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all border-l-4 p-6 ' + (obj.estado === 'COMPLETADO' ? 'border-l-green-500 opacity-80' : obj.estado === 'EN_PROGRESO' ? 'border-l-yellow-500' : obj.estado === 'CANCELADO' ? 'border-l-red-500' : 'border-l-blue-500')">
+        
+        <!-- Header card -->
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex-1">
+            <h3 class="text-lg font-bold text-gray-900 mb-1 line-clamp-2" [title]="obj.titulo">{{ obj.titulo }}</h3>
+            <p class="text-xs text-gray-500">{{ obj.descripcion | slice:0:50 }}<span *ngIf="obj.descripcion?.length > 50">...</span></p>
+          </div>
+          <div class="flex-shrink-0 text-2xl">{{ getPrioridadIcon(obj.prioridad) }}</div>
+        </div>
+
+        <!-- Estado y Fecha -->
+        <div class="flex items-center justify-between mb-4 text-sm">
+          <span [class]="'px-3 py-1 rounded-full text-xs font-bold border ' + getEstadoColor(obj.estado)">
+            {{ obj.estado }}
+          </span>
+          <span class="text-gray-500 text-xs">
+            <i class="bi bi-calendar-event"></i> {{ obj.fecha_limite | date:'short' }}
+          </span>
+        </div>
+
+        <!-- Progreso -->
+        <div class="mb-4">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-gray-700">Avance</span>
+            <span class="text-xs font-bold text-blue-600">{{ getAvance(obj) }}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-3">
+            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all"
+                 [style.width.%]="getAvance(obj)"></div>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">{{ obj.avance_actual }} / {{ obj.meta_numerica }} unidades</p>
+        </div>
+
+        <!-- Acciones -->
+        <div class="flex gap-2">
+          <button routerLink="/gestion/objetivos/editar/{{ obj.id }}"
+                  class="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition flex items-center justify-center gap-1">
+            <i class="bi bi-pencil"></i> Editar
+          </button>
+          <button (click)="eliminarObjetivo(obj.id)"
+                  class="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition flex items-center justify-center gap-1">
+            <i class="bi bi-trash"></i> Eliminar
+          </button>
+        </div>
+
+        <!-- Cambiar estado rápido -->
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <p class="text-xs font-bold text-gray-700 mb-2">Cambiar estado:</p>
+          <div class="flex gap-1 flex-wrap">
+            <button *ngIf="obj.estado !== 'EN_PROGRESO'" (click)="cambiarEstado(obj, 'EN_PROGRESO')"
+                    class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold rounded hover:bg-yellow-200 transition">
+              ⚡ Progreso
+            </button>
+            <button *ngIf="obj.estado !== 'COMPLETADO'" (click)="cambiarEstado(obj, 'COMPLETADO')"
+                    class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded hover:bg-green-200 transition">
+              ✅ Completado
+            </button>
+            <button *ngIf="obj.estado !== 'PENDIENTE'" (click)="cambiarEstado(obj, 'PENDIENTE')"
+                    class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded hover:bg-blue-200 transition">
+              ⏳ Pendiente
+            </button>
+          </div>
+        </div>
+
+      </div>
+
     </div>
 
   </div>

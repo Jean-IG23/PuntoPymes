@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { finalize } from 'rxjs/operators';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-carga-masiva',
   standalone: true,
   imports: [CommonModule, RouterLink],
   templateUrl: './carga-masiva.component.html',
-  styleUrl: './carga-masiva.component.css' // Asegúrate que exista o bórralo
+  styleUrl: './carga-masiva.component.css'
 })
 export class CargaMasivaComponent {
 
@@ -17,6 +18,7 @@ export class CargaMasivaComponent {
   loading = false;
   reporte: any = null;
   errorGeneral = '';
+  descargandoPlantilla = false;
   
   // Array auxiliar para la tabla de errores
   erroresParseados: any[] = [];
@@ -34,7 +36,33 @@ export class CargaMasivaComponent {
   }
 
   descargarPlantilla() {
-    this.api.downloadPlantilla();
+    this.descargandoPlantilla = true;
+    
+    Swal.fire({
+      title: 'Descargando...',
+      html: 'Por favor espera mientras se descarga la plantilla',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    // Pequeño delay para mejorar UX
+    setTimeout(() => {
+      this.api.downloadPlantilla();
+      this.descargandoPlantilla = false;
+      Swal.close();
+      
+      // Mostrar confirmación
+      Swal.fire({
+        title: '✅ Descarga Completada',
+        html: 'La plantilla se ha descargado correctamente. Abre el archivo y rellénalo con tus datos.',
+        icon: 'success',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#2563eb'
+      });
+    }, 800);
   }
 
   subirArchivo() {

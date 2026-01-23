@@ -1,77 +1,231 @@
-<div class="max-w-3xl mx-auto py-10 px-4">
-  
-  <div class="mb-8 flex items-center justify-between">
-    <div>
-        <h1 class="text-3xl font-bold text-gray-900 tracking-tight">{{ titulo }}</h1>
-        <p class="text-gray-500 mt-1">Define metas claras y medibles para tu equipo.</p>
-    </div>
-    <button routerLink="/objetivos" class="text-sm text-gray-500 hover:text-gray-900 font-medium">
-        Cancelar
-    </button>
-  </div>
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-10 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-3xl mx-auto">
 
-  <form [formGroup]="form" (ngSubmit)="guardar()" class="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
-    
-    <div class="p-8 space-y-6">
-
+    <!-- Header -->
+    <div class="mb-8">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-            <label class="block text-sm font-bold text-gray-900 mb-2">Asignar a Colaborador</label>
-            <div class="relative">
-                <select formControlName="empleado" 
-                        class="block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg bg-gray-50">
-                    <option value="">-- Selecciona un miembro del equipo --</option>
-                    <option *ngFor="let e of empleados" [value]="e.id">
-                        {{ e.nombres }} {{ e.apellidos }} ({{ e.puesto?.nombre || 'Sin Cargo' }})
-                    </option>
-                </select>
-            </div>
-            <p *ngIf="form.get('empleado')?.invalid && form.get('empleado')?.touched" class="mt-2 text-sm text-red-600">
-                Debes seleccionar un colaborador.
-            </p>
+          <h1 class="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+            {{ titulo }}
+          </h1>
+          <p class="text-gray-600 mt-2">
+            <span *ngIf="!esEdicion">Crea un nuevo objetivo medible para tu equipo</span>
+            <span *ngIf="esEdicion">Actualiza los detalles de este objetivo</span>
+          </p>
         </div>
-
-        <div>
-            <label class="block text-sm font-bold text-gray-900 mb-2">Título de la Meta</label>
-            <input formControlName="titulo" type="text" placeholder="Ej: Aumentar ventas un 10%" 
-                   class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-lg p-3">
-        </div>
-
-        <div>
-            <label class="block text-sm font-bold text-gray-900 mb-2">Descripción Detallada (KPI)</label>
-            <textarea formControlName="descripcion" rows="4" placeholder="Describe cómo se medirá el éxito de este objetivo..." 
-                      class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-lg p-3"></textarea>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label class="block text-sm font-bold text-gray-900 mb-2">Fecha Límite (Deadline)</label>
-                <input formControlName="fecha_limite" type="date" 
-                       class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-lg p-3">
-            </div>
-
-            <div>
-                <label class="block text-sm font-bold text-gray-900 mb-2">Prioridad</label>
-                <div class="flex gap-4">
-                    <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 w-full">
-                        <input type="radio" formControlName="prioridad" value="ALTA" class="text-red-600 focus:ring-red-500">
-                        <span class="ml-2 text-sm font-medium text-red-700">Alta 🔥</span>
-                    </label>
-                    <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 w-full">
-                        <input type="radio" formControlName="prioridad" value="MEDIA" class="text-yellow-600 focus:ring-yellow-500">
-                        <span class="ml-2 text-sm font-medium text-yellow-700">Media ⚡</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <div class="px-8 py-5 bg-gray-50 border-t border-gray-200 flex items-center justify-end">
-        <button type="submit" [disabled]="form.invalid" 
-                class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-            <i class="bi bi-send-fill mr-2"></i> Asignar Objetivo
+        <button (click)="cancelar()" 
+                class="px-4 py-2 text-gray-700 bg-white hover:bg-gray-100 rounded-lg font-bold transition border border-gray-200">
+          ✕ Cancelar
         </button>
+      </div>
     </div>
 
-  </form>
+    <!-- Error Message -->
+    <div *ngIf="error" class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+      <div class="flex items-start gap-3">
+        <i class="bi bi-exclamation-circle-fill text-2xl text-red-600"></i>
+        <div>
+          <p class="font-bold text-red-800">Error</p>
+          <p class="text-red-700 text-sm">{{ error }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="flex justify-center items-center py-12">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto mb-3"></div>
+        <p class="text-gray-600 font-medium">Cargando objetivo...</p>
+      </div>
+    </div>
+
+    <!-- Form Container -->
+    <form [formGroup]="form" (ngSubmit)="guardar()" *ngIf="!loading" 
+          class="bg-white rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
+
+      <!-- Form Content -->
+      <div class="p-8 space-y-6">
+
+        <!-- Empleado -->
+        <div>
+          <label class="block text-sm font-bold text-gray-900 mb-3">
+            👤 Asignar a Colaborador
+          </label>
+          <div class="relative">
+            <select formControlName="empleado" 
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition text-sm">
+              <option value="">-- Selecciona un miembro del equipo --</option>
+              <option *ngFor="let e of empleados" [value]="e.id">
+                {{ e.nombres }} {{ e.apellidos }} ({{ e.puesto?.nombre || 'Sin Cargo' }})
+              </option>
+            </select>
+          </div>
+          
+          <!-- VISTA PREVIA DEL COLABORADOR SELECCIONADO -->
+          <div *ngIf="empleadoSeleccionado && form.get('empleado')?.value" class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 font-bold overflow-hidden flex-shrink-0" [ngClass]="{'hidden': !empleadoSeleccionado.foto}">
+              <img *ngIf="empleadoSeleccionado.foto" 
+                   [src]="empleadoSeleccionado.foto.startsWith('http') ? empleadoSeleccionado.foto : 'http://localhost:8000' + empleadoSeleccionado.foto"
+                   class="w-full h-full object-cover"
+                   (error)="onFotoError($event)">
+              <span *ngIf="!empleadoSeleccionado.foto" class="text-sm font-bold">
+                {{ empleadoSeleccionado.nombres?.charAt(0) }}
+              </span>
+            </div>
+            <div>
+              <p class="font-bold text-blue-900">{{ empleadoSeleccionado.nombres }} {{ empleadoSeleccionado.apellidos }}</p>
+              <p class="text-sm text-blue-600">{{ empleadoSeleccionado.puesto?.nombre || 'Sin Cargo' }}</p>
+              <p class="text-xs text-blue-500">{{ empleadoSeleccionado.departamento?.nombre || 'Sin Departamento' }}</p>
+            </div>
+          </div>
+          
+          <p *ngIf="form.get('empleado')?.invalid && form.get('empleado')?.touched" 
+             class="mt-2 text-sm text-red-600 flex items-center gap-1">
+            <i class="bi bi-exclamation-circle"></i> Debes seleccionar un colaborador
+          </p>
+        </div>
+
+        <!-- Título -->
+        <div>
+          <label class="block text-sm font-bold text-gray-900 mb-3">
+            📌 Título del Objetivo
+          </label>
+          <input formControlName="titulo" type="text" 
+                 placeholder="Ej: Incrementar satisfacción de clientes al 95%"
+                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition text-sm">
+          <p *ngIf="form.get('titulo')?.invalid && form.get('titulo')?.touched" 
+             class="mt-2 text-sm text-red-600">
+            <i class="bi bi-exclamation-circle"></i> El título debe tener mínimo 5 caracteres
+          </p>
+        </div>
+
+        <!-- Descripción -->
+        <div>
+          <label class="block text-sm font-bold text-gray-900 mb-3">
+            📝 Descripción Detallada (KPI)
+          </label>
+          <textarea formControlName="descripcion" rows="4"
+                    placeholder="Describe cómo se medirá el éxito de este objetivo, qué acciones se necesitan, etc..."
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition text-sm resize-none"></textarea>
+          <p *ngIf="form.get('descripcion')?.invalid && form.get('descripcion')?.touched" 
+             class="mt-2 text-sm text-red-600">
+            <i class="bi bi-exclamation-circle"></i> La descripción es requerida
+          </p>
+        </div>
+
+        <!-- Fecha Límite -->
+        <div>
+          <label class="block text-sm font-bold text-gray-900 mb-3">
+            📅 Fecha Límite
+          </label>
+          <input formControlName="fecha_limite" type="date"
+                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition text-sm">
+          <p *ngIf="form.get('fecha_limite')?.invalid && form.get('fecha_limite')?.touched" 
+             class="mt-2 text-sm text-red-600">
+            <i class="bi bi-exclamation-circle"></i> La fecha es requerida
+          </p>
+        </div>
+
+        <!-- Prioridad -->
+        <div>
+          <label class="block text-sm font-bold text-gray-900 mb-3">
+            🎯 Prioridad
+          </label>
+          <div class="grid grid-cols-3 gap-3">
+            <label class="relative flex items-center cursor-pointer">
+              <input type="radio" formControlName="prioridad" value="ALTA" 
+                     class="absolute opacity-0 w-full h-full cursor-pointer">
+              <div class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-center font-bold transition"
+                   [class.border-red-500]="form.get('prioridad')?.value === 'ALTA'"
+                   [class.bg-red-50]="form.get('prioridad')?.value === 'ALTA'">
+                🔴 Alta
+              </div>
+            </label>
+            <label class="relative flex items-center cursor-pointer">
+              <input type="radio" formControlName="prioridad" value="MEDIA"
+                     class="absolute opacity-0 w-full h-full cursor-pointer">
+              <div class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-center font-bold transition"
+                   [class.border-yellow-500]="form.get('prioridad')?.value === 'MEDIA'"
+                   [class.bg-yellow-50]="form.get('prioridad')?.value === 'MEDIA'">
+                🟡 Media
+              </div>
+            </label>
+            <label class="relative flex items-center cursor-pointer">
+              <input type="radio" formControlName="prioridad" value="BAJA"
+                     class="absolute opacity-0 w-full h-full cursor-pointer">
+              <div class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-center font-bold transition"
+                   [class.border-green-500]="form.get('prioridad')?.value === 'BAJA'"
+                   [class.bg-green-50]="form.get('prioridad')?.value === 'BAJA'">
+                🟢 Baja
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Estado -->
+        <div>
+          <label class="block text-sm font-bold text-gray-900 mb-3">
+            📊 Estado
+          </label>
+          <select formControlName="estado"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition text-sm">
+            <option value="PENDIENTE">⏳ Pendiente</option>
+            <option value="EN_PROGRESO">⚡ En Progreso</option>
+            <option value="COMPLETADO">✅ Completado</option>
+            <option value="CANCELADO">❌ Cancelado</option>
+          </select>
+        </div>
+
+        <!-- Meta Numérica -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-bold text-gray-900 mb-3">
+              🎲 Meta Numérica
+            </label>
+            <input formControlName="meta_numerica" type="number" min="1"
+                   placeholder="100"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition text-sm">
+            <p class="text-xs text-gray-500 mt-1">Cantidad total a alcanzar</p>
+          </div>
+
+          <!-- Avance Actual -->
+          <div>
+            <label class="block text-sm font-bold text-gray-900 mb-3">
+              📈 Avance Actual
+            </label>
+            <input formControlName="avance_actual" type="number" min="0"
+                   placeholder="0"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 hover:bg-white transition text-sm">
+            <p class="text-xs text-gray-500 mt-1">Progreso hasta ahora</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="px-8 py-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-t border-blue-100 flex items-center justify-between">
+        <p *ngIf="form.invalid" class="text-sm text-yellow-700 flex items-center gap-2">
+          <i class="bi bi-exclamation-triangle"></i> Completa todos los campos requeridos
+        </p>
+        <div class="flex gap-3">
+          <button type="button" (click)="cancelar()"
+                  class="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-100 transition">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="form.invalid || guardando"
+                  class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-bold shadow-lg hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+            <span *ngIf="!guardando">
+              <i class="bi bi-check-lg"></i>
+              {{ esEdicion ? 'Actualizar' : 'Crear' }} Objetivo
+            </span>
+            <span *ngIf="guardando" class="flex items-center gap-2">
+              <i class="bi bi-hourglass-split animate-spin"></i> Guardando...
+            </span>
+          </button>
+        </div>
+      </div>
+
+    </form>
+
+  </div>
 </div>

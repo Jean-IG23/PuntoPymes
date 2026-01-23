@@ -1,289 +1,378 @@
-<div class="min-h-screen bg-gray-50 p-4 sm:p-8 animate-fade-in relative font-sans">
+<div class="solicitudes-container min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 sm:p-8">
 
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+  <!-- HEADER -->
+  <div class="solicitudes-header max-w-7xl mx-auto">
     <div>
-      <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
-        <i class="bi bi-calendar-check-fill text-indigo-600"></i> Gestión de Ausencias
+      <h1>
+        <i class="bi bi-calendar-check-fill"></i> Gestión de Ausencias
       </h1>
-      <p class="text-gray-500 text-sm mt-1 ml-10">Historial personal y centro de aprobaciones.</p>
+      <p class="text-gray-500 text-sm mt-2 ml-10">Solicita, aprueba y gestiona permisos y vacaciones de forma eficiente.</p>
     </div>
     
-    <div class="flex gap-3">
-        <button *ngIf="auth.isSuperAdmin() || auth.isManagement()" 
-                (click)="showModalTipos=true" 
-                class="bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-xl font-bold shadow-sm hover:bg-gray-50 transition flex items-center gap-2">
-            <i class="bi bi-gear-fill text-gray-500"></i> <span class="hidden sm:inline">Config. Tipos</span>
-        </button>
-
-        <button (click)="showModal=true" class="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-gray-300 transition flex items-center gap-2 transform active:scale-95">
-            <i class="bi bi-plus-circle-fill text-indigo-400"></i> Nueva Solicitud
-        </button>
+    <div class="solicitudes-actions">
+      <button *ngIf="isJefeOrRRHH" (click)="showModalTipos=true" class="btn-config">
+        <i class="bi bi-gear-fill"></i>
+        <span class="hidden sm:inline">Configurar Tipos</span>
+      </button>
+      <button (click)="abrirModalNueva()" class="btn-nueva">
+        <i class="bi bi-plus-circle-fill"></i>
+        <span class="hidden sm:inline">Nueva Solicitud</span>
+        <span class="sm:hidden">Nueva</span>
+      </button>
     </div>
   </div>
 
-  <div class="flex border-b border-gray-200 mb-6">
-      <button (click)="activeTab = 'MIS_SOLICITUDES'" 
-              class="px-6 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2"
-              [ngClass]="activeTab === 'MIS_SOLICITUDES' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
-          <i class="bi bi-person-lines-fill"></i> Mis Solicitudes
+  <div class="max-w-7xl mx-auto">
+
+    <!-- TABS -->
+    <div class="tabs-container">
+      <button (click)="cambiarTab('MIS_SOLICITUDES')" 
+              class="tab-button"
+              [class.active]="activeTab === 'MIS_SOLICITUDES'">
+        <i class="bi bi-person-lines-fill"></i>
+        Mis Solicitudes
+        <span *ngIf="misSolicitudes.length > 0" class="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">
+          {{ misSolicitudes.length }}
+        </span>
       </button>
       
-      <button *ngIf="isJefeOrRRHH" (click)="activeTab = 'EQUIPO'" 
-              class="px-6 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 relative"
-              [ngClass]="activeTab === 'EQUIPO' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
-          <i class="bi bi-inbox-fill"></i> Bandeja de Entrada
-          <span *ngIf="pendientesDeAprobar.length > 0" class="ml-1 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-              {{ pendientesDeAprobar.length }}
-          </span>
+      <button *ngIf="isJefeOrRRHH" (click)="cambiarTab('EQUIPO')" 
+              class="tab-button"
+              [class.active]="activeTab === 'EQUIPO'">
+        <i class="bi bi-inbox-fill"></i>
+        Bandeja de Entrada
+        <span *ngIf="pendientesDeAprobar.length > 0" class="tab-badge">
+          {{ pendientesDeAprobar.length }}
+        </span>
       </button>
-  </div>
+    </div>
 
-  <div *ngIf="activeTab === 'MIS_SOLICITUDES'" class="animate-fade-in">
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div class="overflow-x-auto">
-              <table class="w-full text-left text-sm text-gray-500">
-                  <thead class="bg-gray-50 text-gray-700 font-bold border-b border-gray-100 uppercase text-xs tracking-wider">
-                      <tr>
-                          <th class="px-6 py-4">Tipo</th>
-                          <th class="px-6 py-4">Fechas</th>
-                          <th class="px-6 py-4">Motivo Solicitud</th>
-                          <th class="px-6 py-4 text-center">Días</th>
-                          <th class="px-6 py-4 text-center">Estado</th>
-                          <th class="px-6 py-4">Observaciones</th>
-                      </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-100">
-                      <tr *ngFor="let sol of misSolicitudes" class="hover:bg-gray-50 transition group">
-                          <td class="px-6 py-4 font-bold text-gray-900">
-                              <div class="flex items-center gap-2">
-                                  <div class="w-2 h-2 rounded-full" 
-                                       [ngClass]="(sol.nombre_tipo || '').includes('Vacaciones') ? 'bg-yellow-400' : 'bg-blue-400'"></div>
-                                  {{ sol.nombre_tipo }}
-                              </div>
-                          </td>
-                          <td class="px-6 py-4">
-                              <div class="flex flex-col">
-                                  <span class="font-medium text-gray-800">{{ sol.fecha_inicio | date:'dd MMM yyyy' }}</span>
-                                  <span class="text-xs text-gray-400">hasta {{ sol.fecha_fin | date:'dd MMM yyyy' }}</span>
-                              </div>
-                          </td>
-                          <td class="px-6 py-4 max-w-xs">
-                              <p class="truncate text-gray-600 italic" title="{{ sol.motivo }}">"{{ sol.motivo }}"</p>
-                          </td>
-                          <td class="px-6 py-4 text-center">
-                              <span class="bg-gray-100 text-gray-600 font-bold px-2.5 py-1 rounded-lg border border-gray-200">
-                                  {{ sol.dias_solicitados || '-' }}
-                              </span>
-                          </td>
-                          <div class="flex gap-3 pl-3">
-    <button (click)="gestionar(sol, 'RECHAZADA')" 
-            [disabled]="loadingAction"
-            class="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 hover:border-red-300 transition flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-        <i class="bi bi-x-lg"></i> Rechazar
-    </button>
-    
-    <button (click)="gestionar(sol, 'APROBADA')" 
-            [disabled]="loadingAction"
-            class="flex-1 py-2.5 rounded-xl bg-gray-900 text-white font-bold text-sm hover:bg-gray-800 transition shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-        
-        <span *ngIf="loadingAction" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-        <span *ngIf="!loadingAction"><i class="bi bi-check-lg"></i> Aprobar</span>
-    </button>
-</div>
-                          <td class="px-6 py-4">
-                              <div *ngIf="sol.estado === 'RECHAZADA' && sol.motivo_rechazo" class="text-red-600 text-xs bg-red-50 p-2 rounded border border-red-100">
-                                  <strong>Jefe dice:</strong> {{ sol.motivo_rechazo }}
-                              </div>
-                              <span *ngIf="sol.estado !== 'RECHAZADA'" class="text-gray-300 text-xs">-</span>
-                          </td>
-                      </tr>
-                      <tr *ngIf="misSolicitudes.length === 0">
-                          <td colspan="6" class="px-6 py-12 text-center">
-                              <div class="flex flex-col items-center justify-center text-gray-300">
-                                  <i class="bi bi-calendar-x text-4xl mb-2"></i>
-                                  <p class="text-sm font-medium">No tienes solicitudes registradas.</p>
-                              </div>
-                          </td>
-                      </tr>
-                  </tbody>
-              </table>
-          </div>
+    <!-- FILTROS -->
+    <div class="filtros-container">
+      <div class="filtro-grupo">
+        <label>
+          <i class="bi bi-funnel"></i> Filtrar por Estado
+        </label>
+        <select [(ngModel)]="filtroEstado" (change)="aplicarFiltros()">
+          <option value="TODOS">Todos</option>
+          <option value="PENDIENTE">Pendiente</option>
+          <option value="APROBADA">Aprobada</option>
+          <option value="RECHAZADA">Rechazada</option>
+        </select>
       </div>
-  </div>
 
-  <div *ngIf="activeTab === 'EQUIPO' && isJefeOrRRHH" class="animate-fade-in">
+      <div class="filtro-grupo">
+        <label>
+          <i class="bi bi-tag"></i> Filtrar por Tipo
+        </label>
+        <select [(ngModel)]="filtroTipo" (change)="aplicarFiltros()">
+          <option value="TODOS">Todos</option>
+          <option *ngFor="let tipo of tiposAusencia" [value]="tipo.id">{{ tipo.nombre }}</option>
+        </select>
+      </div>
+
+      <div class="filtro-grupo">
+        <label>
+          <i class="bi bi-search"></i> Buscar
+        </label>
+        <input type="text" [(ngModel)]="busqueda" (keyup)="aplicarFiltros()" placeholder="Motivo, empleado...">
+      </div>
+
+      <div class="filtro-grupo">
+        <label>
+          <i class="bi bi-sort-down"></i> Ordenar por
+        </label>
+        <select [(ngModel)]="ordenarPor" (change)="aplicarFiltros()">
+          <option value="fecha">Fecha más reciente</option>
+          <option value="estado">Estado</option>
+          <option value="dias">Duración</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- MIS SOLICITUDES (Tabla) -->
+    <div *ngIf="activeTab === 'MIS_SOLICITUDES'" class="animate-fade-in">
+      <div class="tabla-container" [class.loading]="loading">
+        <div class="table-responsive">
+          <table *ngIf="solicitudesFiltradas.length > 0">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Fechas</th>
+                <th class="hidden md:table-cell">Motivo</th>
+                <th class="text-center">Días</th>
+                <th class="text-center">Estado</th>
+                <th class="hidden sm:table-cell">Rechazo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let sol of solicitudesFiltradas" [class.recent]="esSolicitudReciente(sol.fecha_inicio)">
+                <td>
+                  <div class="flex items-center gap-2">
+                    <span class="tipo-badge" [ngClass]="getColorTipo(sol.tipo_ausencia)">
+                      <i [class]="'bi ' + getIconoTipo(sol.tipo_ausencia)"></i>
+                      {{ sol.nombre_tipo }}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex flex-col">
+                    <span class="font-medium text-gray-900">{{ sol.fecha_inicio | date:'dd MMM' }}</span>
+                    <span class="text-xs text-gray-500">hasta {{ sol.fecha_fin | date:'dd MMM yyyy' }}</span>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell">
+                  <p class="truncate text-gray-600 italic max-w-xs" [title]="sol.motivo">"{{ sol.motivo }}"</p>
+                </td>
+                <td class="text-center">
+                  <span class="inline-block bg-gray-100 text-gray-700 font-bold px-3 py-1 rounded-lg border border-gray-300">
+                    {{ sol.dias_solicitados || '-' }}
+                  </span>
+                </td>
+                <td class="text-center">
+                  <span class="estado-badge" [ngClass]="'estado-' + sol.estado.toLowerCase()">
+                    <i [class]="'bi ' + obtenerEstadoBadge(sol.estado).icono"></i>
+                    {{ obtenerEstadoBadge(sol.estado).texto }}
+                  </span>
+                </td>
+                <td class="hidden sm:table-cell">
+                  <div *ngIf="sol.estado === 'RECHAZADA' && sol.motivo_rechazo" class="text-red-600 text-xs bg-red-50 p-2 rounded border border-red-100 max-w-xs">
+                    <strong>Motivo:</strong> {{ sol.motivo_rechazo }}
+                  </div>
+                  <span *ngIf="sol.estado !== 'RECHAZADA'" class="text-gray-300">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div *ngIf="solicitudesFiltradas.length === 0" class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <p>No hay solicitudes que coincidan con los filtros aplicados.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BANDEJA DE ENTRADA (Tarjetas) -->
+    <div *ngIf="activeTab === 'EQUIPO' && isJefeOrRRHH" class="animate-fade-in">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div *ngFor="let sol of pendientesDeAprobar" class="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:border-indigo-200 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
-              <div class="absolute left-0 top-0 bottom-0 w-1.5" 
-                   [ngClass]="(sol.nombre_tipo || '').includes('Vacaciones') ? 'bg-yellow-400' : 'bg-blue-500'"></div>
-
-              <div class="flex justify-between items-start mb-4 pl-3">
-                  <div>
-                      <h3 class="font-bold text-gray-900 text-lg">
-                          {{ sol.empleado?.nombres || 'Empleado' }} {{ sol.empleado?.apellidos || '' }}
-                      </h3>
-                      <p class="text-xs text-indigo-600 font-bold uppercase tracking-wide mt-0.5">{{ sol.nombre_tipo }}</p>
-                  </div>
-                  <div class="text-center bg-gray-100 px-3 py-1 rounded-lg border border-gray-200">
-                      <span class="block text-xl font-bold text-gray-800 leading-none">{{ sol.dias_solicitados || '?' }}</span>
-                      <span class="text-[10px] text-gray-500 font-bold uppercase">Días</span>
-                  </div>
-              </div>
-
-              <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 mb-5 pl-3">
-                  <div class="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                      <i class="bi bi-calendar-event text-gray-400"></i>
-                      <span>{{ sol.fecha_inicio | date:'shortDate' }} <i class="bi bi-arrow-right text-xs mx-1"></i> {{ sol.fecha_fin | date:'shortDate' }}</span>
-                  </div>
-                  <div class="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-2">
-                      "{{ sol.motivo }}"
-                  </div>
-              </div>
-
-              <div class="flex gap-3 pl-3">
-                  <button (click)="gestionar(sol, 'RECHAZADA')" 
-                          class="flex-1 py-2.5 rounded-xl border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 hover:border-red-300 transition flex justify-center items-center gap-2">
-                      <i class="bi bi-x-lg"></i> Rechazar
-                  </button>
-                  <button (click)="gestionar(sol, 'APROBADA')" 
-                          class="flex-1 py-2.5 rounded-xl bg-gray-900 text-white font-bold text-sm hover:bg-gray-800 transition shadow-md flex justify-center items-center gap-2">
-                      <i class="bi bi-check-lg"></i> Aprobar
-                  </button>
-              </div>
+        <div *ngFor="let sol of solicitudesFiltradas" class="solicitud-card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">
+                {{ sol.empleado?.nombres || 'Empleado' }} {{ sol.empleado?.apellidos || '' }}
+              </h3>
+              <p class="card-tipo">{{ sol.nombre_tipo }}</p>
+            </div>
+            <div class="card-dias">
+              <div class="card-dias-numero">{{ sol.dias_solicitados || '?' }}</div>
+              <div class="card-dias-label">Días</div>
+            </div>
           </div>
 
-          <div *ngIf="pendientesDeAprobar.length === 0" class="col-span-full py-16 bg-white rounded-2xl border-2 border-dashed border-gray-200 text-center">
-              <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 mb-3">
-                  <i class="bi bi-check2-all text-3xl text-green-500"></i>
-              </div>
-              <h3 class="text-lg font-medium text-gray-900">¡Todo al día!</h3>
-              <p class="text-gray-500">No tienes solicitudes pendientes de revisión.</p>
+          <div class="card-body">
+            <div class="card-fecha">
+              <i class="bi bi-calendar-event"></i>
+              <span>{{ sol.fecha_inicio | date:'shortDate' }} <i class="bi bi-arrow-right text-xs mx-1"></i> {{ sol.fecha_fin | date:'shortDate' }}</span>
+            </div>
+            <div class="card-motivo">
+              "{{ sol.motivo }}"
+            </div>
           </div>
+
+          <div *ngIf="puedeGestionar(sol)" class="card-actions">
+            <button (click)="gestionar(sol, 'RECHAZADA')" 
+                    [disabled]="loadingAction"
+                    class="btn-accion btn-rechazar">
+              <i class="bi bi-x-lg"></i>
+              <span class="hidden sm:inline">Rechazar</span>
+            </button>
+            <button (click)="gestionar(sol, 'APROBADA')" 
+                    [disabled]="loadingAction"
+                    class="btn-accion btn-aprobar">
+              <span *ngIf="loadingAction" class="spinner"></span>
+              <span *ngIf="!loadingAction"><i class="bi bi-check-lg"></i></span>
+              <span class="hidden sm:inline" *ngIf="!loadingAction">Aprobar</span>
+            </button>
+          </div>
+
+          <div *ngIf="!puedeGestionar(sol)" class="text-center py-3">
+            <span class="estado-badge" [ngClass]="'estado-' + sol.estado.toLowerCase()">
+              <i [class]="'bi ' + obtenerEstadoBadge(sol.estado).icono"></i>
+              {{ obtenerEstadoBadge(sol.estado).texto }}
+            </span>
+          </div>
+        </div>
+
+        <div *ngIf="solicitudesFiltradas.length === 0" class="col-span-full py-12 bg-white rounded-xl border-2 border-dashed border-gray-300 text-center">
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 mb-3">
+            <i class="bi bi-check2-all text-3xl text-green-500"></i>
+          </div>
+          <h3 class="text-lg font-bold text-gray-900">¡Todo al día!</h3>
+          <p class="text-gray-600 text-sm mt-1">No tienes solicitudes pendientes de revisión.</p>
+        </div>
       </div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- MODAL: NUEVA SOLICITUD -->
+<div *ngIf="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" (click)="cerrarModal()"></div>
+  <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all z-10">
+    <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+      <div>
+        <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <i class="bi bi-send-fill text-indigo-600"></i> Solicitar Ausencia
+        </h3>
+        <p class="text-xs text-gray-500 mt-0.5">
+          Saldo disponible: 
+          <span class="font-bold text-indigo-600">{{ saldoVacaciones }} días</span>
+        </p>
+      </div>
+      <button (click)="cerrarModal()" class="text-gray-400 hover:text-red-500 transition rounded-full p-1 hover:bg-red-50">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    
+    <form [formGroup]="formSolicitud" (ngSubmit)="crearSolicitud()" class="p-6">
+      <div class="space-y-5">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">
+            Tipo de Permiso <span class="text-red-500">*</span>
+          </label>
+          <select formControlName="tipo_ausencia" class="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition py-2.5 px-3">
+            <option value="">-- Seleccione una opción --</option>
+            <option *ngFor="let t of tiposAusencia" [value]="t.id">
+              {{ t.nombre }}
+              <span *ngIf="t.afecta_sueldo">(Descuenta sueldo)</span>
+            </option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Desde <span class="text-red-500">*</span></label>
+            <input formControlName="fecha_inicio" type="date" [min]="minDate"
+                   class="w-full border border-gray-300 rounded-xl focus:ring-indigo-500 transition py-2.5 px-3">
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-gray-700 mb-1">Hasta <span class="text-red-500">*</span></label>
+            <input formControlName="fecha_fin" type="date" [min]="formSolicitud.get('fecha_inicio')?.value || minDate"
+                   class="w-full border border-gray-300 rounded-xl focus:ring-indigo-500 transition py-2.5 px-3">
+          </div>
+        </div>
+
+        <div *ngIf="formSolicitud.get('fecha_inicio')?.value && formSolicitud.get('fecha_fin')?.value" 
+             class="p-3 rounded-xl flex justify-between items-center text-sm font-bold border"
+             [ngClass]="{
+                'bg-red-50 text-red-600 border-red-100': diasCalculados > saldoVacaciones || diasCalculados <= 0,
+                'bg-green-50 text-green-700 border-green-100': diasCalculados <= saldoVacaciones && diasCalculados > 0
+             }">
+             
+             <div class="flex items-center gap-2">
+                 <i *ngIf="diasCalculados > 0 && diasCalculados <= saldoVacaciones" class="bi bi-check-circle-fill"></i>
+                 <i *ngIf="diasCalculados > saldoVacaciones" class="bi bi-exclamation-triangle-fill"></i>
+                 <i *ngIf="diasCalculados <= 0" class="bi bi-x-circle-fill"></i>
+                 
+                 <span *ngIf="diasCalculados > 0">Duración: {{ obtenerDiasTexto(diasCalculados) }}</span>
+                 <span *ngIf="diasCalculados <= 0">Fechas incorrectas</span>
+             </div>
+             
+             <span *ngIf="diasCalculados > saldoVacaciones" class="text-xs bg-white px-2 py-1 rounded border border-red-200 shadow-sm">
+               Excedes saldo
+             </span>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">
+            Motivo / Justificación <span class="text-red-500">*</span>
+          </label>
+          <textarea formControlName="motivo" rows="3" class="w-full border border-gray-300 rounded-xl focus:ring-indigo-500 transition resize-none py-2.5 px-3" 
+                    placeholder="Describe brevemente tu solicitud..."></textarea>
+          <p *ngIf="formSolicitud.get('motivo')?.touched && formSolicitud.get('motivo')?.errors?.['minlength']" 
+             class="text-xs text-red-500 mt-1">
+            Mínimo 5 caracteres.
+          </p>
+        </div>
+      </div>
+      
+      <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+        <button type="button" (click)="cerrarModal()" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-bold transition">
+          Cancelar
+        </button>
+        
+        <button type="submit" 
+                [disabled]="formSolicitud.invalid || loadingAction || diasCalculados <= 0 || diasCalculados > saldoVacaciones" 
+                class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
+          <span *ngIf="loadingAction" class="spinner"></span>
+          <span *ngIf="!loadingAction"><i class="bi bi-send-fill"></i> Enviar</span>
+          <span *ngIf="loadingAction">Enviando...</span>
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 
-<div *ngIf="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" (click)="showModal=false"></div>
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all animate-scale-up z-10">
-        <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
-            <div>
-                <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <i class="bi bi-send-fill text-indigo-600"></i> Solicitar Ausencia
-                </h3>
-                <p class="text-xs text-gray-500 mt-0.5">Saldo disponible: <span class="font-bold text-indigo-600">{{ saldoVacaciones }} días</span></p>
-            </div>
-            <button (click)="showModal=false" class="text-gray-400 hover:text-red-500 transition rounded-full p-1 hover:bg-red-50">
-                <i class="bi bi-x-lg"></i>
+<!-- MODAL: CONFIGURAR TIPOS -->
+<div *ngIf="showModalTipos" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" (click)="showModalTipos=false"></div>
+  <div class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all z-10 flex flex-col max-h-[85vh]">
+    <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+      <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+        <i class="bi bi-gear-fill text-gray-600"></i> Configurar Tipos de Ausencia
+      </h3>
+      <button (click)="showModalTipos=false" class="text-gray-400 hover:text-red-500 transition"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="p-6 overflow-y-auto flex-1">
+      <div class="bg-indigo-50 p-4 rounded-xl mb-6 border border-indigo-100">
+        <p class="text-xs font-bold text-indigo-800 uppercase mb-3">Crear Nuevo Tipo</p>
+        <div class="flex flex-col gap-3">
+          <input [(ngModel)]="nuevoTipo.nombre" type="text" placeholder="Ej: Calamidad Doméstica" 
+                 class="w-full border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 transition py-2 px-3">
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input [(ngModel)]="nuevoTipo.afecta_sueldo" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+              <span>¿Descuenta sueldo?</span>
+            </label>
+            <button (click)="guardarTipo()" [disabled]="procesandoTipo || !nuevoTipo.nombre" 
+                    class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm flex items-center gap-2">
+              <i class="bi bi-plus-lg"></i> <span class="hidden sm:inline">Agregar</span>
             </button>
+          </div>
         </div>
-        
-        <form [formGroup]="formSolicitud" (ngSubmit)="crearSolicitud()" class="p-6">
-            <div class="space-y-5">
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Tipo de Permiso <span class="text-red-500">*</span></label>
-                    <select formControlName="tipo_ausencia" class="w-full border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition py-2.5">
-                        <option value="">-- Seleccione una opción --</option>
-                        <option *ngFor="let t of tiposAusencia" [value]="t.id">{{ t.nombre }}</option>
-                    </select>
-                </div>
+      </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Desde <span class="text-red-500">*</span></label>
-                        <input formControlName="fecha_inicio" type="date" [min]="minDate"
-                               class="w-full border-gray-300 rounded-xl focus:ring-indigo-500 transition">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Hasta <span class="text-red-500">*</span></label>
-                        <input formControlName="fecha_fin" type="date" [min]="formSolicitud.get('fecha_inicio')?.value || minDate"
-                               class="w-full border-gray-300 rounded-xl focus:ring-indigo-500 transition">
-                    </div>
-                </div>
-
-                <div *ngIf="formSolicitud.get('fecha_inicio')?.value && formSolicitud.get('fecha_fin')?.value" 
-                     class="p-3 rounded-xl flex justify-between items-center text-sm font-bold border"
-                     [ngClass]="{
-                        'bg-red-50 text-red-600 border-red-100': diasCalculados > saldoVacaciones || diasCalculados <= 0,
-                        'bg-green-50 text-green-700 border-green-100': diasCalculados <= saldoVacaciones && diasCalculados > 0
-                     }">
-                     
-                     <div class="flex items-center gap-2">
-                         <i *ngIf="diasCalculados > 0 && diasCalculados <= saldoVacaciones" class="bi bi-check-circle-fill"></i>
-                         <i *ngIf="diasCalculados > saldoVacaciones" class="bi bi-exclamation-triangle-fill"></i>
-                         <i *ngIf="diasCalculados <= 0" class="bi bi-x-circle-fill"></i>
-                         
-                         <span *ngIf="diasCalculados > 0">Duración: {{ diasCalculados }} días</span>
-                         <span *ngIf="diasCalculados <= 0">Fechas incorrectas</span>
-                     </div>
-                     
-                     <span *ngIf="diasCalculados > saldoVacaciones" class="text-xs bg-white px-2 py-1 rounded border border-red-200 shadow-sm">Excedes saldo</span>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Motivo / Justificación <span class="text-red-500">*</span></label>
-                    <textarea formControlName="motivo" rows="3" class="w-full border-gray-300 rounded-xl focus:ring-indigo-500 transition resize-none" placeholder="Describe brevemente..."></textarea>
-                    <p *ngIf="formSolicitud.get('motivo')?.touched && formSolicitud.get('motivo')?.errors?.['minlength']" class="text-xs text-red-500 mt-1">Mínimo 5 caracteres.</p>
-                </div>
+      <h4 class="text-sm font-bold text-gray-700 mb-3">Tipos Existentes</h4>
+      <div class="space-y-2">
+        <div *ngFor="let t of tiposAusencia" class="flex justify-between items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-indigo-300 transition group">
+          <div>
+            <p class="font-bold text-gray-800 text-sm">{{ t.nombre }}</p>
+            <div class="flex gap-2 mt-1">
+              <span *ngIf="t.nombre.toLowerCase().includes('vacaciones')" class="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">
+                <i class="bi bi-star-fill"></i> Saldo Automático
+              </span>
+              <span *ngIf="t.afecta_sueldo && !t.nombre.toLowerCase().includes('vacaciones')" class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">
+                <i class="bi bi-exclamation-circle-fill"></i> Desc. Sueldo
+              </span>
             </div>
-            
-            <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
-                <button type="button" (click)="showModal=false" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-bold transition">Cancelar</button>
-                
-                <button type="submit" 
-                        [disabled]="formSolicitud.invalid || loadingAction || diasCalculados <= 0 || diasCalculados > saldoVacaciones" 
-                        class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2">
-                    <span *ngIf="loadingAction">Enviando...</span>
-                    <span *ngIf="!loadingAction"><i class="bi bi-send-fill"></i> Enviar</span>
-                </button>
-            </div>
-        </form>
+          </div>
+          <button *ngIf="!t.nombre.toLowerCase().includes('vacaciones')" 
+                  (click)="eliminarTipo(t.id)" 
+                  class="text-gray-300 hover:text-red-500 transition p-2 hover:bg-red-50 rounded-lg">
+            <i class="bi bi-trash-fill"></i>
+          </button>
+          <span *ngIf="t.nombre.toLowerCase().includes('vacaciones')" class="text-gray-300 p-2">
+            <i class="bi bi-lock-fill"></i>
+          </span>
+        </div>
+        <div *ngIf="tiposAusencia.length === 0" class="text-center py-4 text-gray-400 text-sm italic">
+          No hay tipos configurados.
+        </div>
+      </div>
     </div>
-</div>
-
-<div *ngIf="showModalTipos" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" (click)="showModalTipos=false"></div>
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all animate-scale-up z-10 flex flex-col max-h-[85vh]">
-        <div class="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
-            <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <i class="bi bi-gear-fill text-gray-500"></i> Configurar Tipos
-            </h3>
-            <button (click)="showModalTipos=false" class="text-gray-400 hover:text-red-500 transition"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <div class="p-6 overflow-y-auto">
-            <div class="bg-indigo-50 p-4 rounded-xl mb-6 border border-indigo-100">
-                <p class="text-xs font-bold text-indigo-800 uppercase mb-2">Crear Nuevo Tipo</p>
-                <div class="flex flex-col gap-3">
-                    <input [(ngModel)]="nuevoTipo.nombre" type="text" placeholder="Ej: Calamidad Doméstica" class="w-full border-gray-300 rounded-lg text-sm focus:ring-indigo-500">
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                            <input [(ngModel)]="nuevoTipo.afecta_sueldo" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500">
-                            <span>¿Descuenta sueldo?</span>
-                        </label>
-                        <button (click)="guardarTipo()" [disabled]="procesandoTipo || !nuevoTipo.nombre" class="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm">
-                            <i class="bi bi-plus-lg"></i> Agregar
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <h4 class="text-sm font-bold text-gray-700 mb-3">Tipos Existentes</h4>
-            <div class="space-y-2">
-                <div *ngFor="let t of tiposAusencia" class="flex justify-between items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-indigo-300 transition group">
-                    <div>
-                        <p class="font-bold text-gray-800 text-sm">{{ t.nombre }}</p>
-                        <span *ngIf="t.nombre.toLowerCase().includes('vacaciones')" class="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">Saldo Automático</span>
-                        <span *ngIf="t.afecta_sueldo" class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Desc. Sueldo</span>
-                    </div>
-                    <button *ngIf="!t.nombre.toLowerCase().includes('vacaciones')" 
-                            (click)="eliminarTipo(t.id)" 
-                            class="text-gray-300 hover:text-red-500 transition p-2">
-                        <i class="bi bi-trash-fill"></i>
-                    </button>
-                </div>
-                <div *ngIf="tiposAusencia.length === 0" class="text-center py-4 text-gray-400 text-sm italic">
-                    No hay tipos configurados.
-                </div>
-            </div>
-        </div>
-    </div>
+  </div>
 </div>

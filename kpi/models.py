@@ -59,7 +59,12 @@ class DetalleEvaluacion(models.Model):
 # 4. OBJETIVOS (Tareas específicas que alimentan los KPIs de Desempeño)
 class Objetivo(models.Model):
     # ... (Mantenemos el modelo de Objetivos que te pasé antes aquí mismo)
-    ESTADOS = [('PENDIENTE', 'Pendiente'), ('COMPLETADO', 'Completado'), ('CANCELADO', 'Cancelado')]
+    ESTADOS = [
+        ('PENDIENTE', 'Pendiente'),
+        ('EN_PROGRESO', 'En Progreso'),
+        ('COMPLETADO', 'Completado'),
+        ('CANCELADO', 'Cancelado')
+    ]
     PRIORIDADES = [('ALTA', 'Alta'), ('MEDIA', 'Media'), ('BAJA', 'Baja')]
 
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE)
@@ -70,5 +75,6 @@ class Objetivo(models.Model):
     avance_actual = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     fecha_limite = models.DateField()
     estado = models.CharField(max_length=20, choices=ESTADOS, default='PENDIENTE')
+    prioridad = models.CharField(max_length=10, choices=PRIORIDADES, default='MEDIA')
     
     def __str__(self): return self.titulo

@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-main-layout',
@@ -11,19 +12,20 @@ import { AuthService } from '../../../services/auth.service';
   // Ya no necesitas CSS extra si usas Tailwind, pero mantenlo si tienes estilos custom
   styleUrl: './main-layout.component.css' 
 })
-export class MainLayoutComponent {
-  
+export class MainLayoutComponent implements OnInit {
+
   sidebarOpen = true; // Por defecto abierto en escritorio
-  
+
   // Datos del usuario
   userName: string = '';
   userRole: string = '';
   userEmpresa: string = '';
   userInitials: string = '';
+  currentSection: string = 'Dashboard';
 
-  constructor(public auth: AuthService) {
+  constructor(public auth: AuthService, private router: Router) {
     const user = this.auth.getUser();
-    
+
     if (user) {
       this.userName = `${user.nombres} ${user.apellidos || ''}`.trim();
       this.userRole = this.formatRole(user.rol);
@@ -31,10 +33,48 @@ export class MainLayoutComponent {
     }
 
     this.userEmpresa = localStorage.getItem('nombre_empresa') || '';
-    
+
     // Si la pantalla es pequeña, iniciar con sidebar cerrado
     if (window.innerWidth < 1024) {
       this.sidebarOpen = false;
+    }
+  }
+
+  ngOnInit() {
+    // Track route changes to update current section
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: NavigationEnd) => {
+      this.updateCurrentSection(event.url);
+    });
+
+    // Set initial section
+    this.updateCurrentSection(this.router.url);
+  }
+
+  private updateCurrentSection(url: string) {
+    if (url.includes('/dashboard')) {
+      this.currentSection = 'Dashboard';
+    } else if (url.includes('/reloj')) {
+      this.currentSection = 'Asistencia';
+    } else if (url.includes('/gestion/empleados')) {
+      this.currentSection = 'Empleados';
+    } else if (url.includes('/gestion/organizacion')) {
+      this.currentSection = 'Organización';
+    } else if (url.includes('/solicitudes')) {
+      this.currentSection = 'Solicitudes';
+    } else if (url.includes('/nomina')) {
+      this.currentSection = 'Nómina';
+    } else if (url.includes('/mi-perfil')) {
+      this.currentSection = 'Mi Perfil';
+    } else if (url.includes('/gestion')) {
+      this.currentSection = 'Gestión';
+    } else if (url.includes('/admin')) {
+      this.currentSection = 'Administración';
+    } else if (url.includes('/saas')) {
+      this.currentSection = 'SaaS';
+    } else {
+      this.currentSection = 'Dashboard';
     }
   }
 

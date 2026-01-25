@@ -14,17 +14,32 @@ export class ApiService {
 
   private getHeaders(isJson: boolean = true) {
     const token = localStorage.getItem('token');
-  let headers: any = {};
-  
-  if (token) {
-    headers['Authorization'] = `Token ${token}`;
+    let headers: any = {};
+    
+    if (token) {
+      headers['Authorization'] = `Token ${token}`;
+    }
+    
+    // Solo agregamos JSON si nos lo piden. 
+    // Para archivos (FormData), isJson será false.
+    if (isJson) {
+      headers['Content-Type'] = 'application/json';
+    }
+    return headers
   }
   
-  // Solo agregamos JSON si nos lo piden. 
-  // Para archivos (FormData), isJson será false.
-  if (isJson) {
-    headers['Content-Type'] = 'application/json';
-  }
+  private getHeadersForRequest(data: any) {
+    const token = localStorage.getItem('token');
+    let headers: any = {};
+    
+    if (token) {
+      headers['Authorization'] = `Token ${token}`;
+    }
+    
+    // Si es FormData, NO establecer Content-Type (el navegador lo hará automáticamente)
+    if (!(data instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
     return headers
   }
   get(endpoint: string, params?: any): Observable<any> {
@@ -232,28 +247,36 @@ export class ApiService {
   }
 
   createEmpleado(data: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/empleados/`, data, this.getHeaders());
+    return this.http.post(`${this.baseUrl}/empleados/`, data, { headers: this.getHeadersForRequest(data) });
   }
 
   updateEmpleado(id: number, data: any): Observable<any> {
-    return this.http.put(`${this.baseUrl}/empleados/${id}/`, data, this.getHeaders());
+    return this.http.put(`${this.baseUrl}/empleados/${id}/`, data, { headers: this.getHeadersForRequest(data) });
   }
 
   deleteEmpleado(id: number): Observable<any> {
     return this.http.delete(`${this.baseUrl}/empleados/${id}/`, this.getHeaders());
   }
 
+  toggleEstadoEmpleado(id: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/empleados/${id}/toggle-estado/`, {}, this.getHeaders());
+  }
+
+  toggleEstadoEmpresa(id: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/empresas/${id}/toggle-estado/`, {}, this.getHeaders());
+  }
+
   uploadEmpleados(file: File): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post(`${this.baseUrl}/empleados/importar_excel/`, formData, this.getHeaders());
+    return this.http.post(`${this.baseUrl}/empleados/importar_excel/`, formData, this.getHeaders(false));
   }
 
   downloadPlantilla(): void {
     const headers = new HttpHeaders({
       'Authorization': `Bearer ${this.auth.getToken()}`
     });
-    this.http.get(`${this.baseUrl}/empleados/download_plantilla/`, { 
+    this.http.get(`${this.baseUrl}/empleados/download_template/`, {
       headers: headers, 
       responseType: 'blob' 
     }).subscribe({

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
@@ -6,6 +7,9 @@ import sys
 
 def main():
     """Run administrative tasks."""
+    # FIX: Configurar encoding para Windows
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'PuntoPymes.settings')
     try:
         from django.core.management import execute_from_command_line

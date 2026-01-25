@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap, throwError, timeout } from 'rxjs';
 import { Router } from '@angular/router';
+import { catchError } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
@@ -21,6 +22,8 @@ export class AuthService {
     localStorage.removeItem('empresa_id');
 
     return this.http.post(this.apiUrl + 'login/', credentials).pipe(
+      // FIX: Timeout de 10 segundos para evitar bucles infinitos
+      timeout(10000),
       tap((response: any) => {
         if (response.token) {
           localStorage.setItem(this.tokenKey, response.token);
@@ -37,6 +40,16 @@ export class AuthService {
             this.saveUser(response.user);
           }
         }
+      }),
+      // FIX: Manejo de errores para evitar bucles
+      catchError((error) => {
+        // Limpiar cualquier dato guardado en caso de error
+        localStorage.removeItem(this.tokenKey);
+        localStorage.removeItem('user');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('empresa_id');
+        // Propagar el error para que el componente lo maneje
+        return throwError(() => error);
       })
     );
   }
@@ -124,5 +137,47 @@ export class AuthService {
   getEmpresaId(): number | null {
     const id = localStorage.getItem('empresa_id');
     return id ? Number(id) : null;
+  }
+
+  // ==========================================
+  //      RESTRICCIONES DE MÓDULOS (RBAC)
+  // ==========================================
+
+  /**
+   * Verifica si el usuario puede ver el módulo de Organización (Org Chart).
+   * REGLA: Solo ADMIN, RRHH y SUPERADMIN pueden ver este módulo.
+   * GERENTE y EMPLEADO NO pueden verlo.
+   */
+  canSeeOrganization(): boolean {
+    const role = this.getRole();
+    // Solo estos roles pueden ver la estructura organizacional
+    return ['SUPERADMIN', 'ADMIN', 'RRHH'].includes(role);
+  }
+
+  /**
+   * Verifica si el usuario puede ver el módulo de Empleados.
+   * REGLA: EMPLEADO no puede ver la lista de empleados.
+   */
+  canSeeEmployees(): boolean {
+    const role = this.getRole();
+    return ['SUPERADMIN', 'ADMIN', 'RRHH', 'GERENTE'].includes(role);
+  }
+
+  /**
+   * Verifica si el usuario puede crear/editar objetivos y tareas.
+   * REGLA: EMPLEADO solo puede ver y actualizar progreso, no crear.
+   */
+  canCreateObjectives(): boolean {
+    const role = this.getRole();
+    return ['SUPERADMIN', 'ADMIN', 'RRHH', 'GERENTE'].includes(role);
+  }
+
+  /**
+   * Verifica si el usuario puede aprobar solicitudes de ausencia.
+   * REGLA: Solo GERENTE, RRHH, ADMIN y SUPERADMIN pueden aprobar.
+   */
+  canApproveRequests(): boolean {
+    const role = this.getRole();
+    return ['SUPERADMIN', 'ADMIN', 'RRHH', 'GERENTE'].includes(role);
   }
 }

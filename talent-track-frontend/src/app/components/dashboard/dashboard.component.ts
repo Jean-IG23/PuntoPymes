@@ -4,7 +4,6 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-import { AttendanceQuickMarkerComponent } from '../attendance-quick-marker/attendance-quick-marker.component';
 import { filter, finalize } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 import { BaseChartDirective } from 'ng2-charts';
@@ -12,7 +11,7 @@ import { ChartConfiguration, ChartData, ChartType } from 'chart.js';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule, FormsModule, BaseChartDirective, AttendanceQuickMarkerComponent],
+  imports: [CommonModule, RouterModule, ReactiveFormsModule, FormsModule, BaseChartDirective],
   templateUrl: './dashboard.component.html',
   providers: [DatePipe]
 })
@@ -29,7 +28,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     presentesHoy: 0,
     solicitudesPendientes: 0,
     porcentajeAsistencia: 0,
-    llegadasTarde: 0
+    llegadasTarde: 0,
+    diasTrabajados: 0,
+    proximoPago: '15 dic'
   };
 
   // Datos Empleado
@@ -39,6 +40,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
     estado: 'ACTIVO',
     jornada_abierta: false
   };
+
+  // Datos adicionales por rol
+  tareasPendientes: number = 0;
+  empresasTotal: number = 0;
+  usuariosTotal: number = 0;
+  empresasActivas: number = 0;
+
+  // Charts
+  public pieChartOptions: ChartConfiguration['options'] = {
+    responsive: true,
+    plugins: { legend: { position: 'bottom' } }
+  };
+  public pieChartData: ChartData<'pie', number[], string | string[]> = {
+    labels: [],
+    datasets: [{ data: [], backgroundColor: ['#10B981', '#F59E0B', '#EF4444'] }]
+  };
+  public pieChartType: ChartType = 'pie';
+
+  public barChartOptions: ChartConfiguration['options'] = {
+    responsive: true,
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  };
+  public barChartData: ChartData<'bar'> = {
+    labels: [],
+    datasets: [{ data: [], label: 'Asistencia', backgroundColor: '#E11D48' }]
+  };
+  public barChartType: ChartType = 'bar';
 
   // --- RELOJ Y ASISTENCIA ---
   horaActual: string = '';
@@ -53,28 +81,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   procesandoSolicitud = false;
   minDate: string = '';
   diasCalculados: number = 0;
-  public pieChartOptions: ChartConfiguration['options'] = {
-    responsive: true,
-    plugins: { legend: { position: 'bottom' } }
-  };
-  public pieChartData: ChartData<'pie', number[], string | string[]> = {
-    labels: [],
-    datasets: [{ data: [], backgroundColor: ['#10B981', '#F59E0B', '#EF4444'] }] // Verde, Amarillo, Rojo
-  };
-  public pieChartType: ChartType = 'pie';
-
-  // --- CONFIG GRÁFICO 2: BAR (Tareas) ---
-  public barChartOptions: ChartConfiguration['options'] = {
-    responsive: true,
-    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-  };
-  public barChartData: ChartData<'bar'> = {
-    labels: [],
-    datasets: [{ data: [], label: 'Tareas Completadas', backgroundColor: '#E11D48' }] // Rose-600
-  };
-  public barChartType: ChartType = 'bar';
-
-  loadingCharts = true;
   stats: any = {}; // Tu variable existente de stats
   constructor(
     private api: ApiService,
@@ -108,6 +114,96 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.timer) clearInterval(this.timer);
   }
 
+  // Método para determinar si el usuario puede ver gráficos
+  puedeVerGraficos(): boolean {
+    return this.userRole === 'ADMIN' || this.userRole === 'RRHH';
+  }
+
+  marcarEntrada() {
+    // Get current location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+
+          this.api.marcarAsistencia(lat, lng).subscribe({
+            next: (res: any) => {
+              Swal.fire('¡Entrada Registrada!', res.mensaje || 'Marcación exitosa', 'success');
+              this.cargarDatos(); // Reload data to update status
+            },
+            error: (err) => {
+              Swal.fire('Error', err.error?.error || 'No se pudo registrar la entrada', 'error');
+            }
+          });
+        },
+        (error) => {
+          Swal.fire('Error de GPS', 'No se pudo obtener la ubicación. Activa el GPS.', 'error');
+        }
+      );
+    } else {
+      Swal.fire('GPS No Soportado', 'Tu dispositivo no soporta geolocalización', 'error');
+    }
+  }
+
+  marcarSalida() {
+    // Get current location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+
+          this.api.marcarAsistencia(lat, lng).subscribe({
+            next: (res: any) => {
+              Swal.fire('¡Salida Registrada!', res.mensaje || 'Marcación exitosa', 'success');
+              this.cargarDatos(); // Reload data to update status
+            },
+            error: (err) => {
+              Swal.fire('Error', err.error?.error || 'No se pudo registrar la salida', 'error');
+            }
+          });
+        },
+        (error) => {
+          Swal.fire('Error de GPS', 'No se pudo obtener la ubicación. Activa el GPS.', 'error');
+        }
+      );
+    } else {
+      Swal.fire('GPS No Soportado', 'Tu dispositivo no soporta geolocalización', 'error');
+    }
+  }
+
+  cargarGraficos() {
+    // Load chart data for management users
+    this.api.getDashboardCharts().subscribe({
+      next: (res: any) => {
+        if (res?.asistencia) {
+          this.pieChartData.labels = res.asistencia.labels || [];
+          this.pieChartData.datasets[0].data = res.asistencia.data || [];
+        }
+
+        if (res?.productividad) {
+          this.barChartData.labels = res.productividad.labels || [];
+          this.barChartData.datasets[0].data = res.productividad.data || [];
+        }
+      },
+      error: (e) => {
+        console.error('Error loading charts:', e);
+        // Set default data
+        this.pieChartData.labels = ['Presentes', 'Ausentes', 'Pendientes'];
+        this.pieChartData.datasets[0].data = [this.kpis.presentesHoy || 0, 0, 0];
+
+        this.barChartData.labels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
+        this.barChartData.datasets[0].data = [0, 0, 0, 0, 0];
+      }
+    });
+  }
+
+  verSolicitudesPendientes() {
+    // Navigate to solicitudes page to see pending requests
+    this.router.navigate(['/solicitudes']);
+  }
+
   iniciarReloj() {
     this.timer = setInterval(() => {
       const now = new Date();
@@ -121,65 +217,85 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // ================================================================
   cargarDatos() {
     this.loading = true;
-    
-    this.api.getStats().subscribe({
-      next: (res: any) => {
-        // 1. Guardamos la respuesta cruda en stats (Para compatibilidad con tu HTML)
-        this.stats = res; 
 
-        // 2. Mapeo específico (Tu lógica actual)
-        this.userRole = res.rol;
-        this.userName = res.nombres;
-        
-        this.kpis = {
-          totalEmpleados: res.total_empleados || 0,
-          presentesHoy: res.presentes_hoy || 0,
-          solicitudesPendientes: res.solicitudes_pendientes || 0,
-          porcentajeAsistencia: res.porcentaje_asistencia || 0,
-          llegadasTarde: res.ausentes_hoy || 0
-        };
+    // Get user info from AuthService instead of API
+    const user = this.auth.getUser();
+    if (user) {
+      this.userRole = user.rol;
+      this.userName = `${user.nombres} ${user.apellidos || ''}`.trim();
+    }
 
-        this.perfil = {
-          puesto: res.puesto,
-          saldo_vacaciones: res.saldo_vacaciones,
-          estado: res.estado,
-          jornada_abierta: res.jornada_abierta
-        };
-
-        this.cargarListas();
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: (e) => {
-        console.error(e);
-        this.loading = false;
-      }
-    });
-  }
-  cargarGraficos() {
-    this.loadingCharts = true;
-    this.api.getDashboardCharts().subscribe({
-      next: (res: any) => {
-        console.log('Datos gráficos recibidos:', res);
-        
-        // Validar que los datos existan
-        if (res?.asistencia && res?.productividad) {
-          this.pieChartData.labels = res.asistencia.labels;
-          this.pieChartData.datasets[0].data = res.asistencia.data;
-
-          this.barChartData.labels = res.productividad.labels;
-          this.barChartData.datasets[0].data = res.productividad.data;
-        } else {
-          console.warn('Datos incompletos en respuesta:', res);
+    // Load role-specific data
+    if (this.auth.isSuperAdmin()) {
+      // SuperAdmin gets system-wide stats
+      this.api.getStats().subscribe({
+        next: (res: any) => {
+          this.stats = res;
+          this.empresasTotal = res.empresas_total || 0;
+          this.usuariosTotal = res.usuarios_total || 0;
+          this.empresasActivas = res.empresas_activas || 0;
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
+        error: (e) => {
+          console.error('Error loading superadmin stats:', e);
+          this.loading = false;
         }
-        
-        this.loadingCharts = false;
-      },
-      error: (err) => {
-        console.error('Error cargando gráficos:', err);
-        this.loadingCharts = false;
-      }
-    });
+      });
+    } else if (this.auth.isManagement()) {
+      // Load management stats
+      this.api.getStats().subscribe({
+        next: (res: any) => {
+          this.stats = res;
+          this.kpis = {
+            totalEmpleados: res.total_empleados || 0,
+            presentesHoy: res.presentes_hoy || 0,
+            solicitudesPendientes: res.solicitudes_pendientes || 0,
+            porcentajeAsistencia: res.porcentaje_asistencia || 0,
+            llegadasTarde: res.ausentes_hoy || 0,
+            diasTrabajados: res.dias_trabajados || 0,
+            proximoPago: res.proximo_pago || '15 dic'
+          };
+          this.loading = false;
+          this.cargarGraficos();
+          this.cdr.detectChanges();
+        },
+        error: (e) => {
+          console.error('Error loading management stats:', e);
+          this.loading = false;
+        }
+      });
+    } else {
+      // For employees, load personal data
+      this.api.getStats().subscribe({
+        next: (res: any) => {
+          this.stats = res;
+          this.perfil = {
+            puesto: res.puesto || '',
+            saldo_vacaciones: res.saldo_vacaciones || 0,
+            estado: res.estado || 'ACTIVO',
+            jornada_abierta: res.jornada_abierta || false
+          };
+          this.tareasPendientes = res.tareas_pendientes || 0;
+          this.kpis = {
+            totalEmpleados: 0,
+            presentesHoy: 0,
+            solicitudesPendientes: res.solicitudes_pendientes || 0,
+            porcentajeAsistencia: 0,
+            llegadasTarde: 0,
+            diasTrabajados: res.dias_trabajados || 0,
+            proximoPago: res.proximo_pago || '15 dic'
+          };
+          this.cargarListas();
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
+        error: (e) => {
+          console.error('Error loading employee data:', e);
+          this.loading = false;
+        }
+      });
+    }
   }
 
 

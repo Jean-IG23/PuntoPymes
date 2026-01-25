@@ -10,7 +10,7 @@ class Empleado(models.Model):
         ('SUPERADMIN', 'Super Admin (SaaS)'),   # Tú (Acceso total técnico)
         ('ADMIN', 'Cliente / Dueño'),           # El Cliente (Configuración total de su empresa)
         ('RRHH', 'Recursos Humanos'),           # Gestión operativa (Permisos, Contratos)
-        ('GERENTE', 'Gerente / Líder'),         # Visión de equipo (Asistencia, Aprobación básica)
+        ('GERENTE', 'Gerente de Sucursal'),     # Gestiona sucursal completa (Asistencia, Equipo, Reportes)
         ('EMPLEADO', 'Colaborador'),            # Usuario final (Solo ve lo suyo)
     ]
 
@@ -40,7 +40,7 @@ class Empleado(models.Model):
     
     # --- JERARQUÍA Y ACCESO ---
     rol = models.CharField(max_length=100, choices=ROLES, default='EMPLEADO')
-    lider_area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, help_text="Solo para Gerentes: Define qué área supervisa globalmente")
+    # REMOVIDO: sucursal_a_cargo - Los gerentes automáticamente gestionan la sucursal donde están asignados
 
     # Datos Laborales
     fecha_ingreso = models.DateField()
@@ -62,15 +62,77 @@ class Empleado(models.Model):
                     'departamento': 'El departamento seleccionado no pertenece a la sucursal indicada.'
                 })
         
-        # 2. VALIDACIÓN DE JEFE DE ÁREA
-        if self.rol == 'GERENTE' and not self.lider_area:
-            raise ValidationError({'lider_area': 'Un Gerente debe tener un Área asignada.'})
+        # 2. VALIDACIÓN DE GERENTE - CON REEMPLAZO AUTOMÁTICO
+        if self.rol == 'GERENTE':
+            if not self.sucursal:
+                raise ValidationError({
+                    'sucursal': 'Un Gerente debe estar asignado a una sucursal (automáticamente será gerente de esa sucursal).'
+                })
+
+            # Si hay otro gerente en la misma sucursal, lo "demovemos" automáticamente
+            gerente_anterior = Empleado.objects.filter(
+                rol='GERENTE',
+                sucursal=self.sucursal,
+                empresa=self.empresa
+            ).exclude(pk=self.pk).first()
+
+            if gerente_anterior:
+                # Reemplazar automáticamente - cambiar el rol del gerente anterior a EMPLEADO
+                gerente_anterior.rol = 'EMPLEADO'
+                gerente_anterior.save(update_fields=['rol'])
+                # Nota: Esto se registra en el historial de cambios automáticamente
 
     def save(self, *args, **kwargs):
         # Auto-llenado de sucursal si se elige departamento
         if self.departamento and not self.sucursal:
             self.sucursal = self.departamento.sucursal
+
+        # Guardar rol original para validaciones de cambio
+        if not hasattr(self, '_original_rol'):
+            if self.pk:
+                try:
+                    original = Empleado.objects.get(pk=self.pk)
+                    self._original_rol = original.rol
+                except Empleado.DoesNotExist:
+                    self._original_rol = self.rol
+            else:
+                self._original_rol = self.rol
+
         super().save(*args, **kwargs)
+
+    def cambiar_rol(self, nuevo_rol):
+        """
+        Método seguro para cambiar el rol de un empleado con validaciones.
+        Los gerentes automáticamente gestionan la sucursal donde están asignados.
+        """
+        from django.core.exceptions import ValidationError
+
+        # Validar que el rol sea válido
+        roles_validos = [rol[0] for rol in self.ROLES]
+        if nuevo_rol not in roles_validos:
+            raise ValidationError(f"Rol '{nuevo_rol}' no es válido.")
+
+        # Si se promueve a GERENTE, debe tener sucursal asignada
+        if nuevo_rol == 'GERENTE':
+            if not self.sucursal:
+                raise ValidationError("Para asignar rol de Gerente, el empleado debe estar asignado a una sucursal.")
+
+            # Si hay gerente existente, lo reemplazamos automáticamente
+            gerente_existente = Empleado.objects.filter(
+                rol='GERENTE',
+                sucursal=self.sucursal,
+                empresa=self.empresa
+            ).exclude(pk=self.pk).first()
+
+            if gerente_existente:
+                # Reemplazar automáticamente - cambiar el rol del gerente anterior a EMPLEADO
+                gerente_existente.rol = 'EMPLEADO'
+                gerente_existente.save(update_fields=['rol'])
+
+        # Aplicar cambios
+        self.rol = nuevo_rol
+        self.full_clean()  # Ejecutar validaciones
+        self.save()
     def __str__(self):
         return f"{self.nombres} {self.apellidos} ({self.rol})"
     

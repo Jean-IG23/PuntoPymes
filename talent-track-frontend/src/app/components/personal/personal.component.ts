@@ -24,6 +24,15 @@ export class PersonalComponent implements OnInit {
   filtroSucursal: string = '';
   filtroDepartamento: string = '';
 
+  // --- REPORTES DE ASISTENCIA ---
+  estadisticasAsistencia: any = null;
+  reportesEmpleados: any[] = [];
+  fechaInicioReportes: string = '';
+  fechaFinReportes: string = '';
+
+  // --- VISIBILIDAD DE CONTRASEÑA ---
+  showPassword: boolean = false;
+
   // --- ESTADOS DE VISTA ---
   loading = false;
   showModal = false;
@@ -45,6 +54,12 @@ export class PersonalComponent implements OnInit {
     public auth: AuthService,
     private fb: FormBuilder
   ) {
+    // Inicializar fechas para reportes (mes actual)
+    const hoy = new Date();
+    this.fechaFinReportes = hoy.toISOString().split('T')[0];
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    this.fechaInicioReportes = primerDia.toISOString().split('T')[0];
+
     // Formulario reactivo con validaciones
     this.formEmpleado = this.fb.group({
       nombres: ['', Validators.required],
@@ -52,6 +67,7 @@ export class PersonalComponent implements OnInit {
       documento: ['', Validators.required], // Cédula
       email: ['', [Validators.required, Validators.email]],
       telefono: [''],
+      password: [''], // Para cambios de contraseña
       fecha_ingreso: [new Date().toISOString().split('T')[0]],
       sueldo: [460, [Validators.required, Validators.min(0)]],
       sucursal: ['', Validators.required],
@@ -169,10 +185,36 @@ export class PersonalComponent implements OnInit {
     }
   }
 
+  // --- MÉTODOS PARA REPORTES DE ASISTENCIA ---
+  cargarReportesAsistencia() {
+    const params = {
+      fecha_inicio: this.fechaInicioReportes,
+      fecha_fin: this.fechaFinReportes
+    };
+
+    this.api.get('reportes/asistencia/', params).subscribe({
+      next: (res: any) => {
+        this.estadisticasAsistencia = res.estadisticas_generales;
+        this.reportesEmpleados = res.empleados_stats || [];
+      },
+      error: (err) => {
+        console.error('Error al cargar reportes:', err);
+        this.estadisticasAsistencia = null;
+        this.reportesEmpleados = [];
+      }
+    });
+  }
+
+  calcularPuntualidadIndividual(empleado: any): number {
+    if (!empleado || empleado.jornadas === 0) return 0;
+    const jornadasPuntuales = empleado.jornadas - empleado.atrasos;
+    return Math.round((jornadasPuntuales / empleado.jornadas) * 100);
+  }
+
   // ==========================================
   // 3. CARGA MASIVA (Lógica Bonita)
   // ==========================================
-  
+
   // A. Selección de Archivo
   onFileSelected(event: any) {
     const file: File = event.target.files[0];

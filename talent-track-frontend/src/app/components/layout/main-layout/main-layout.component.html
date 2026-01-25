@@ -1,212 +1,123 @@
-<div class="flex h-screen bg-gray-50 overflow-hidden">
+<div class="min-h-screen bg-gray-50">
+  <!-- Sidebar Fixed -->
+  <aside class="fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-100">
+    <nav class="p-4 space-y-2">
+      <!-- Dashboard -->
+      <a routerLink="/dashboard" routerLinkActive="bg-gray-50 text-red-600"
+         class="flex items-center px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors group">
+        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z"></path>
+        </svg>
+        <span class="font-medium">Dashboard</span>
+      </a>
 
-    <!-- Sidebar -->
-    <aside class="w-64 bg-white text-gray-900 flex flex-col shadow-lg z-20 transition-all duration-300 border-r border-gray-200"
-           [class.-ml-64]="!sidebarOpen"
-           [class.ml-0]="sidebarOpen">
-        
-        <!-- Logo -->
-        <div class="h-16 flex items-center px-6 bg-white border-b border-gray-200">
-            <span class="text-2xl font-bold">
-                <span class="text-red-600">Talent</span><span class="text-gray-900">Track</span>
-            </span>
+      <!-- Mi Perfil -->
+      <a routerLink="/mi-perfil" routerLinkActive="bg-gray-50 text-red-600"
+         class="flex items-center px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors group">
+        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+        </svg>
+        <span class="font-medium">Mi Perfil</span>
+      </a>
+
+      <!-- Empleados -->
+      <a *ngIf="auth.isManagement()" routerLink="/gestion/empleados" routerLinkActive="bg-gray-50 text-red-600"
+         class="flex items-center px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors group">
+        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+        </svg>
+        <span class="font-medium">Empleados</span>
+      </a>
+
+      <!-- Organización - SOLO para ADMIN, RRHH y SUPERADMIN (NO para GERENTE) -->
+      <a *ngIf="auth.canSeeOrganization()" routerLink="/gestion/organizacion" routerLinkActive="bg-gray-50 text-red-600"
+         class="flex items-center px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors group">
+        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+        </svg>
+        <span class="font-medium">Organización</span>
+      </a>
+
+      <!-- Asistencia / Marcaje -->
+      <a routerLink="/reloj" routerLinkActive="bg-gray-50 text-red-600"
+         class="flex items-center px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors group">
+        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span class="font-medium">Asistencia</span>
+      </a>
+
+      <!-- Nómina / Pagos -->
+      <a routerLink="/nomina" routerLinkActive="bg-gray-50 text-red-600"
+         class="flex items-center px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors group">
+        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+        </svg>
+        <span class="font-medium">Nómina</span>
+      </a>
+
+      <!-- Solicitudes -->
+      <a routerLink="/solicitudes" routerLinkActive="bg-gray-50 text-red-600"
+         class="flex items-center px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors group">
+        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <span class="font-medium">Solicitudes</span>
+      </a>
+
+      <!-- Configuración -->
+      <a *ngIf="auth.canConfigCompany()" routerLink="/admin/configuracion" routerLinkActive="bg-gray-50 text-red-600"
+         class="flex items-center px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors group">
+        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        <span class="font-medium">Configuración</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Contenedor Principal con margen izquierdo -->
+  <div class="ml-64">
+    <!-- Navbar Superior -->
+    <nav class="bg-white border-b border-gray-200 h-16 sticky top-0 z-40 flex items-center justify-between px-6">
+      <!-- Breadcrumb / Título de Sección -->
+      <div class="flex items-center">
+        <h1 class="text-lg font-semibold text-gray-900">{{ currentSection }}</h1>
+      </div>
+
+      <!-- Barra de Búsqueda Global -->
+      <div class="flex-1 max-w-md mx-8">
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+          <input type="text" placeholder="Buscar..." class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500 bg-gray-50">
         </div>
+      </div>
 
-        <!-- User Card -->
-        <div class="p-4 border-b border-gray-200 flex items-center gap-3 bg-gray-50">
-            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center font-bold text-sm text-red-600">
-                {{ userInitials }}
-            </div>
-            <div class="overflow-hidden">
-                <p class="text-sm font-semibold text-gray-900 truncate">{{ userName }}</p>
-                <p class="text-xs text-gray-500 truncate">{{ userRole }}</p>
-            </div>
+      <!-- Perfil de Usuario -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center">
+            <span class="text-sm font-medium text-red-600">{{ userInitials }}</span>
+          </div>
+          <span class="text-sm font-medium text-gray-700">{{ userName }}</span>
         </div>
+        <button (click)="logout()" class="text-gray-400 hover:text-gray-600">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+          </svg>
+        </button>
+      </div>
+    </nav>
 
-        <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto py-4 px-3">
-            
-            <!-- SECCIÓN: PRINCIPAL - ACCESO PARA TODOS -->
-            <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-2">Principal</p>
-            
-            <a routerLink="/mi-perfil" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-               [routerLinkActiveOptions]="{ exact: true }"
-               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                <i class="ri-user-line text-lg mr-3"></i>
-                <span class="font-medium">Mi Perfil</span>
-            </a>
-
-            <a *ngIf="canSeeSolicitudes()" routerLink="/solicitudes" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-               [routerLinkActiveOptions]="{ exact: true }"
-               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                <i class="ri-mail-send-line text-lg mr-3"></i>
-                <span class="font-medium">Solicitudes</span>
-            </a>
-
-            <a *ngIf="canSeeNomina()" routerLink="/nomina" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-               [routerLinkActiveOptions]="{ exact: true }"
-               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                <i class="ri-money-dollar-circle-line text-lg mr-3"></i>
-                <span class="font-medium">Nómina</span>
-            </a>
-
-            <a *ngIf="canSeeObjetivos()" routerLink="/objetivos" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-               [routerLinkActiveOptions]="{ exact: true }"
-               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                <i class="ri-target-2-line text-lg mr-3"></i>
-                <span class="font-medium">Mis Objetivos</span>
-            </a>
-
-            <a *ngIf="canSeeReportes()" routerLink="/reportes" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-               [routerLinkActiveOptions]="{ exact: true }"
-               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                <i class="ri-bar-chart-line text-lg mr-3"></i>
-                <span class="font-medium">Reportes</span>
-            </a>
-
-            <a *ngIf="canSeeTareas()" routerLink="/tareas" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-               [routerLinkActiveOptions]="{ exact: true }"
-               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                <i class="ri-check-list-line text-lg mr-3"></i>
-                <span class="font-medium">Mis Tareas</span>
-            </a>
-
-            <a *ngIf="canSeeRanking()" routerLink="/ranking" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-               [routerLinkActiveOptions]="{ exact: true }"
-               class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                <i class="ri-award-line text-lg mr-3"></i>
-                <span class="font-medium">Ranking</span>
-            </a>
-
-            <!-- SECCIÓN: GESTIÓN - SOLO JEFES/MANAGERS -->
-            <ng-container *ngIf="auth.isManagement()">
-                <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Gestión</p>
-
-                <a routerLink="/gestion/dashboard" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: true }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-dashboard-line text-lg mr-3"></i>
-                    <span class="font-medium">Dashboard</span>
-                </a>
-
-                <a routerLink="/gestion/empleados" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: false }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-team-line text-lg mr-3"></i>
-                    <span class="font-medium">Mi Equipo</span>
-                </a>
-
-                <a routerLink="/gestion/organizacion" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: true }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-organization-chart mr-3"></i>
-                    <span class="font-medium">Organización</span>
-                </a>
-
-                <a routerLink="/gestion/asistencia" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: true }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-check-double-line text-lg mr-3"></i>
-                    <span class="font-medium">Asistencia</span>
-                </a>
-
-                <a routerLink="/gestion/evaluaciones" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: true }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-star-line text-lg mr-3"></i>
-                    <span class="font-medium">Evaluaciones</span>
-                </a>
-            </ng-container>
-
-            <!-- SECCIÓN: ADMINISTRACIÓN - SOLO ADMIN DE EMPRESA Y RRHH -->
-            <ng-container *ngIf="auth.canConfigCompany()">
-                <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">Administración</p>
-                
-                <a routerLink="/admin/kpi" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: true }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-line-chart-line text-lg mr-3"></i>
-                    <span class="font-medium">Definir KPIs</span>
-                </a>
-
-                <a routerLink="/admin/ausencias" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: true }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-calendar-todo-line text-lg mr-3"></i>
-                    <span class="font-medium">Tipos de Ausencias</span>
-                </a>
-
-                <a routerLink="/admin/configuracion" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: true }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-settings-3-line text-lg mr-3"></i>
-                    <span class="font-medium">Configuración</span>
-                </a>
-            </ng-container>
-
-            <!-- SECCIÓN: SAAS - SOLO SUPERADMIN -->
-            <ng-container *ngIf="isSuperAdmin()">
-                <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6">SaaS</p>
-
-                <a routerLink="/saas/dashboard" routerLinkActive="bg-red-50 text-red-600 border-l-4 border-red-600" 
-                   [routerLinkActiveOptions]="{ exact: true }"
-                   class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100 transition group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-inset border-l-4 border-transparent">
-                    <i class="ri-server-line text-lg mr-3"></i>
-                    <span class="font-medium">Panel SaaS</span>
-                </a>
-            </ng-container>
-
-        </nav>
-
-        <!-- Logout Button -->
-        <div class="p-4 border-t border-gray-200 bg-gray-50">
-            <button (click)="logout()" 
-                    aria-label="Cerrar sesión"
-                    class="flex items-center w-full px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition font-medium focus:outline-none focus:ring-2 focus:ring-red-500">
-                <i class="bi bi-box-arrow-right text-lg mr-3"></i>
-                <span>Cerrar Sesión</span>
-            </button>
-        </div>
-    </aside>
-
-    <!-- Main Content -->
-    <div class="flex-1 flex flex-col h-screen overflow-hidden relative">
-        
-        <!-- Header -->
-        <header class="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-6 z-10">
-            
-            <button (click)="sidebarOpen = !sidebarOpen" 
-                    aria-label="Alternar menú lateral"
-                    class="text-gray-500 hover:text-red-600 rounded-md p-1 lg:hidden focus:outline-none focus:ring-2 focus:ring-red-500">
-                <i class="bi bi-list text-2xl"></i>
-            </button>
-
-            <h2 class="text-gray-900 font-bold text-lg hidden sm:block flex-1 ml-4">
-                {{ userEmpresa || 'Panel de Control' }}
-            </h2>
-
-            <div class="flex items-center gap-4">
-                <button aria-label="Ver notificaciones"
-                        class="text-gray-400 hover:text-red-600 relative rounded-full p-2 focus:outline-none focus:ring-2 focus:ring-red-500 transition">
-                    <i class="bi bi-bell text-xl"></i>
-                    <span class="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-                </button>
-            </div>
-        </header>
-
-        <!-- Page Content -->
-        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-6 scroll-smooth">
-            <div class="max-w-7xl mx-auto">
-                <router-outlet></router-outlet>
-            </div>
-        </main>
-        
-    </div>
-
-    <!-- Mobile Backdrop -->
-    <div *ngIf="sidebarOpen" (click)="sidebarOpen = false" 
-         class="fixed inset-0 bg-black/50 z-10 lg:hidden backdrop-blur-sm transition-opacity"
-         aria-hidden="true">
-    </div>
-
+    <!-- Contenido Principal -->
+    <main class="p-6">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
 </div>

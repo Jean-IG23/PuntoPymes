@@ -18,7 +18,7 @@ from django.db.models.signals import post_save
 import pandas as pd
 from rest_framework.parsers import MultiPartParser, FormParser
 # Modelos
-from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion
+from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion, ConfiguracionNomina
 from personal.models import Empleado, SolicitudAusencia, Tarea
 from asistencia.models import Jornada
 from .serializers import ConfiguracionNominaSerializer
@@ -77,13 +77,20 @@ class CustomLoginView(ObtainAuthToken):
 
         try:
             empleado = Empleado.objects.get(email=user.email)
+
+            # Validar que la empresa esté activa
             if not empleado.empresa.estado:
                  return Response({'error': 'ACCESO DENEGADO: Empresa inactiva.'}, status=403)
+
+            # Validar que el empleado esté activo
+            if empleado.estado != 'ACTIVO':
+                return Response({'error': 'ACCESO DENEGADO: Tu cuenta de empleado está inactiva.'}, status=403)
+
             role = empleado.rol
             empresa_id = empleado.empresa.id
             nombre_empresa = empleado.empresa.nombre_comercial
             user_data = {
-                'id': empleado.id, 
+                'id': empleado.id,
                 'nombres': empleado.nombres,
                 'apellidos': empleado.apellidos,
                 'email': empleado.email,
@@ -153,17 +160,25 @@ class EmpresaViewSet(viewsets.ModelViewSet):
         return Empresa.objects.none()
 
     def create(self, request, *args, **kwargs):
-        print("🚀 INICIANDO CREACIÓN DE EMPRESA...") # DEBUG
+        print("INICIANDO CREACION DE EMPRESA...")  # DEBUG
         
         # Copiamos datos para no alterar el request original
         data = request.data.copy()
+        
+        # FIX: Normalizar strings para encoding issues en Windows
+        for field in ['razon_social', 'nombre_comercial', 'ruc', 'direccion']:
+            if field in data and isinstance(data[field], str):
+                try:
+                    data[field] = data[field].encode('utf-8', errors='replace').decode('utf-8', errors='replace').strip()
+                except Exception as e:
+                    print(f"⚠️ Error normalizando {field}: {e}")
         
         # Extraemos datos del admin
         admin_email = data.get('admin_email')
         admin_pass = data.get('admin_password')
         admin_nombre = data.get('admin_nombre') or 'Administrador'
 
-        print(f"📧 Admin Email: {admin_email}") # DEBUG
+        print(f"Admin Email: {admin_email}") # DEBUG
 
         if not admin_email or not admin_pass:
             print("❌ ERROR: Faltan credenciales")
@@ -232,10 +247,29 @@ class EmpresaViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             # Si algo falla, entra aquí y la BD se deshace (Rollback)
-            print(f"🔥 CRASH ERROR: {str(e)}")
+            print(f"CRASH ERROR: {str(e)}")
             import traceback
             traceback.print_exc() # Esto imprimirá el error exacto en tu terminal
             return Response({'error': f'Error interno: {str(e)}'}, status=400)
+
+    @action(detail=True, methods=['post'], url_path='toggle-estado')
+    def toggle_estado(self, request, pk=None):
+        """Activar/Desactivar empresa"""
+        empresa = self.get_object()
+
+        # Solo SUPERADMIN puede cambiar estado de empresas
+        if not request.user.is_superuser:
+            return Response({'error': 'Solo el SuperAdmin puede cambiar el estado de empresas.'}, status=403)
+
+        # Cambiar estado
+        empresa.estado = not empresa.estado
+        empresa.save(update_fields=['estado'])
+
+        return Response({
+            'id': empresa.id,
+            'estado': empresa.estado,
+            'mensaje': f'Empresa {"activada" if empresa.estado else "desactivada"} correctamente'
+        })
 
 
 class SucursalViewSet(EmpresaContextMixin, viewsets.ModelViewSet):
@@ -385,13 +419,13 @@ def dashboard_stats(request):
                 empresa=empresa
             ).exclude(empleado=perfil).count()
         elif perfil.rol == 'GERENTE':
-            sucursales_a_cargo = perfil.sucursales_a_cargo.all()
-            if sucursales_a_cargo.exists():
-                empleados_empresa = Empleado.objects.filter(empresa=empresa, sucursal__in=sucursales_a_cargo, estado='ACTIVO')
+            # Los gerentes ven empleados de su propia sucursal
+            if perfil.sucursal:
+                empleados_empresa = Empleado.objects.filter(empresa=empresa, sucursal=perfil.sucursal, estado='ACTIVO')
                 data['solicitudes_pendientes'] = SolicitudAusencia.objects.filter(
                     estado='PENDIENTE',
                     empresa=empresa,
-                    empleado__sucursal__in=sucursales_a_cargo
+                    empleado__sucursal=perfil.sucursal
                 ).exclude(empleado=perfil).count()
             else:
                 empleados_empresa = Empleado.objects.filter(empresa=empresa, departamento=perfil.departamento, estado='ACTIVO')
@@ -416,6 +450,36 @@ def dashboard_stats(request):
         data['presentes_hoy'] = presentes_hoy
         data['ausentes_hoy'] = max(0, ausentes_hoy)
         data['porcentaje_asistencia'] = round((presentes_hoy / total_empleados * 100), 1) if total_empleados > 0 else 0
+
+        # ===== DATOS DE TAREAS PENDIENTES =====
+        if perfil.rol == 'EMPLEADO':
+            # Para empleados: contar tareas asignadas que no estén completadas
+            data['tareas_pendientes'] = Tarea.objects.filter(
+                asignado_a=perfil,
+                estado__in=['PENDIENTE', 'PROGRESO', 'REVISION']
+            ).count()
+        elif perfil.rol in ['ADMIN', 'RRHH']:
+            # Para admin/rrhh: contar todas las tareas pendientes de la empresa
+            data['tareas_pendientes'] = Tarea.objects.filter(
+                empresa=empresa,
+                estado__in=['PENDIENTE', 'PROGRESO', 'REVISION']
+            ).count()
+        elif perfil.rol == 'GERENTE':
+            # Para gerentes: contar tareas pendientes de su equipo (sucursal o departamento)
+            if perfil.sucursal:
+                data['tareas_pendientes'] = Tarea.objects.filter(
+                    empresa=empresa,
+                    asignado_a__sucursal=perfil.sucursal,
+                    estado__in=['PENDIENTE', 'PROGRESO', 'REVISION']
+                ).count()
+            else:
+                data['tareas_pendientes'] = Tarea.objects.filter(
+                    empresa=empresa,
+                    asignado_a__departamento=perfil.departamento,
+                    estado__in=['PENDIENTE', 'PROGRESO', 'REVISION']
+                ).count()
+        else:
+            data['tareas_pendientes'] = 0
 
     except Empleado.DoesNotExist:
         if user.is_superuser:
@@ -561,3 +625,34 @@ class DashboardChartsView(APIView):
             print(f"ERROR en DashboardChartsView: {error_msg}")
             print(traceback.format_exc())
             return Response({'error': f'Error interno: {error_msg}'}, status=500)
+
+
+# ============================================================================
+# API DE PERMISOS - Para el Frontend
+# ============================================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_permissions(request):
+    """
+    Retorna los permisos del usuario autenticado para el frontend.
+    
+    Esto permite que el frontend sepa qué módulos mostrar/ocultar
+    y qué acciones puede realizar el usuario.
+    
+    Returns:
+        {
+            'rol': 'GERENTE',
+            'permisos': {...},
+            'modulos_restringidos': ['organizacion', 'empresas', 'configuracion'],
+            'puede_ver_organizacion': False,
+            'puede_ver_empleados': True,
+            'puede_ver_configuracion': False,
+            'sucursal_id': 1,
+            'empresa_id': 1,
+        }
+    """
+    from core.permissions import get_permisos_usuario
+    
+    permisos = get_permisos_usuario(request.user)
+    return Response(permisos)

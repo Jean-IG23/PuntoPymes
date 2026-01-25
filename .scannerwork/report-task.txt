@@ -1,0 +1,6 @@
+projectKey=Punto-Pymes
+serverUrl=http://localhost:9000
+serverVersion=26.1.0.118079
+dashboardUrl=http://localhost:9000/dashboard?id=Punto-Pymes
+ceTaskId=f0146893-f867-4cab-b987-9fe3c7c5ec72
+ceTaskUrl=http://localhost:9000/api/ce/task?id=f0146893-f867-4cab-b987-9fe3c7c5ec72

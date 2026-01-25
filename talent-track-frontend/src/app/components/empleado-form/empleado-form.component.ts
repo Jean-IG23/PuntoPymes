@@ -34,6 +34,9 @@ export class EmpleadoFormComponent implements OnInit {
 
   // --- LISTAS FILTRADAS ---
   departamentosFiltrados: any[] = []; // Lista reducida según sucursal
+
+  // --- GESTIÓN DE ROLES ---
+  // SIMPLIFICADO: Los gerentes automáticamente gestionan la sucursal donde están asignados
   
   // --- FOTO DE PERFIL ---
   selectedFoto: File | null = null;
@@ -93,7 +96,7 @@ export class EmpleadoFormComponent implements OnInit {
 
     forkJoin({
       sucursales: this.api.getSucursales(empresaId || undefined),
-      deptos: this.api.getDepartamentos(empresaId || undefined),
+      deptos: this.api.getDepartamentos(undefined),  // ✅ SIN FILTRO - Cargamos todos
       puestos: this.api.getPuestos(undefined, empresaId || undefined),
       turnos: this.api.getTurnos()
     }).subscribe({
@@ -149,6 +152,8 @@ export class EmpleadoFormComponent implements OnInit {
   cargarEmpleado(id: number) {
     this.api.getEmpleado(id).subscribe({
       next: (data: any) => {
+        console.log('📥 Datos del empleado cargados:', data);
+        
         // PREPARACIÓN DE DATOS (Normalización ID vs Objeto)
         // El backend puede devolver { sucursal: {id: 1, nombre...} } o { sucursal: 1 }
         // El formulario necesita el ID (1).
@@ -156,24 +161,44 @@ export class EmpleadoFormComponent implements OnInit {
         const sucursalId = (typeof data.sucursal === 'object' && data.sucursal) ? data.sucursal.id : data.sucursal;
         const deptoId = (typeof data.departamento === 'object' && data.departamento) ? data.departamento.id : data.departamento;
         const puestoId = (typeof data.puesto === 'object' && data.puesto) ? data.puesto.id : data.puesto;
-        const turnoId = (typeof data.turno_asignado === 'object' && data.turno_asignado) ? data.turno_asignado.id : data.turno_asignado;
+        
+        // Manejar turno - puede venir como turno o turno_asignado
+        let turnoId = null;
+        if (data.turno_asignado) {
+          turnoId = (typeof data.turno_asignado === 'object' && data.turno_asignado) 
+            ? data.turno_asignado.id 
+            : data.turno_asignado;
+        } else if (data.turno) {
+          turnoId = (typeof data.turno === 'object' && data.turno) 
+            ? data.turno.id 
+            : data.turno;
+        }
 
-        // Llenar formulario
+        console.log('🔑 IDs extraídos:', { sucursalId, deptoId, puestoId, turnoId });
+
+        // ✅ Si hay foto, mostrar preview
+        if (data.foto) {
+          this.fotoPreview = data.foto;
+        }
+
+        // Llenar formulario con TODOS los datos
         this.empleadoForm.patchValue({
-            nombres: data.nombres,
-            apellidos: data.apellidos,
-            documento: data.documento,
-            email: data.email,
-            telefono: data.telefono,
-            direccion: data.direccion,
+            nombres: data.nombres || '',
+            apellidos: data.apellidos || '',
+            documento: data.documento || '',
+            email: data.email || '',
+            telefono: data.telefono || '',
+            direccion: data.direccion || '',
             sucursal: sucursalId,
             puesto: puestoId,
             turno_asignado: turnoId,
-            fecha_ingreso: data.fecha_ingreso,
-            sueldo: data.sueldo,
-            rol: data.rol,
-            estado: data.estado
+            fecha_ingreso: data.fecha_ingreso || new Date().toISOString().substring(0, 10),
+            sueldo: data.sueldo || 460,
+            rol: data.rol || 'EMPLEADO',
+            estado: data.estado || 'ACTIVO'
         });
+
+        console.log('✅ Formulario rellenado:', this.empleadoForm.value);
 
         // IMPORTANTE: Filtrar departamentos antes de setear el valor
         this.filtrarDepartamentos(sucursalId);
@@ -181,11 +206,14 @@ export class EmpleadoFormComponent implements OnInit {
         // Setear departamento (después de filtrar, si no, el select estaría vacío)
         this.empleadoForm.patchValue({ departamento: deptoId });
 
+        // Inicializar lógica de roles
+        this.onRolChange();
+
         this.loading = false;
         this.cd.detectChanges();
       },
       error: (e) => {
-        console.error(e);
+        console.error('❌ Error cargando empleado:', e);
         Swal.fire('Error', 'No se encontró la ficha del empleado', 'error');
         this.router.navigate(['/empleados']);
       }
@@ -272,6 +300,21 @@ export class EmpleadoFormComponent implements OnInit {
     input.value = value;
   }
 
+  // GESTIÓN DE ROLES - SIMPLIFICADA
+  // Los gerentes automáticamente gestionan la sucursal donde están asignados
+  onRolChange() {
+    const rolSeleccionado = this.empleadoForm.get('rol')?.value;
+
+    // Si se selecciona GERENTE, validar que tenga sucursal asignada
+    if (rolSeleccionado === 'GERENTE') {
+      const sucursalActual = this.empleadoForm.get('sucursal')?.value;
+      if (!sucursalActual) {
+        // Mostrar mensaje informativo (no bloqueante)
+        console.log('Nota: Los gerentes automáticamente gestionan la sucursal donde están asignados');
+      }
+    }
+  }
+
   // 6. GUARDAR DATOS
   guardar() {
     if (this.empleadoForm.invalid) {
@@ -287,29 +330,39 @@ export class EmpleadoFormComponent implements OnInit {
     this.saving = true;
     this.cd.detectChanges();
     
-    // Preparar datos: si hay foto, usar FormData, sino objeto normal
-    let dataToSend: any = this.empleadoForm.value;
+    // Preparar datos para enviar
+    let dataToSend: any;
+    const formValues = this.empleadoForm.value;
     
+    // Si hay foto seleccionada, usar FormData
     if (this.selectedFoto) {
-      const formData = new FormData();
-      // Añadir todos los campos del formulario
-      Object.keys(this.empleadoForm.value).forEach(key => {
-        const value = this.empleadoForm.value[key];
+      dataToSend = new FormData();
+      
+      // Añadir todos los campos del formulario a FormData
+      Object.keys(formValues).forEach(key => {
+        const value = formValues[key];
         if (value !== null && value !== undefined) {
-          formData.append(key, String(value));
+          dataToSend.append(key, String(value));
         }
       });
+      
       // Añadir foto
-      formData.append('foto', this.selectedFoto);
-      dataToSend = formData;
-    }
-    
-    // Inyectar empresa si es nuevo
-    const empresaId: string = String(this.auth.getEmpresaId() ?? '');
-    if (!this.isEditing && !(dataToSend instanceof FormData)) {
-      dataToSend.empresa = empresaId;
-    } else if (!this.isEditing && dataToSend instanceof FormData) {
-      dataToSend.append('empresa', empresaId);
+      dataToSend.append('foto', this.selectedFoto);
+      
+      // Inyectar empresa si es nuevo
+      if (!this.isEditing) {
+        const empresaId = String(this.auth.getEmpresaId() ?? '');
+        dataToSend.append('empresa', empresaId);
+      }
+    } else {
+      // Sin foto, enviar JSON normal
+      dataToSend = { ...formValues };
+      
+      // Inyectar empresa si es nuevo
+      if (!this.isEditing) {
+        const empresaId = String(this.auth.getEmpresaId() ?? '');
+        dataToSend.empresa = empresaId;
+      }
     }
 
     const request = this.isEditing && this.empleadoId
@@ -317,11 +370,22 @@ export class EmpleadoFormComponent implements OnInit {
       : this.api.createEmpleado(dataToSend);
 
     request.subscribe({
-      next: () => {
+      next: (response: any) => {
         this.saving = false;
+        this.cd.detectChanges();
+
+        // Verificar si hubo reemplazo de gerente
+        let mensaje = this.isEditing ? 'Datos actualizados correctamente' : 'Colaborador registrado con éxito';
+        let titulo = '¡Excelente!';
+
+        if (response.gerente_reemplazado) {
+          titulo = '¡Gerente Reemplazado!';
+          mensaje = `${response.gerente_reemplazado} ha sido demovido a Empleado. ${mensaje}`;
+        }
+
         Swal.fire({
-            title: '¡Excelente!',
-            text: this.isEditing ? 'Datos actualizados correctamente' : 'Colaborador registrado con éxito',
+            title: titulo,
+            text: mensaje,
             icon: 'success',
             confirmButtonText: 'Volver al Directorio',
             confirmButtonColor: '#4F46E5'
@@ -334,11 +398,14 @@ export class EmpleadoFormComponent implements OnInit {
       error: (e) => {
         this.saving = false;
         this.cd.detectChanges();
-        console.error(e);
+        console.error('Error al guardar empleado:', e);
+        
         // Manejo de errores comunes
         let msg = 'Ocurrió un error al procesar la solicitud.';
         if (e.error?.email) msg = 'El correo electrónico ya está registrado.';
         if (e.error?.documento) msg = 'El número de documento ya existe en esta empresa.';
+        if (e.error?.non_field_errors) msg = e.error.non_field_errors[0] || msg;
+        if (e.error?.detail) msg = e.error.detail;
         
         Swal.fire('Error', msg, 'error');
       }

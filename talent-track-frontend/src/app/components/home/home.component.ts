@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
 import { AttendanceQuickMarkerComponent } from '../attendance-quick-marker/attendance-quick-marker.component';
@@ -10,7 +10,7 @@ import { takeUntil } from 'rxjs/operators';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, AttendanceQuickMarkerComponent],
+  imports: [CommonModule, RouterModule, AttendanceQuickMarkerComponent],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css'
 })
@@ -35,43 +35,43 @@ export class HomeComponent implements OnInit, OnDestroy {
   // Módulos según roles
   modulosEmpleado = [
     {
-      icon: 'ri-time-line',
-      titulo: 'Marcar Asistencia',
+      icono: 'ri-time-line',
+      nombre: 'Marcar Asistencia',
       descripcion: 'Registra tu entrada y salida del día',
       ruta: '/reloj',
       color: 'red'
     },
     {
-      icon: 'ri-mail-send-line',
-      titulo: 'Mis Solicitudes',
+      icono: 'ri-mail-send-line',
+      nombre: 'Mis Solicitudes',
       descripcion: 'Solicita y gestiona tus permisos',
       ruta: '/solicitudes',
       color: 'orange'
     },
     {
-      icon: 'ri-money-dollar-circle-line',
-      titulo: 'Mi Nómina',
+      icono: 'ri-money-dollar-circle-line',
+      nombre: 'Mi Nómina',
       descripcion: 'Consulta tu salario y descuentos',
       ruta: '/nomina',
       color: 'green'
     },
     {
-      icon: 'ri-target-2-line',
-      titulo: 'Mis Objetivos',
+      icono: 'ri-target-2-line',
+      nombre: 'Mis Objetivos',
       descripcion: 'Define y realiza seguimiento de metas',
       ruta: '/objetivos',
       color: 'blue'
     },
     {
-      icon: 'ri-user-line',
-      titulo: 'Mi Perfil',
+      icono: 'ri-user-line',
+      nombre: 'Mi Perfil',
       descripcion: 'Edita tu información personal',
       ruta: '/mi-perfil',
       color: 'purple'
     },
     {
-      icon: 'ri-check-list-line',
-      titulo: 'Mis Tareas',
+      icono: 'ri-check-list-line',
+      nombre: 'Mis Tareas',
       descripcion: 'Gestiona tus actividades asignadas',
       ruta: '/tareas',
       color: 'indigo'
@@ -80,43 +80,43 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   modulosJefe = [
     {
-      icon: 'ri-team-line',
-      titulo: 'Mi Equipo',
+      icono: 'ri-team-line',
+      nombre: 'Mi Equipo',
       descripcion: 'Gestiona y visualiza tus empleados',
       ruta: '/gestion/empleados',
       color: 'red'
     },
     {
-      icon: 'ri-organization-chart',
-      titulo: 'Organización',
+      icono: 'ri-building-2-line',
+      nombre: 'Organización',
       descripcion: 'Estructura empresarial y áreas',
       ruta: '/gestion/organizacion',
       color: 'blue'
     },
     {
-      icon: 'ri-check-double-line',
-      titulo: 'Asistencia',
+      icono: 'ri-check-double-line',
+      nombre: 'Asistencia',
       descripcion: 'Aprueba solicitudes de permisos',
       ruta: '/gestion/asistencia',
       color: 'orange'
     },
     {
-      icon: 'ri-star-line',
-      titulo: 'Evaluaciones',
+      icono: 'ri-star-line',
+      nombre: 'Evaluaciones',
       descripcion: 'Monitorea el desempeño del equipo',
       ruta: '/gestion/evaluaciones',
       color: 'green'
     },
     {
-      icon: 'ri-bar-chart-line',
-      titulo: 'Reportes',
+      icono: 'ri-bar-chart-line',
+      nombre: 'Reportes',
       descripcion: 'Análisis de asistencia y nómina',
       ruta: '/reportes',
       color: 'purple'
     },
     {
-      icon: 'ri-dashboard-line',
-      titulo: 'Dashboard',
+      icono: 'ri-dashboard-line',
+      nombre: 'Dashboard',
       descripcion: 'Panel de control del sistema',
       ruta: '/gestion/dashboard',
       color: 'indigo'
@@ -125,22 +125,22 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   modulosSuperAdmin = [
     {
-      icon: 'ri-building-line',
-      titulo: 'Empresas',
+      icono: 'ri-building-line',
+      nombre: 'Empresas',
       descripcion: 'Gestión de empresas del sistema',
       ruta: '/gestion/organizacion',
       color: 'red'
     },
     {
-      icon: 'ri-shield-lock-line',
-      titulo: 'Administración',
+      icono: 'ri-shield-lock-line',
+      nombre: 'Administración',
       descripcion: 'Control total del sistema',
       ruta: '/admin/configuracion',
       color: 'blue'
     },
     {
-      icon: 'ri-line-chart-line',
-      titulo: 'Analytics',
+      icono: 'ri-line-chart-line',
+      nombre: 'Analytics',
       descripcion: 'Estadísticas globales del SAAS',
       ruta: '/saas/dashboard',
       color: 'green'

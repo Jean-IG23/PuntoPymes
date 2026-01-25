@@ -115,23 +115,23 @@
           <div class="space-y-4 text-sm">
             <div>
               <label class="text-gray-500 font-semibold">Empresa</label>
-              <p class="text-gray-900">{{ empleado.empresa?.nombre || 'N/A' }}</p>
+              <p class="text-gray-900">{{ empleado.empresa?.nombre_comercial || empleado.nombre_empresa || 'N/A' }}</p>
             </div>
             <div>
               <label class="text-gray-500 font-semibold">Sucursal</label>
-              <p class="text-gray-900">{{ empleado.sucursal?.nombre || 'N/A' }}</p>
+              <p class="text-gray-900">{{ empleado.sucursal?.nombre || empleado.nombre_sucursal || 'N/A' }}</p>
             </div>
             <div>
               <label class="text-gray-500 font-semibold">Departamento</label>
-              <p class="text-gray-900">{{ empleado.departamento?.nombre || 'N/A' }}</p>
+              <p class="text-gray-900">{{ empleado.departamento?.nombre || empleado.nombre_departamento || 'N/A' }}</p>
             </div>
             <div>
               <label class="text-gray-500 font-semibold">Puesto</label>
-              <p class="text-gray-900">{{ empleado.puesto?.nombre || 'N/A' }}</p>
+              <p class="text-gray-900">{{ empleado.puesto?.nombre || empleado.nombre_puesto || 'N/A' }}</p>
             </div>
             <div>
               <label class="text-gray-500 font-semibold">Turno</label>
-              <p class="text-gray-900">{{ empleado.turno?.nombre || 'N/A' }}</p>
+              <p class="text-gray-900">{{ empleado.turno?.nombre || empleado.nombre_turno || 'N/A' }}</p>
             </div>
             <div>
               <label class="text-gray-500 font-semibold">Fecha de Ingreso</label>

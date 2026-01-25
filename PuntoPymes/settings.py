@@ -12,7 +12,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import sys
 from decouple import config, Csv
+
+# FIX: Configurar PYTHONIOENCODING para Windows (solo variable de entorno, no sys.stdout)
+os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -55,6 +59,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'PuntoPymes.middleware.EncodingFixMiddleware',             # FIX: Encoding para Windows
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',

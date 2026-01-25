@@ -48,6 +48,9 @@
       <button (click)="cargarReporte()" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm hover:bg-indigo-700">
           Filtrar
       </button>
+      <button (click)="verNomina()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 ml-2">
+          Ver Nómina
+      </button>
   </div>
 
   <div class="bg-white shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
@@ -56,9 +59,11 @@
               <tr>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empleado</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Turno</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salida</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duración</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Atraso</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
               </tr>
           </thead>
@@ -69,30 +74,87 @@
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                       <div class="text-sm font-medium text-gray-900">
-                          {{ j.nombre_empleado || ('Empleado #' + j.empleado) }}
+                          {{ j.empleado_detalle?.nombres }} {{ j.empleado_detalle?.apellidos }}
+                      </div>
+                      <div class="text-sm text-gray-500">
+                          {{ j.empleado_detalle?.puesto?.nombre }}
                       </div>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                      {{ j.hora_entrada }}
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <div class="text-xs">
+                      <div>{{ j.turno_nombre || 'Sin turno' }}</div>
+                      <div class="text-gray-400" *ngIf="j.turno_hora_entrada">
+                          {{ j.turno_hora_entrada | date:'HH:mm' }} ({{ j.turno_min_tolerancia || 0 }}min tol.)
+                      </div>
+                  </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                      {{ j.hora_salida || '--:--' }}
+                      {{ j.entrada | date:'HH:mm' }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                      {{ j.salida ? (j.salida | date:'HH:mm') : '--:--' }}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {{ calcularHoras(j.hora_entrada, j.hora_salida) }}
+                      {{ calcularHoras(j.entrada, j.salida) }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                      <span *ngIf="j.es_atraso" class="text-red-600 font-medium">
+                          {{ j.minutos_atraso }} min
+                      </span>
+                      <span *ngIf="!j.es_atraso" class="text-green-600">
+                          Puntual
+                      </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                       <span [class]="'px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' + getEstadoClase(j)">
-                          {{ j.hora_salida ? 'Completado' : 'En Turno' }}
+                          {{ getEstadoTexto(j) }}
                       </span>
                   </td>
               </tr>
               <tr *ngIf="jornadas.length === 0 && !loading">
-                  <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                  <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                       No hay registros en este rango de fechas.
                   </td>
               </tr>
           </tbody>
       </table>
+  </div>
+
+  <!-- Sección de Nómina -->
+  <div *ngIf="nominaData" class="bg-white shadow overflow-hidden border-b border-gray-200 sm:rounded-lg mt-6">
+      <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-medium text-gray-900">Resumen de Nómina - {{ nominaData.periodo.inicio | date:'dd/MM/yyyy' }} al {{ nominaData.periodo.fin | date:'dd/MM/yyyy' }}</h3>
+      </div>
+      <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                  <tr>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empleado</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sueldo Base</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horas Trab.</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horas Extras</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pago Extras</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min. Atraso</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desc. Atrasos</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total a Pagar</th>
+                  </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                  <tr *ngFor="let emp of nominaData.datos" class="hover:bg-gray-50">
+                      <td class="px-6 py-4 whitespace-nowrap">
+                          <div class="text-sm font-medium text-gray-900">{{ emp.nombre }}</div>
+                          <div class="text-sm text-gray-500">{{ emp.puesto }}</div>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ emp.moneda }} {{ emp.sueldo_base | number:'1.2-2' }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ emp.horas_trabajadas }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">{{ emp.horas_extras }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">{{ emp.moneda }} {{ emp.pago_extras | number:'1.2-2' }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600">{{ emp.minutos_atraso }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600">{{ emp.moneda }} {{ emp.descuento_atrasos | number:'1.2-2' }}</td>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">{{ emp.moneda }} {{ emp.total_a_pagar | number:'1.2-2' }}</td>
+                  </tr>
+              </tbody>
+          </table>
+      </div>
   </div>
 </div>

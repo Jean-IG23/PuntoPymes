@@ -2,6 +2,9 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Empresa, Sucursal, Departamento, Puesto, Turno, Area, Notificacion, ConfiguracionNomina
 from personal.models import Empleado
+import logging
+
+logger = logging.getLogger(__name__)
 
 # 1. EMPRESA
 class EmpresaSerializer(serializers.ModelSerializer):
@@ -14,13 +17,33 @@ class EmpresaSerializer(serializers.ModelSerializer):
         model = Empresa
         fields = '__all__'
     
+    def _clean_string(self, value):
+        """Limpia y normaliza strings para evitar problemas de encoding"""
+        if not value or not isinstance(value, str):
+            return value
+        
+        try:
+            # Asegurar que es válido UTF-8
+            return value.encode('utf-8', errors='replace').decode('utf-8', errors='replace').strip()
+        except Exception as e:
+            logger.warning(f"Error limpiando string: {e}")
+            return value
+    
     def to_internal_value(self, data):
         """
         Interceptamos los datos ANTES de la validación.
-        Removemos campos vacíos de admin para que no se validen.
+        Limpiamos encoding y removemos campos vacíos de admin para que no se validen.
         """
-        # Si vienen vacíos, los quitamos para que no se validen
+        # Copiar datos para no modificar el original
         if isinstance(data, dict):
+            data = dict(data)
+            
+            # Limpiar strings de encoding issues
+            for field in ['razon_social', 'nombre_comercial', 'ruc', 'direccion']:
+                if field in data and isinstance(data[field], str):
+                    data[field] = self._clean_string(data[field])
+            
+            # Si vienen vacíos, los quitamos para que no se validen
             if not data.get('admin_email'):
                 data.pop('admin_email', None)
             if not data.get('admin_password'):

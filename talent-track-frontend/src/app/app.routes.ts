@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard'; 
 import { adminGuard } from './guards/admin.guard'; 
 import { configGuard } from './guards/config.guard';
+import { organizationGuard } from './guards/organization.guard';
 
 import { LoginComponent } from './components/login/login.component';
 import { HomeComponent } from './components/home/home.component';
@@ -34,7 +35,7 @@ export const routes: Routes = [
   // ==========================================
   { path: 'login', component: LoginComponent },
   { path: 'home', component: HomeComponent },
-  { path: '', redirectTo: 'home', pathMatch: 'full' },
+  { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
 
   // ==========================================
   // 🔒 RUTAS PRIVADAS (Envueltas en MainLayout)
@@ -48,7 +49,10 @@ export const routes: Routes = [
         // ========================================
         // 📱 ACCESO PARA TODOS LOS USUARIOS
         // ========================================
-        
+
+        // Dashboard Principal (Unificado por roles)
+        { path: 'dashboard', component: DashboardComponent },
+
         // Reloj de Asistencia
         { path: 'reloj', component: RelojComponent },
         
@@ -116,10 +120,11 @@ export const routes: Routes = [
               component: KpiScoreComponent 
             },
 
-            // Organización (Estructura de empresa)
+            // Organización (Estructura de empresa) - SOLO ADMIN, RRHH, SUPERADMIN
             { 
               path: 'organizacion', 
-              component: OrganizacionComponent 
+              component: OrganizacionComponent,
+              canActivate: [organizationGuard]  // Bloquea acceso a GERENTE
             },
 
             // Contextuales (Empleados por departamento)
@@ -193,18 +198,15 @@ export const routes: Routes = [
         },
 
         // ========================================
-        // 🔄 DEPRECATED - Redirecciones
+        // 🔄 REDIRECCIONES LEGACY
         // ========================================
-        // Mantener /dashboard por compatibilidad, pero redirige
-        { path: 'dashboard', redirectTo: '/gestion/dashboard', pathMatch: 'full' },
         { path: 'portal', redirectTo: '/reloj', pathMatch: 'full' },
         { path: 'kpi/manager', redirectTo: '/admin/kpi', pathMatch: 'full' },
-        { path: 'configuracion', redirectTo: '/admin/configuracion', pathMatch: 'full' },
     ]
   },
 
   // ==========================================
   // 🚫 WILDCARD - Página no encontrada
   // ==========================================
-  { path: '**', redirectTo: 'home' },
+  { path: '**', redirectTo: 'dashboard' },
 ];

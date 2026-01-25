@@ -17,6 +17,8 @@ export class LoginComponent {
   loginForm: FormGroup;
   loading = false;
   errorMessage = '';
+  loginAttempts = 0;
+  maxAttempts = 3;
 
   constructor(
     private fb: FormBuilder,
@@ -37,6 +39,11 @@ export class LoginComponent {
       return;
     }
 
+    // FIX: Prevenir múltiples clicks mientras se carga
+    if (this.loading) {
+      return;
+    }
+
     this.loading = true;
     this.errorMessage = '';
 
@@ -45,20 +52,41 @@ export class LoginComponent {
       next: (res) => {
         // Si todo sale bien, el servicio ya guardó el token y el user en localStorage
         this.loading = false;
-        // REDIRECCIÓN AL HOME
-        this.router.navigate(['/home']);
+        this.loginAttempts = 0; // Reset intentos
+        // REDIRECCIÓN AL DASHBOARD
+        this.router.navigate(['/dashboard']);
       },
       error: (err) => {
         this.loading = false;
-        console.error(err);
+        this.loginAttempts++;
         
-        // Mensaje amigable según el error
-        if (err.status === 400 || err.status === 401) {
-            this.errorMessage = 'Credenciales incorrectas.';
+        console.error('Login error:', err);
+        
+        // Manejo de diferentes tipos de error
+        if (err.name === 'TimeoutError') {
+          this.errorMessage = 'La conexión tardó demasiado. Intenta de nuevo.';
+        } else if (err.status === 400 || err.status === 401) {
+          this.errorMessage = 'Credenciales incorrectas. Verifica tu email y contraseña.';
+        } else if (err.status === 0) {
+          this.errorMessage = 'No se puede conectar con el servidor. Verifica tu conexión.';
+        } else if (err.status >= 500) {
+          this.errorMessage = 'Error del servidor. Intenta más tarde.';
         } else {
-            this.errorMessage = 'Error de conexión con el servidor.';
+          this.errorMessage = 'Error al iniciar sesión. Por favor intenta de nuevo.';
+        }
+        
+        // FIX: Si hay demasiados intentos, mostrar aviso adicional
+        if (this.loginAttempts >= this.maxAttempts) {
+          this.errorMessage += ` (Intento ${this.loginAttempts}/${this.maxAttempts})`;
         }
       }
     });
+  }
+
+  // FIX: Limpiar mensaje de error cuando el usuario escribe
+  onInputChange() {
+    if (this.errorMessage) {
+      this.errorMessage = '';
+    }
   }
 }

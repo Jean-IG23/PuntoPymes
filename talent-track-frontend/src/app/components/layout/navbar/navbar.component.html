@@ -1,113 +1,202 @@
-<nav class="bg-white border-b border-gray-200 shadow-sm fixed w-full z-30 top-0">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex justify-between h-16">
-      
-      <!-- Logo y Links Desktop -->
-      <div class="flex">
-        <div class="flex-shrink-0 flex items-center cursor-pointer" routerLink="/home">
-          <span class="text-2xl font-bold text-red-600">TalentTrack</span>
+<!-- NAVBAR PROFESIONAL Y UNIFICADO -->
+<nav class="navbar-main">
+  <div class="navbar-container">
+    <!-- Lado Izquierdo: Logo y Navegación -->
+    <div class="navbar-left">
+      <!-- Logo -->
+      <div class="logo-wrapper" (click)="goToHome()" role="button" tabindex="0">
+        <div class="logo-icon">
+          <i class="ri-bar-chart-2-line"></i>
         </div>
-
-        <div class="hidden sm:ml-8 sm:flex sm:space-x-1">
-          
-          <a routerLink="/home" 
-             routerLinkActive="text-red-600 border-red-600"
-             [routerLinkActiveOptions]="{exact: true}"
-             class="border-transparent text-gray-600 hover:text-red-600 inline-flex items-center px-3 py-2 border-b-2 text-sm font-medium transition">
-             Inicio
-          </a>
-
-          <a *ngIf="auth.canConfigCompany()" 
-             routerLink="/organizacion"
-             routerLinkActive="text-red-600 border-red-600"
-             class="border-transparent text-gray-600 hover:text-red-600 inline-flex items-center px-3 py-2 border-b-2 text-sm font-medium transition">
-             Organización
-          </a>
-
-          <a *ngIf="auth.isManagement()" 
-             routerLink="/empleados"
-             routerLinkActive="text-red-600 border-red-600"
-             class="border-transparent text-gray-600 hover:text-red-600 inline-flex items-center px-3 py-2 border-b-2 text-sm font-medium transition">
-             Personal
-          </a>
-
-          <a *ngIf="auth.isEmployee() || auth.isGerente()" 
-             routerLink="/mi-perfil"
-             routerLinkActive="text-red-600 border-red-600"
-             class="border-transparent text-gray-600 hover:text-red-600 inline-flex items-center px-3 py-2 border-b-2 text-sm font-medium transition">
-             Mi Ficha
-          </a>
-
-        </div>
+        <span class="logo-text">Talent<span class="logo-accent">Track</span></span>
       </div>
 
-      <!-- Usuario y Logout Desktop -->
-      <div class="hidden sm:ml-6 sm:flex sm:items-center">
-        <div class="flex items-center gap-4">
-          <div class="text-right">
-            <div class="text-sm font-semibold text-gray-900">{{ user?.first_name || 'Usuario' }}</div>
-            <div class="text-xs text-gray-500">{{ auth.getRole() }}</div>
+      <!-- Navegación Desktop -->
+      <nav class="navbar-nav-desktop">
+        <a routerLink="/home" 
+           routerLinkActive="nav-link-active"
+           [routerLinkActiveOptions]="{exact: true}"
+           class="nav-link">
+          <i class="ri-home-line"></i>
+          <span>Inicio</span>
+        </a>
+
+        <a *ngIf="auth.canConfigCompany()" 
+           routerLink="/organizacion"
+           routerLinkActive="nav-link-active"
+           class="nav-link">
+          <i class="ri-building-line"></i>
+          <span>Organización</span>
+        </a>
+
+        <a *ngIf="auth.isManagement()" 
+           routerLink="/gestion/empleados"
+           routerLinkActive="nav-link-active"
+           class="nav-link">
+          <i class="ri-team-line"></i>
+          <span>Mi Equipo</span>
+        </a>
+
+        <a *ngIf="auth.isEmployee() || auth.isGerente()" 
+           routerLink="/mi-perfil"
+           routerLinkActive="nav-link-active"
+           class="nav-link">
+          <i class="ri-user-line"></i>
+          <span>Mi Ficha</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Lado Derecho: Notificaciones, Usuario y Acciones -->
+    <div class="navbar-right">
+      <!-- Notificaciones Desktop -->
+      <button class="navbar-icon-btn" title="Notificaciones" *ngIf="user">
+        <i class="ri-notification-3-line"></i>
+        <span class="notification-badge" *ngIf="notificationCount > 0">{{ notificationCount }}</span>
+      </button>
+
+      <!-- Dropdown Usuario Desktop -->
+      <div class="user-dropdown-wrapper" *ngIf="user">
+        <button class="user-menu-btn" (click)="toggleUserDropdown()" title="Menú de usuario">
+          <div class="user-avatar">
+            {{ (user?.first_name || 'U').charAt(0).toUpperCase() }}
+          </div>
+          <div class="user-info">
+            <span class="user-name">{{ user?.first_name || 'Usuario' }}</span>
+            <span class="user-role">{{ auth.getRole() }}</span>
+          </div>
+          <i class="ri-arrow-down-s-line"></i>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div class="user-dropdown-menu" *ngIf="userDropdownOpen" [@slideDown]>
+          <div class="dropdown-header">
+            <div class="user-avatar-large">
+              {{ (user?.first_name || 'U').charAt(0).toUpperCase() }}
+            </div>
+            <div>
+              <p class="dropdown-name">{{ user?.first_name }} {{ user?.last_name }}</p>
+              <p class="dropdown-email">{{ user?.email }}</p>
+            </div>
           </div>
 
-          <div class="w-10 h-10 bg-gradient-to-br from-red-100 to-red-200 rounded-full flex items-center justify-center text-red-600 font-bold text-sm">
-            {{ (user?.first_name || 'U').charAt(0) }}
-          </div>
+          <div class="dropdown-divider"></div>
 
-          <button (click)="auth.logout()" 
-                  aria-label="Cerrar sesión" 
-                  class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
-            <i class="bi bi-box-arrow-right text-lg"></i>
+          <a href="#" (click)="goToProfile(); $event.preventDefault()" class="dropdown-item">
+            <i class="ri-user-3-line"></i>
+            <span>Mi Perfil</span>
+          </a>
+
+          <a href="#" class="dropdown-item" *ngIf="auth.isManagement()">
+            <i class="ri-settings-line"></i>
+            <span>Preferencias</span>
+          </a>
+
+          <div class="dropdown-divider"></div>
+
+          <button (click)="logout()" class="dropdown-item danger">
+            <i class="ri-logout-box-line"></i>
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </div>
 
-      <!-- Menu Mobile -->
-      <div class="-mr-2 flex items-center sm:hidden">
-        <button (click)="mobileMenuOpen = !mobileMenuOpen" 
-                aria-label="Abrir menú" 
-                class="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-red-600 hover:bg-gray-100 transition">
-          <i class="bi" [class.bi-list]="!mobileMenuOpen" [class.bi-x]="mobileMenuOpen" class="text-2xl"></i>
-        </button>
-      </div>
+      <!-- Botón Login (si no está autenticado) -->
+      <a *ngIf="!user" routerLink="/login" class="btn-login">
+        <i class="ri-login-box-line"></i>
+        <span>Iniciar Sesión</span>
+      </a>
+
+      <!-- Menu Móvil -->
+      <button class="mobile-menu-btn" (click)="mobileMenuOpen = !mobileMenuOpen" title="Menú">
+        <i class="ri-menu-line" *ngIf="!mobileMenuOpen"></i>
+        <i class="ri-close-line" *ngIf="mobileMenuOpen"></i>
+      </button>
     </div>
   </div>
 
-  <!-- Menu Mobile Expandido -->
-  <div *ngIf="mobileMenuOpen" class="sm:hidden bg-white border-t border-gray-200">
-    <div class="px-2 pt-2 pb-3 space-y-1">
+  <!-- MENÚ MÓVIL EXPANDIBLE -->
+  <div class="mobile-menu" *ngIf="mobileMenuOpen" [@slideDown]>
+    <div class="mobile-menu-container">
+      <!-- Perfil en Mobile -->
+      <div class="mobile-user-section" *ngIf="user">
+        <div class="mobile-user-card">
+          <div class="user-avatar-mobile">
+            {{ (user?.first_name || 'U').charAt(0).toUpperCase() }}
+          </div>
+          <div>
+            <p class="mobile-user-name">{{ user?.first_name }}</p>
+            <p class="mobile-user-role">{{ auth.getRole() }}</p>
+          </div>
+        </div>
+        <hr class="mobile-divider">
+      </div>
+
+      <!-- Links de Navegación Mobile -->
       <a routerLink="/home" 
-         (click)="mobileMenuOpen = false"
-         class="block px-3 py-2 rounded-md text-gray-700 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition">
-        Inicio
+         (click)="closeMobileMenu()"
+         routerLinkActive="mobile-nav-active"
+         [routerLinkActiveOptions]="{exact: true}"
+         class="mobile-nav-link">
+        <i class="ri-home-line"></i>
+        <span>Inicio</span>
       </a>
-      
+
       <a *ngIf="auth.canConfigCompany()" 
          routerLink="/organizacion"
-         (click)="mobileMenuOpen = false"
-         class="block px-3 py-2 rounded-md text-gray-700 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition">
-        Organización
+         (click)="closeMobileMenu()"
+         routerLinkActive="mobile-nav-active"
+         class="mobile-nav-link">
+        <i class="ri-building-line"></i>
+        <span>Organización</span>
       </a>
-      
+
       <a *ngIf="auth.isManagement()" 
-         routerLink="/empleados"
-         (click)="mobileMenuOpen = false"
-         class="block px-3 py-2 rounded-md text-gray-700 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition">
-        Personal
+         routerLink="/gestion/empleados"
+         (click)="closeMobileMenu()"
+         routerLinkActive="mobile-nav-active"
+         class="mobile-nav-link">
+        <i class="ri-team-line"></i>
+        <span>Mi Equipo</span>
       </a>
 
       <a *ngIf="auth.isEmployee() || auth.isGerente()" 
          routerLink="/mi-perfil"
-         (click)="mobileMenuOpen = false"
-         class="block px-3 py-2 rounded-md text-gray-700 hover:text-red-600 hover:bg-red-50 text-sm font-medium transition">
-        Mi Ficha
+         (click)="closeMobileMenu()"
+         routerLinkActive="mobile-nav-active"
+         class="mobile-nav-link">
+        <i class="ri-user-line"></i>
+        <span>Mi Ficha</span>
       </a>
 
-      <hr class="my-3 border-gray-200">
+      <hr class="mobile-divider">
 
-      <button (click)="auth.logout(); mobileMenuOpen = false" 
-              class="w-full text-left px-3 py-2 rounded-md text-red-600 hover:bg-red-50 text-sm font-medium transition">
-        <i class="bi bi-box-arrow-right mr-2"></i>Cerrar Sesión
+      <!-- Notificaciones Mobile -->
+      <button class="mobile-nav-link" *ngIf="user">
+        <i class="ri-notification-3-line"></i>
+        <span>Notificaciones</span>
+        <span class="notification-badge-mobile" *ngIf="notificationCount > 0">{{ notificationCount }}</span>
       </button>
+
+      <a routerLink="/mi-perfil" 
+         (click)="closeMobileMenu()"
+         class="mobile-nav-link">
+        <i class="ri-user-3-line"></i>
+        <span>Mi Perfil</span>
+      </a>
+
+      <hr class="mobile-divider" *ngIf="user">
+
+      <!-- Logout Mobile -->
+      <button *ngIf="user" (click)="logout(); closeMobileMenu()" class="mobile-nav-link danger">
+        <i class="ri-logout-box-line"></i>
+        <span>Cerrar Sesión</span>
+      </button>
+
+      <a *ngIf="!user" routerLink="/login" (click)="closeMobileMenu()" class="mobile-nav-link primary">
+        <i class="ri-login-box-line"></i>
+        <span>Iniciar Sesión</span>
+      </a>
     </div>
   </div>
 </nav>

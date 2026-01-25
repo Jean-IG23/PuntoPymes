@@ -9,6 +9,9 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
 
 import os
 
+# FIX: Configurar encoding para Windows
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
 from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'PuntoPymes.settings')

@@ -1,334 +1,438 @@
-<div class="min-h-screen bg-white">
-
-  <!-- HEADER HERO -->
-  <div class="bg-gradient-to-r from-red-600 via-red-500 to-red-600 text-white pt-12 pb-24 px-4 sm:px-6 relative overflow-hidden">
-    <div class="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl"></div>
-    
-    <div class="max-w-7xl mx-auto relative z-10">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-12">
-        <div>
-          <h1 class="text-4xl md:text-5xl font-bold mb-2">¡Bienvenido !</h1>
-          <p class="text-red-100 text-lg">{{ fechaActual | date:'EEEE, d MMMM yyyy' | titlecase }}</p>
-        </div>
-        <div class="text-right">
-          <div class="text-6xl font-mono font-bold text-white tracking-wider">{{ horaActual }}</div>
-          <p class="text-red-100 text-sm font-semibold mt-1">Hora Local</p>
-        </div>
-      </div>
-
-      <!-- WELCOME CARD -->
-      <div class="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 flex items-center gap-4">
-        <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-3xl flex-shrink-0">
-          <i class="ri-user-3-line"></i>
-        </div>
-        <div class="flex-1">
-          <p class="text-red-100 text-sm font-semibold">Usuario</p>
-          <h2 class="text-2xl font-bold">{{ userName | titlecase }}</h2>
-          <p class="text-red-100 text-sm mt-1">{{ perfil.puesto || 'Equipo de Trabajo' }}</p>
-        </div>
-        <div class="hidden md:flex items-center gap-2 text-red-100">
-          <i class="ri-checkbox-circle-line text-2xl text-green-300"></i>
-          <span class="font-semibold">Activo</span>
-        </div>
-      </div>
-    </div>
+<div class="space-y-6">
+  <!-- Título Principal -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+    <h1 class="text-2xl font-bold text-gray-900">Bienvenido de nuevo, {{ userName }}</h1>
+    <p class="text-gray-600 mt-1">{{ fechaActual | date:'EEEE, d MMMM yyyy' | titlecase }}</p>
   </div>
 
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 -mt-16 relative z-20 pb-12">
+  <!-- DASHBOARD PARA EMPLEADOS -->
+  <ng-container *ngIf="userRole === 'EMPLEADO'">
+    <!-- Reloj de Asistencia -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
+      <div class="text-center">
+        <div class="text-6xl font-mono font-bold text-gray-900 mb-4">{{ horaActual }}</div>
+        <p class="text-gray-600 mb-4">{{ fechaActual | date:'EEEE, d MMMM yyyy' | titlecase }}</p>
 
-    <!-- KPIs SECTION (ADMIN/MANAGEMENT ONLY) -->
-    <ng-container *ngIf="userRole === 'ADMIN' || userRole === 'SUPERADMIN' || userRole === 'RRHH' || userRole === 'GERENTE'">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-        
-        <!-- Card 1: Total Empleados -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Total Empleados</p>
-              <p class="text-4xl font-bold text-gray-900 mt-2">{{ kpis.totalEmpleados }}</p>
-            </div>
-            <div class="w-12 h-12 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-xl">
-              <i class="ri-team-line"></i>
-            </div>
-          </div>
-          <div class="h-1 bg-gradient-to-r from-red-500 to-red-300 rounded-full"></div>
+        <div class="flex justify-center space-x-4">
+          <button
+            *ngIf="!perfil.jornada_abierta"
+            (click)="marcarEntrada()"
+            class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            Marcar Entrada
+          </button>
+
+          <button
+            *ngIf="perfil.jornada_abierta"
+            (click)="marcarSalida()"
+            class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            Marcar Salida
+          </button>
         </div>
 
-        <!-- Card 2: Presentes Hoy -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Presentes Hoy</p>
-              <p class="text-4xl font-bold text-gray-900 mt-2">{{ kpis.presentesHoy }}</p>
-              <p class="text-xs text-green-600 font-semibold mt-1">✓ En la oficina</p>
-            </div>
-            <div class="w-12 h-12 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-xl">
-              <i class="ri-check-double-line"></i>
-            </div>
-          </div>
-          <div class="h-1 bg-gradient-to-r from-green-500 to-green-300 rounded-full"></div>
+        <div class="mt-4 text-sm text-gray-600">
+          <p *ngIf="!perfil.jornada_abierta">Estado: Pendiente de marcar entrada</p>
+          <p *ngIf="perfil.jornada_abierta">Estado: Jornada en curso</p>
         </div>
-
-        <!-- Card 3: Solicitudes Pendientes -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow cursor-pointer"
-             (click)="router.navigate(['/solicitudes'])" routerLink="/solicitudes">
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Por Aprobar</p>
-              <p class="text-4xl font-bold text-gray-900 mt-2">{{ kpis.solicitudesPendientes }}</p>
-              <p class="text-xs text-orange-600 font-semibold mt-1">⚠ Requieren acción</p>
-            </div>
-            <div class="w-12 h-12 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-xl">
-              <i class="ri-mail-check-line"></i>
-            </div>
-          </div>
-          <div class="h-1 bg-gradient-to-r from-orange-500 to-orange-300 rounded-full"></div>
-        </div>
-
-        <!-- Card 4: Asistencia % -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-          <div class="flex items-start justify-between mb-4">
-            <div>
-              <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Asistencia</p>
-              <p class="text-4xl font-bold text-gray-900 mt-2">{{ kpis.porcentajeAsistencia }}%</p>
-              <p class="text-xs text-blue-600 font-semibold mt-1">→ Promedio mensual</p>
-            </div>
-            <div class="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
-              <i class="ri-bar-chart-line"></i>
-            </div>
-          </div>
-          <div class="h-1 bg-gradient-to-r from-blue-500 to-blue-300 rounded-full"></div>
-        </div>
-
       </div>
-    </ng-container>
-
-    <!-- MAIN CONTENT GRID -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- ATTENDANCE CARD (LEFT COLUMN) -->
-      <div class="lg:col-span-2 space-y-6">
-
-        <!-- Widget de Asistencia Rápida -->
-        <app-attendance-quick-marker></app-attendance-quick-marker>
-
-        <!-- CHARTS SECTION -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          <!-- Pie Chart: Asistencia -->
-          <div class="bg-white rounded-2xl border border-gray-200 p-6">
-            <div class="flex items-center gap-2 mb-6">
-              <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                <i class="ri-pie-chart-2-line"></i>
-              </div>
-              <h4 class="font-bold text-gray-900">Asistencia Hoy</h4>
-            </div>
-            <div class="relative h-64 flex items-center justify-center">
-              <div *ngIf="loadingCharts" class="animate-pulse">
-                <div class="w-40 h-40 rounded-full bg-gray-200"></div>
-              </div>
-              <canvas *ngIf="!loadingCharts" 
-                      baseChart 
-                      [data]="pieChartData" 
-                      [options]="pieChartOptions" 
-                      [type]="pieChartType">
-              </canvas>
-            </div>
-          </div>
-
-          <!-- Bar Chart: Productividad -->
-          <div class="bg-white rounded-2xl border border-gray-200 p-6">
-            <div class="flex items-center gap-2 mb-6">
-              <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
-                <i class="ri-bar-chart-line"></i>
-              </div>
-              <h4 class="font-bold text-gray-900">Últimos 7 días</h4>
-            </div>
-            <div class="relative h-64">
-              <div *ngIf="loadingCharts" class="animate-pulse">
-                <div class="w-full h-full bg-gray-200 rounded-lg"></div>
-              </div>
-              <canvas *ngIf="!loadingCharts" 
-                      baseChart 
-                      [data]="barChartData" 
-                      [options]="barChartOptions" 
-                      [type]="barChartType">
-              </canvas>
-            </div>
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- RIGHT SIDEBAR -->
-      <div class="space-y-6">
-
-        <!-- Vacaciones Card -->
-        <div class="bg-gradient-to-br from-amber-400 to-amber-500 rounded-2xl text-white p-8 relative overflow-hidden">
-          <div class="absolute -right-12 -bottom-12 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></div>
-          
-          <div class="relative z-10">
-            <div class="flex items-start justify-between mb-6">
-              <div>
-                <p class="text-amber-100 text-sm font-semibold uppercase">Saldo Disponible</p>
-                <p class="text-5xl font-bold mt-2">{{ perfil.saldo_vacaciones }}</p>
-                <p class="text-amber-50 font-medium text-sm mt-1">días de vacaciones</p>
-              </div>
-              <i class="ri-plane-line text-5xl opacity-20"></i>
-            </div>
-
-            <button (click)="showModalSolicitud=true"
-                    class="w-full mt-6 bg-white text-amber-600 font-bold py-3 rounded-xl hover:bg-amber-50 transition flex items-center justify-center gap-2">
-              <i class="ri-plus-circle-line"></i>
-              Solicitar Permiso
-            </button>
-          </div>
-        </div>
-
-        <!-- Mi Estado Card -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-6">
-          <div class="flex items-center gap-2 mb-6">
-            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-              <i class="ri-heart-pulse-line"></i>
-            </div>
-            <h4 class="font-bold text-gray-900">Mi Estado</h4>
-          </div>
-
-          <div class="flex flex-col items-center justify-center py-6 space-y-3">
-            <div class="relative">
-              <div class="w-24 h-24 rounded-full border-4 flex items-center justify-center text-2xl font-bold"
-                   [ngClass]="perfil.jornada_abierta ? 'border-green-500 bg-green-50 text-green-600' : 'border-gray-300 bg-gray-50 text-gray-400'">
-                {{ perfil.jornada_abierta ? '✓' : '–' }}
-              </div>
-              <div class="absolute bottom-2 right-2 w-5 h-5 rounded-full border-2 border-white"
-                   [ngClass]="perfil.jornada_abierta ? 'bg-green-500' : 'bg-gray-400'"></div>
-            </div>
-
-            <div class="text-center">
-              <p class="font-bold text-gray-900 text-lg">
-                {{ perfil.jornada_abierta ? 'Trabajando' : 'No Disponible' }}
-              </p>
-              <p class="text-xs text-gray-500">Visible para tu equipo</p>
-            </div>
-          </div>
-
-          <div class="bg-blue-50 rounded-lg p-3 text-xs text-blue-700 border border-blue-200 flex items-start gap-2">
-            <i class="ri-information-line mt-0.5 flex-shrink-0"></i>
-            <span><strong>Recuerda:</strong> Cierra tu jornada antes de las 18:30.</span>
-          </div>
-        </div>
-
-        <!-- Estado de Empresa Card -->
-        <div class="bg-white rounded-2xl border border-gray-200 p-6">
-          <div class="flex items-center gap-2 mb-4">
-            <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
-              <i class="ri-building-line"></i>
-            </div>
-            <h4 class="font-bold text-gray-900">Empresa</h4>
-          </div>
-
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600">Estado</span>
-              <span class="text-sm font-bold text-green-600">✓ Activa</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-gray-600">Rol</span>
-              <span class="text-sm font-bold text-gray-900">{{ userRole | titlecase }}</span>
-            </div>
-            <div class="h-px bg-gray-200 my-2"></div>
-            <p class="text-xs text-gray-500 text-center">
-              Para cambios de configuración, contacta al administrador.
-            </p>
-          </div>
-        </div>
-
-      </div>
-
     </div>
 
-  </div>
+    <!-- Stats Cards Empleado -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <!-- Estado de Asistencia Hoy -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Estado Hoy</p>
+            <p class="text-3xl font-bold text-green-600 mt-2">{{ perfil.jornada_abierta ? 'Presente' : 'Pendiente' }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
 
-</div>
+      <!-- Saldo de Vacaciones -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Días de Vacaciones</p>
+            <p class="text-3xl font-bold text-blue-600 mt-2">{{ perfil.saldo_vacaciones }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
 
-<!-- MODAL: Nueva Solicitud de Ausencia -->
-<div *ngIf="showModalSolicitud" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg transform transition-all">
-        
-        <!-- Header -->
-        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-            <div class="flex items-center gap-3">
-              <i class="ri-calendar-event-line text-2xl text-red-600"></i>
-              <h3 class="font-bold text-lg text-gray-900">Nueva Solicitud</h3>
+      <!-- Próximo Pago -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Próximo Pago</p>
+            <p class="text-3xl font-bold text-gray-900 mt-2">{{ kpis.proximoPago || '15 dic' }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tareas Pendientes -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Tareas Pendientes</p>
+            <p class="text-3xl font-bold text-orange-600 mt-2">{{ tareasPendientes || 0 }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Acciones Rápidas Empleado -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Acciones Rápidas</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div routerLink="/reloj" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
             </div>
-            <button (click)="showModalSolicitud=false" class="text-gray-400 hover:text-gray-600 transition">
-              <i class="ri-close-line text-2xl"></i>
-            </button>
+            <div>
+              <p class="font-medium text-gray-900">Marcar Asistencia</p>
+              <p class="text-sm text-gray-600">Registra entrada/salida</p>
+            </div>
+          </div>
         </div>
 
-        <!-- Form -->
-        <form [formGroup]="formSolicitud" (ngSubmit)="enviarSolicitud()" class="p-6 space-y-5">
-            
-            <!-- Tipo de Ausencia -->
+        <div routerLink="/solicitudes" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+            </div>
             <div>
-                <label class="block text-sm font-bold text-gray-900 mb-2">Tipo de Permiso</label>
-                <select formControlName="tipo_ausencia" 
-                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent">
-                    <option value="">-- Selecciona una opción --</option>
-                    <option *ngFor="let tipo of tiposAusencia" [value]="tipo.id">{{ tipo.nombre }}</option>
-                </select>
-                <p *ngIf="formSolicitud.get('tipo_ausencia')?.invalid && formSolicitud.get('tipo_ausencia')?.touched" 
-                   class="text-xs text-red-600 mt-1">Este campo es requerido</p>
+              <p class="font-medium text-gray-900">Solicitar Permiso</p>
+              <p class="text-sm text-gray-600">Vacaciones u otros</p>
             </div>
+          </div>
+        </div>
 
-            <!-- Fechas -->
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-bold text-gray-900 mb-2">Desde</label>
-                    <input type="date" formControlName="fecha_inicio" [min]="minDate" 
-                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-900 mb-2">Hasta</label>
-                    <input type="date" formControlName="fecha_fin" [min]="formSolicitud.value.fecha_inicio || minDate" 
-                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
-                </div>
+        <div routerLink="/tareas" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
             </div>
-
-            <!-- Días Calculados -->
-            <div *ngIf="diasCalculados > 0" class="bg-red-50 p-4 rounded-lg border border-red-200 flex items-start gap-3">
-                <div class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold flex-shrink-0">
-                    {{ diasCalculados }}
-                </div>
-                <div class="text-sm text-red-800">
-                    <p class="font-bold">Días solicitados</p>
-                    <p class="text-xs mt-0.5">Se descontarán de tu saldo si aplica</p>
-                </div>
-            </div>
-
-            <!-- Motivo -->
             <div>
-                <label class="block text-sm font-bold text-gray-900 mb-2">Motivo / Justificación</label>
-                <textarea formControlName="motivo" rows="3" 
-                          placeholder="Explica el motivo de tu solicitud..."
-                          class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"></textarea>
-                <p *ngIf="formSolicitud.get('motivo')?.invalid && formSolicitud.get('motivo')?.touched" 
-                   class="text-xs text-red-600 mt-1">Mínimo 5 caracteres</p>
+              <p class="font-medium text-gray-900">Mis Tareas</p>
+              <p class="text-sm text-gray-600">Actividades asignadas</p>
             </div>
+          </div>
+        </div>
 
-            <!-- Buttons -->
-            <div class="pt-4 border-t border-gray-200 flex justify-end gap-3">
-                <button type="button" (click)="showModalSolicitud=false" 
-                        class="px-5 py-2.5 text-gray-700 font-semibold hover:bg-gray-100 rounded-lg transition">
-                  Cancelar
-                </button>
-                <button type="submit" [disabled]="formSolicitud.invalid || procesandoSolicitud" 
-                        class="px-6 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg">
-                    <span *ngIf="procesandoSolicitud" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                    <span *ngIf="!procesandoSolicitud">Enviar Solicitud</span>
-                </button>
+        <div routerLink="/objetivos" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
             </div>
-        </form>
+            <div>
+              <p class="font-medium text-gray-900">Mis Objetivos</p>
+              <p class="text-sm text-gray-600">Metas y objetivos</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- Gráficos de Asistencia - Solo para ADMIN y RRHH -->
+    <div *ngIf="puedeVerGraficos()" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <!-- Gráfico Circular - Estado de Asistencia -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Estado de Asistencia</h3>
+        <div class="h-64">
+          <canvas baseChart
+                  [data]="pieChartData"
+                  [options]="pieChartOptions"
+                  [type]="pieChartType">
+          </canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico de Barras - Asistencia por Día -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Asistencia Semanal</h3>
+        <div class="h-64">
+          <canvas baseChart
+                  [data]="barChartData"
+                  [options]="barChartOptions"
+                  [type]="barChartType">
+          </canvas>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- DASHBOARD PARA GERENTES/ADMIN/RRHH -->
+  <ng-container *ngIf="userRole === 'ADMIN' || userRole === 'RRHH' || userRole === 'GERENTE'">
+    <!-- Stats Cards Management -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Empleados</p>
+            <p class="text-3xl font-bold text-gray-900 mt-2">{{ kpis.totalEmpleados }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Presentes Hoy</p>
+            <p class="text-3xl font-bold text-green-600 mt-2">{{ kpis.presentesHoy }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 cursor-pointer hover:shadow-md transition-shadow" (click)="verSolicitudesPendientes()">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Solicitudes Pendientes</p>
+            <p class="text-3xl font-bold text-orange-600 mt-2">{{ kpis.solicitudesPendientes }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">% Asistencia</p>
+            <p class="text-3xl font-bold text-blue-600 mt-2">{{ kpis.porcentajeAsistencia }}%</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Acciones Rápidas Management -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Gestión del Equipo</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div routerLink="/gestion/empleados" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">Mi Equipo</p>
+              <p class="text-sm text-gray-600">Gestionar empleados</p>
+            </div>
+          </div>
+        </div>
+
+        <div routerLink="/gestion/asistencia" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">Control de Asistencia</p>
+              <p class="text-sm text-gray-600">Aprobar solicitudes</p>
+            </div>
+          </div>
+        </div>
+
+        <div routerLink="/reportes" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">Reportes</p>
+              <p class="text-sm text-gray-600">Análisis y estadísticas</p>
+            </div>
+          </div>
+        </div>
+
+        <div routerLink="/gestion/objetivos/nuevo" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">Gestionar Objetivos</p>
+              <p class="text-sm text-gray-600">Crear y asignar objetivos</p>
+            </div>
+          </div>
+        </div>
+
+        <div routerLink="/tareas" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">Gestionar Tareas</p>
+              <p class="text-sm text-gray-600">Asignar y supervisar tareas</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- DASHBOARD PARA SUPERADMIN -->
+  <ng-container *ngIf="userRole === 'SUPERADMIN'">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Empresas</p>
+            <p class="text-3xl font-bold text-gray-900 mt-2">{{ empresasTotal || 0 }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Usuarios</p>
+            <p class="text-3xl font-bold text-blue-600 mt-2">{{ usuariosTotal || 0 }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Empresas Activas</p>
+            <p class="text-3xl font-bold text-green-600 mt-2">{{ empresasActivas || 0 }}</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Ingresos Mensuales</p>
+            <p class="text-3xl font-bold text-purple-600 mt-2">$0</p>
+          </div>
+          <div class="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Administración del Sistema</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div routerLink="/gestion/organizacion" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">Gestionar Empresas</p>
+              <p class="text-sm text-gray-600">Empresas del SaaS</p>
+            </div>
+          </div>
+        </div>
+
+        <div routerLink="/saas/dashboard" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">Analytics Global</p>
+              <p class="text-sm text-gray-600">Estadísticas del SaaS</p>
+            </div>
+          </div>
+        </div>
+
+        <div routerLink="/admin/configuracion" class="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="font-medium text-gray-900">Configuración</p>
+              <p class="text-sm text-gray-600">Sistema global</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
 </div>

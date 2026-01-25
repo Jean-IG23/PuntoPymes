@@ -74,8 +74,8 @@
             </div>
             <div>
               <p class="font-bold text-blue-900">{{ empleadoSeleccionado.nombres }} {{ empleadoSeleccionado.apellidos }}</p>
-              <p class="text-sm text-blue-600">{{ empleadoSeleccionado.puesto?.nombre || 'Sin Cargo' }}</p>
-              <p class="text-xs text-blue-500">{{ empleadoSeleccionado.departamento?.nombre || 'Sin Departamento' }}</p>
+              <p class="text-sm text-blue-600">{{ empleadoSeleccionado.puesto?.nombre || empleadoSeleccionado.nombre_puesto || 'Sin Cargo' }}</p>
+              <p class="text-xs text-blue-500">{{ empleadoSeleccionado.departamento?.nombre || empleadoSeleccionado.nombre_departamento || 'Sin Departamento' }}</p>
             </div>
           </div>
           

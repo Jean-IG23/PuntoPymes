@@ -8,6 +8,13 @@ from .serializers import KPISerializer, EvaluacionSerializer, ObjetivoSerializer
 from personal.models import Empleado
 from .services import CalculadoraDesempeno
 from core.views import get_empresa_usuario
+from core.permissions import (
+    get_queryset_filtrado_objetivos,
+    get_empleado_o_none,
+    puede_gestionar_empleado
+)
+
+
 class KPIViewSet(viewsets.ModelViewSet):
     queryset = KPI.objects.all()
     serializer_class = KPISerializer
@@ -19,28 +26,37 @@ class EvaluacionViewSet(viewsets.ModelViewSet):
     serializer_class = EvaluacionSerializer
     permission_classes = [IsAuthenticated]
 
+
 class ObjetivoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestión de objetivos con Row-Level Security.
+    
+    REGLAS DE ACCESO:
+    - SUPERADMIN: Ve todos los objetivos
+    - ADMIN/RRHH: Ven todos los objetivos de su empresa
+    - GERENTE: Solo ve objetivos de empleados de su sucursal
+    - EMPLEADO: Solo ve sus propios objetivos (NO puede crear ni editar)
+    """
     queryset = Objetivo.objects.all()
     serializer_class = ObjetivoSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Objetivo.objects.all()
-
-        try:
-            empleado = Empleado.objects.get(usuario=user)
-            # SuperUser, staff y todos ven objetivos de su empresa
-            if user.is_superuser or user.is_staff: 
-                return queryset.filter(empresa=empleado.empresa)
-            # Empleados normales ven solo sus objetivos
-            return queryset.filter(empleado=empleado)
-
-        except Empleado.DoesNotExist:
-            return Objetivo.objects.none()
+        
+        # Usar la función centralizada de Row-Level Security
+        queryset = get_queryset_filtrado_objetivos(user, Objetivo.objects.all())
+        return queryset.order_by('-fecha_limite')
 
     def perform_create(self, serializer):
-        """Valida permisos y asigna la empresa automáticamente"""
+        """
+        Valida permisos y asigna la empresa automáticamente.
+        
+        REGLAS:
+        - EMPLEADO: NO puede crear objetivos
+        - GERENTE: Solo puede asignar objetivos a empleados de su sucursal
+        - ADMIN/RRHH: Pueden asignar objetivos a cualquier empleado de su empresa
+        """
         try:
             # Si es superuser, obtener empresa del contexto
             if self.request.user.is_superuser:
@@ -56,6 +72,18 @@ class ObjetivoViewSet(viewsets.ModelViewSet):
             # Validar que solo ADMIN, RRHH, GERENTE pueden crear objetivos
             if empleado.rol not in ['ADMIN', 'RRHH', 'GERENTE', 'SUPERADMIN']:
                 raise PermissionError(f"El rol '{empleado.rol}' no puede crear objetivos. Solo ADMIN, RRHH o GERENTE pueden.")
+            
+            # VALIDACIÓN ESPECIAL PARA GERENTE:
+            # Solo puede asignar objetivos a empleados de su sucursal
+            if empleado.rol == 'GERENTE':
+                empleado_objetivo = serializer.validated_data.get('empleado')
+                if empleado_objetivo:
+                    # Verificar que el empleado asignado pertenece a la misma sucursal
+                    if empleado_objetivo.sucursal_id != empleado.sucursal_id:
+                        raise PermissionError(
+                            f"Como Gerente, solo puedes asignar objetivos a empleados de tu sucursal. "
+                            f"{empleado_objetivo.nombres} {empleado_objetivo.apellidos} pertenece a otra sucursal."
+                        )
             
             # Asignar la empresa del usuario autenticado
             serializer.save(empresa=empleado.empresa)

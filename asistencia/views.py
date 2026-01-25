@@ -15,43 +15,58 @@ from asistencia.models import Jornada
 from django.db.models import Sum
 from rest_framework.decorators import action
 import openpyxl
+from core.permissions import get_empleado_o_none
 # =========================================================================
 # 1. VIEWSET DE JORNADAS (NÓMINA)
 # =========================================================================
 class JornadaViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestión de jornadas/asistencia con Row-Level Security.
+    
+    REGLAS DE ACCESO:
+    - SUPERADMIN: Ve todas las jornadas
+    - ADMIN/RRHH: Ven todas las jornadas de su empresa
+    - GERENTE: Solo ve jornadas de empleados de su sucursal
+    - EMPLEADO: Solo ve sus propias jornadas
+    """
     queryset = Jornada.objects.all()
     serializer_class = JornadaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-
         user = self.request.user
         queryset = Jornada.objects.all().order_by('-fecha', '-entrada')
 
-        # 1. SEGURIDAD
+        # 1. SEGURIDAD - Row-Level Security
+        empleado = get_empleado_o_none(user)
+        
         if user.is_superuser:
             # SuperUser obtiene jornadas de su empresa
             from core.views import get_empresa_usuario
             empresa = get_empresa_usuario(user)
             if empresa:
                 queryset = queryset.filter(empresa=empresa)
-            else:
-                # Si no tiene empresa asignada, retorna todas las jornadas del sistema
+        elif empleado:
+            # Filtrar por empresa primero
+            queryset = queryset.filter(empresa=empleado.empresa)
+            
+            # Aplicar Row-Level Security según rol
+            if empleado.rol in ['ADMIN', 'RRHH']:
+                # ADMIN/RRHH ven todas las jornadas de su empresa
                 pass
-        else:
-            try:
-                empleado = Empleado.objects.get(usuario=user)
-                if empleado.rol in ['ADMIN', 'RRHH', 'CLIENTE']:
-                    queryset = queryset.filter(empresa=empleado.empresa)
-                elif empleado.rol == 'GERENTE':
-                    # Lógica de gerente (sus sucursales + sus empleados)
-                    queryset = queryset.filter(empresa=empleado.empresa) 
+            elif empleado.rol == 'GERENTE':
+                # GERENTE: solo jornadas de empleados de su sucursal
+                if empleado.sucursal:
+                    queryset = queryset.filter(empleado__sucursal=empleado.sucursal)
                 else:
-                    queryset = queryset.filter(empleado=empleado)
-            except Empleado.DoesNotExist:
-                return Jornada.objects.none()
+                    return Jornada.objects.none()
+            else:
+                # EMPLEADO: solo sus propias jornadas
+                queryset = queryset.filter(empleado=empleado)
+        else:
+            return Jornada.objects.none()
 
-        # 2. FILTROS DE FECHA (NUEVO)
+        # 2. FILTROS DE FECHA
         fecha_inicio = self.request.query_params.get('fecha_inicio')
         fecha_fin = self.request.query_params.get('fecha_fin')
         empleado_id = self.request.query_params.get('empleado')
@@ -59,8 +74,19 @@ class JornadaViewSet(viewsets.ModelViewSet):
         if fecha_inicio and fecha_fin:
             queryset = queryset.filter(fecha__range=[fecha_inicio, fecha_fin])
         
+        # Validar que el empleado_id sea accesible para el usuario
         if empleado_id:
-            queryset = queryset.filter(empleado_id=empleado_id)
+            # Si es GERENTE, verificar que el empleado pertenece a su sucursal
+            if empleado and empleado.rol == 'GERENTE':
+                try:
+                    emp_filtro = Empleado.objects.get(id=empleado_id)
+                    if emp_filtro.sucursal_id == empleado.sucursal_id:
+                        queryset = queryset.filter(empleado_id=empleado_id)
+                    # Si no es de su sucursal, ignoramos el filtro
+                except Empleado.DoesNotExist:
+                    pass
+            else:
+                queryset = queryset.filter(empleado_id=empleado_id)
 
         return queryset
     
@@ -285,7 +311,7 @@ class CalculoNominaView(APIView):
             total_minutos_atraso = jornadas.aggregate(Sum('minutos_atraso'))['minutos_atraso__sum'] or 0
 
             # C. Cálculos Financieros
-            sueldo_base = float(emp.sueldo_base)
+            sueldo_base = float(emp.sueldo)
             valor_hora = sueldo_base / divisor
             
             # Pago por Extras
@@ -319,4 +345,95 @@ class CalculoNominaView(APIView):
         return Response({
             'periodo': {'inicio': fecha_inicio, 'fin': fecha_fin},
             'datos': reporte_nomina
+        })
+
+# =========================================================================
+# 4. API PARA REPORTES DE ASISTENCIA Y ESTADÍSTICAS
+# =========================================================================
+class ReportesAsistenciaView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Obtener empleado del usuario
+        try:
+            empleado_request = Empleado.objects.get(usuario=user)
+            empresa = empleado_request.empresa
+        except Empleado.DoesNotExist:
+            return Response({'error': 'Usuario no autorizado'}, status=403)
+
+        # Filtros de fecha
+        fecha_inicio = request.query_params.get('fecha_inicio')
+        fecha_fin = request.query_params.get('fecha_fin')
+
+        if not fecha_inicio or not fecha_fin:
+            # Por defecto: Mes actual
+            hoy = timezone.now()
+            fecha_inicio = f"{hoy.year}-{hoy.month:02d}-01"
+            last_day = calendar.monthrange(hoy.year, hoy.month)[1]
+            fecha_fin = f"{hoy.year}-{hoy.month:02d}-{last_day}"
+
+        # Estadísticas generales
+        jornadas_total = Jornada.objects.filter(
+            empresa=empresa,
+            fecha__range=[fecha_inicio, fecha_fin]
+        )
+
+        # Aplicar filtros de RLS según rol
+        if empleado_request.rol in ['ADMIN', 'RRHH']:
+            # Pueden ver todo
+            pass
+        elif empleado_request.rol == 'GERENTE':
+            # Solo su sucursal
+            if empleado_request.sucursal:
+                jornadas_total = jornadas_total.filter(empleado__sucursal=empleado_request.sucursal)
+            else:
+                jornadas_total = Jornada.objects.none()
+        else:
+            # Empleado solo ve sus propias jornadas
+            jornadas_total = jornadas_total.filter(empleado=empleado_request)
+
+        # Cálculos de estadísticas
+        total_jornadas = jornadas_total.count()
+        total_atrasos = jornadas_total.filter(es_atraso=True).count()
+        total_ausencias = jornadas_total.filter(estado='AUSENTE').count()
+        total_justificadas = jornadas_total.filter(estado='JUSTIFICADA').count()
+
+        # Porcentaje de puntualidad
+        jornadas_completadas = jornadas_total.exclude(estado__in=['AUSENTE', 'ERROR'])
+        puntualidad = 0
+        if jornadas_completadas.count() > 0:
+            jornadas_puntuales = jornadas_completadas.filter(es_atraso=False).count()
+            puntualidad = round((jornadas_puntuales / jornadas_completadas.count()) * 100, 1)
+
+        # Estadísticas por empleado (solo para ADMIN/RRHH)
+        empleados_stats = []
+        if empleado_request.rol in ['ADMIN', 'RRHH']:
+            empleados_activos = Empleado.objects.filter(empresa=empresa, estado='ACTIVO')
+
+            for emp in empleados_activos:
+                emp_jornadas = jornadas_total.filter(empleado=emp)
+                emp_atrasos = emp_jornadas.filter(es_atraso=True).count()
+                emp_ausencias = emp_jornadas.filter(estado='AUSENTE').count()
+
+                empleados_stats.append({
+                    'id': emp.id,
+                    'nombre': f"{emp.nombres} {emp.apellidos}",
+                    'jornadas': emp_jornadas.count(),
+                    'atrasos': emp_atrasos,
+                    'ausencias': emp_ausencias,
+                    'sucursal': emp.sucursal.nombre if emp.sucursal else 'Sin sucursal'
+                })
+
+        return Response({
+            'periodo': {'inicio': fecha_inicio, 'fin': fecha_fin},
+            'estadisticas_generales': {
+                'total_jornadas': total_jornadas,
+                'total_atrasos': total_atrasos,
+                'total_ausencias': total_ausencias,
+                'total_justificadas': total_justificadas,
+                'porcentaje_puntualidad': puntualidad
+            },
+            'empleados_stats': empleados_stats
         })

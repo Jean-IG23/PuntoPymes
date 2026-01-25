@@ -128,37 +128,37 @@ export class EmpleadoListComponent implements OnInit {
   }
 
   toggleEstado(emp: any) {
-    const nuevoEstado = emp.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
     const original = emp.estado;
 
-    emp.estado = nuevoEstado;
-
-    // Enviar los datos completos del empleado con el nuevo estado
-    const dataToUpdate = {
-      nombres: emp.nombres,
-      apellidos: emp.apellidos,
-      email: emp.email,
-      documento: emp.documento,
-      fecha_ingreso: emp.fecha_ingreso,
-      estado: nuevoEstado
-    };
-
-    this.api.updateEmpleado(emp.id, dataToUpdate).subscribe({
-        next: () => {
-            const msg = nuevoEstado === 'ACTIVO' ? 'activado' : 'desactivado';
+    Swal.fire({
+      title: '¿Cambiar estado?',
+      text: `¿Estás seguro de que deseas ${emp.estado === 'ACTIVO' ? 'desactivar' : 'activar'} a ${emp.nombres} ${emp.apellidos}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: emp.estado === 'ACTIVO' ? '#dc2626' : '#10b981',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: emp.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.api.toggleEstadoEmpleado(emp.id).subscribe({
+          next: (res: any) => {
+            emp.estado = res.estado;
+            const msg = res.estado === 'ACTIVO' ? 'activado' : 'desactivado';
             Swal.fire({
               title: 'Listo',
               text: `Empleado ${msg} correctamente`,
               icon: 'success',
               timer: 2000
             });
-        },
-        error: (e) => {
-            emp.estado = original; 
-            console.error(e);
-            Swal.fire('Error', 'No se pudo cambiar el estado', 'error');
             this.cd.detectChanges();
+          },
+          error: (e) => {
+            console.error(e);
+            const errorMsg = e.error?.error || 'No se pudo cambiar el estado del empleado';
+            Swal.fire('Error', errorMsg, 'error');
           }
+        });
+      }
     });
   }
 
@@ -169,21 +169,35 @@ export class EmpleadoListComponent implements OnInit {
   eliminarEmpleado(emp: any) {
     Swal.fire({
       title: '¿Eliminar empleado?',
-      text: `¿Estás seguro de que deseas eliminar a ${emp.nombres} ${emp.apellidos}?`,
+      text: `¿Estás seguro de que deseas eliminar a ${emp.nombres} ${emp.apellidos}? Esta acción no se puede deshacer.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc2626',
       cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Sí, eliminar'
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
     }).then((result) => {
       if (result.isConfirmed) {
         this.api.deleteEmpleado(emp.id).subscribe({
           next: () => {
+            // Eliminar del array local
             this.empleados = this.empleados.filter(e => e.id !== emp.id);
+            // Re-aplicar filtros
             this.filtrar();
-            Swal.fire('Eliminado', 'Empleado eliminado correctamente', 'success');
+            this.cd.detectChanges();
+            
+            Swal.fire({
+              title: 'Eliminado',
+              text: 'Empleado eliminado correctamente de la base de datos',
+              icon: 'success',
+              timer: 2000
+            });
           },
-          error: () => Swal.fire('Error', 'No se pudo eliminar el empleado', 'error')
+          error: (e) => {
+            console.error('Error al eliminar empleado:', e);
+            const errorMsg = e.error?.detail || e.error?.error || 'No se pudo eliminar el empleado';
+            Swal.fire('Error', errorMsg, 'error');
+          }
         });
       }
     });

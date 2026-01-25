@@ -23,7 +23,8 @@ from core.views import (
     TurnoViewSet,
     dashboard_stats,
     CustomLoginView,
-    DashboardChartsView
+    DashboardChartsView,
+    get_user_permissions  # API de permisos para el frontend
 )
 
 from personal.views import (
@@ -33,7 +34,7 @@ from personal.views import (
     SolicitudViewSet, 
     TipoAusenciaViewSet,
 )
-from asistencia.views import EventoAsistenciaViewSet, JornadaViewSet, MarcarAsistenciaView
+from asistencia.views import EventoAsistenciaViewSet, JornadaViewSet, MarcarAsistenciaView, ReportesAsistenciaView
 
 
 from kpi.views import (
@@ -91,9 +92,13 @@ urlpatterns = [
     path('api/login/', CustomLoginView.as_view(), name='api_login'), 
     path('api/dashboard/stats/', dashboard_stats, name='dashboard_stats'),
     path('api/dashboard/charts/', DashboardChartsView.as_view(), name='dashboard-charts'),
+    
+    # API de Permisos (RBAC)
+    path('api/permisos/', get_user_permissions, name='user_permissions'),
     # Rutas del Router (API)
     path('api/', include(router.urls)),
     path('api/nomina/calculo/', CalculoNominaView.as_view(), name='calculo-nomina'),
+    path('api/reportes/asistencia/', ReportesAsistenciaView.as_view(), name='reportes-asistencia'),
     # Documentación
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),

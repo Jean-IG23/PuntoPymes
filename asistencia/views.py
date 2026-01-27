@@ -35,11 +35,12 @@ class JornadaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        print(f"JornadaViewSet get_queryset called by {user.username}")
         queryset = Jornada.objects.all().order_by('-fecha', '-entrada')
 
         # 1. SEGURIDAD - Row-Level Security
         empleado = get_empleado_o_none(user)
-        
+
         if user.is_superuser:
             # SuperUser obtiene jornadas de su empresa
             from core.views import get_empresa_usuario
@@ -49,7 +50,8 @@ class JornadaViewSet(viewsets.ModelViewSet):
         elif empleado:
             # Filtrar por empresa primero
             queryset = queryset.filter(empresa=empleado.empresa)
-            
+            print(f"Empleado {empleado.nombres} {empleado.apellidos}, rol: {empleado.rol}, empresa: {empleado.empresa.nombre}")
+
             # Aplicar Row-Level Security según rol
             if empleado.rol in ['ADMIN', 'RRHH']:
                 # ADMIN/RRHH ven todas las jornadas de su empresa
@@ -58,7 +60,9 @@ class JornadaViewSet(viewsets.ModelViewSet):
                 # GERENTE: solo jornadas de empleados de su sucursal
                 if empleado.sucursal:
                     queryset = queryset.filter(empleado__sucursal=empleado.sucursal)
+                    print(f"Filtrando por sucursal: {empleado.sucursal.nombre}")
                 else:
+                    print("Gerente sin sucursal, no ve jornadas")
                     return Jornada.objects.none()
             else:
                 # EMPLEADO: solo sus propias jornadas
@@ -70,6 +74,7 @@ class JornadaViewSet(viewsets.ModelViewSet):
         fecha_inicio = self.request.query_params.get('fecha_inicio')
         fecha_fin = self.request.query_params.get('fecha_fin')
         empleado_id = self.request.query_params.get('empleado')
+        print(f"Filtros: fecha_inicio={fecha_inicio}, fecha_fin={fecha_fin}, empleado_id={empleado_id}")
 
         if fecha_inicio and fecha_fin:
             queryset = queryset.filter(fecha__range=[fecha_inicio, fecha_fin])
@@ -88,6 +93,7 @@ class JornadaViewSet(viewsets.ModelViewSet):
             else:
                 queryset = queryset.filter(empleado_id=empleado_id)
 
+        print(f"Final queryset count: {queryset.count()}")
         return queryset
     
     @action(detail=False, methods=['get'])

@@ -42,20 +42,22 @@ export class AsistenciaAdminComponent implements OnInit {
 
   cargarReporte() {
     this.loading = true;
-    
+    console.log('cargarReporte called with dates:', this.fechaInicio, this.fechaFin);
+
     const params = {
       fecha_inicio: this.fechaInicio,
       fecha_fin: this.fechaFin
     };
-    
+
     this.api.get('jornadas/', params).subscribe({
       next: (res: any) => {
+        console.log('Jornadas response:', res);
         const data = Array.isArray(res) ? res : res.results || res;
         this.procesarDatos(data);
         this.loading = false;
       },
       error: (err) => {
-        console.error(err);
+        console.error('Error loading jornadas:', err);
         this.loading = false;
       }
     });

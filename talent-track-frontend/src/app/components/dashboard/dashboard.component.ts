@@ -116,7 +116,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Método para determinar si el usuario puede ver gráficos
   puedeVerGraficos(): boolean {
-    return this.userRole === 'ADMIN' || this.userRole === 'RRHH';
+    const canSee = this.userRole === 'ADMIN' || this.userRole === 'RRHH' || this.userRole === 'GERENTE';
+    console.log('puedeVerGraficos:', canSee, 'userRole:', this.userRole);
+    return canSee;
   }
 
   marcarEntrada() {
@@ -174,9 +176,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   cargarGraficos() {
+    console.log('cargarGraficos called');
     // Load chart data for management users
     this.api.getDashboardCharts().subscribe({
       next: (res: any) => {
+        console.log('Charts response:', res);
         if (res?.asistencia) {
           this.pieChartData.labels = res.asistencia.labels || [];
           this.pieChartData.datasets[0].data = res.asistencia.data || [];

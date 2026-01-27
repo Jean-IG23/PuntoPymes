@@ -555,6 +555,7 @@ class DashboardChartsView(APIView):
 
     def get(self, request):
         user = request.user
+        print(f"DashboardChartsView called by user: {user.username}")
         try:
             # Si es superuser, obtener empresa del contexto
             if user.is_superuser:
@@ -567,17 +568,21 @@ class DashboardChartsView(APIView):
             else:
                 empleado = Empleado.objects.get(usuario=user)
                 empresa = empleado.empresa
+                print(f"Empleado: {empleado.nombres} {empleado.apellidos}, rol: {empleado.rol}, empresa: {empresa.nombre}")
             
             hoy = timezone.now().date()
-            
+            print(f"Fecha hoy: {hoy}")
+
             # --- GRÁFICO 1: ASISTENCIA DE HOY (Pie Chart) ---
             total_empleados = Empleado.objects.filter(empresa=empresa, estado='ACTIVO').count()
             jornadas_hoy = Jornada.objects.filter(empresa=empresa, fecha=hoy)
-            
+
             presentes = jornadas_hoy.count()
             atrasos = jornadas_hoy.filter(es_atraso=True).count()
             puntuales = presentes - atrasos
             ausentes = total_empleados - presentes
+
+            print(f"Total empleados: {total_empleados}, jornadas hoy: {presentes}, atrasos: {atrasos}, ausentes: {ausentes}")
             
             # --- GRÁFICO 2: PRODUCTIVIDAD SEMANAL (Bar Chart) ---
             # Tareas completadas en los últimos 7 días
@@ -605,7 +610,7 @@ class DashboardChartsView(APIView):
                 encontrado = next((item for item in tareas_semana if item['dia'] == dia_check), None)
                 data_semana.append(encontrado['total'] if encontrado else 0)
 
-            return Response({
+            response_data = {
                 'asistencia': {
                     'labels': ['Puntuales', 'Atrasos', 'Ausentes'],
                     'data': [puntuales, atrasos, ausentes]
@@ -614,7 +619,9 @@ class DashboardChartsView(APIView):
                     'labels': labels_semana,
                     'data': data_semana
                 }
-            })
+            }
+            print(f"Response data: {response_data}")
+            return Response(response_data)
 
         except Empleado.DoesNotExist:
             return Response({'error': 'No autorizado'}, status=403)

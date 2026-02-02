@@ -15,7 +15,7 @@ from asistencia.models import Jornada
 from django.db.models import Sum
 from rest_framework.decorators import action
 import openpyxl
-from core.permissions import get_empleado_o_none
+from core.permissions import get_empleado_o_none, get_queryset_filtrado_empleados, tiene_permiso
 # =========================================================================
 # 1. VIEWSET DE JORNADAS (NÓMINA)
 # =========================================================================
@@ -268,6 +268,10 @@ class CalculoNominaView(APIView):
     def get(self, request):
         user = request.user
         
+        # Verificar permisos para acceder al módulo de nómina
+        if not tiene_permiso(user, 'nomina', 'leer'):
+            return Response({'error': 'No tienes permisos para acceder al módulo de nómina'}, status=403)
+        
         # 1. Obtener Fechas del Rango (Query Params)
         fecha_inicio = request.query_params.get('fecha_inicio')
         fecha_fin = request.query_params.get('fecha_fin')
@@ -298,9 +302,10 @@ class CalculoNominaView(APIView):
         except Empleado.DoesNotExist:
             return Response({'error': 'Usuario no autorizado'}, status=403)
 
-        # 3. Filtrar Empleados a Calcular
-        # (Si es Admin ve todos, si es Gerente ve sus sucursales...)
-        empleados = Empleado.objects.filter(empresa=empresa, estado='ACTIVO')
+        # 3. Filtrar Empleados a Calcular según permisos del usuario
+        # Aplicar Row-Level Security: GERENTE solo ve su sucursal, EMPLEADO solo ve su propio perfil
+        empleados_queryset = get_queryset_filtrado_empleados(user, Empleado.objects.filter(estado='ACTIVO'))
+        empleados = empleados_queryset.filter(empresa=empresa)
 
         reporte_nomina = []
 

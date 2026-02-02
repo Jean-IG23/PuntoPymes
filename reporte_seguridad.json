@@ -1,0 +1,58 @@
+{
+  "fecha": "2026-02-02T10:09:02.555609",
+  "total_pruebas": 8,
+  "pass": 0,
+  "fail": 0,
+  "error": 4,
+  "skip": 4,
+  "resultados": [
+    {
+      "nombre": "AUTH-001",
+      "status": "ERROR",
+      "detalles": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/login/ (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000183E4E57A10>: Failed to establish a new connection: [WinError 10061] No se puede establecer una conexi\u00f3n ya que el equipo de destino deneg\u00f3 expresamente dicha conexi\u00f3n'))",
+      "timestamp": "2026-02-02T10:08:50.395278"
+    },
+    {
+      "nombre": "AUTH-002",
+      "status": "ERROR",
+      "detalles": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/login/ (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000183E4F79F90>: Failed to establish a new connection: [WinError 10061] No se puede establecer una conexi\u00f3n ya que el equipo de destino deneg\u00f3 expresamente dicha conexi\u00f3n'))",
+      "timestamp": "2026-02-02T10:08:54.444752"
+    },
+    {
+      "nombre": "AUTH-003",
+      "status": "ERROR",
+      "detalles": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/empleados/ (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000183E4F7A350>: Failed to establish a new connection: [WinError 10061] No se puede establecer una conexi\u00f3n ya que el equipo de destino deneg\u00f3 expresamente dicha conexi\u00f3n'))",
+      "timestamp": "2026-02-02T10:08:58.505598"
+    },
+    {
+      "nombre": "XSS-001",
+      "status": "SKIP",
+      "detalles": "No hay token (ejecuta AUTH-001 primero)",
+      "timestamp": "2026-02-02T10:08:58.506407"
+    },
+    {
+      "nombre": "XSS-002",
+      "status": "SKIP",
+      "detalles": "No hay token",
+      "timestamp": "2026-02-02T10:08:58.506600"
+    },
+    {
+      "nombre": "CSRF-001",
+      "status": "SKIP",
+      "detalles": "No hay token",
+      "timestamp": "2026-02-02T10:08:58.507441"
+    },
+    {
+      "nombre": "RATELIMIT-001",
+      "status": "SKIP",
+      "detalles": "No hay token",
+      "timestamp": "2026-02-02T10:08:58.508510"
+    },
+    {
+      "nombre": "ERRORS-001",
+      "status": "ERROR",
+      "detalles": "HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /api/endpoint_inexistente_12345/ (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000183E4F4ED70>: Failed to establish a new connection: [WinError 10061] No se puede establecer una conexi\u00f3n ya que el equipo de destino deneg\u00f3 expresamente dicha conexi\u00f3n'))",
+      "timestamp": "2026-02-02T10:09:02.554607"
+    }
+  ]
+}

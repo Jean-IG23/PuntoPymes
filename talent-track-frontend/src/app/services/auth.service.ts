@@ -180,4 +180,13 @@ export class AuthService {
     const role = this.getRole();
     return ['SUPERADMIN', 'ADMIN', 'RRHH', 'GERENTE'].includes(role);
   }
+
+  /**
+   * Verifica si el usuario puede ver el módulo de Nómina.
+   * REGLA: GERENTE no puede ver nómina, los demás sí (con diferentes permisos).
+   */
+  canSeePayroll(): boolean {
+    const role = this.getRole();
+    return ['SUPERADMIN', 'ADMIN', 'RRHH', 'EMPLEADO'].includes(role);
+  }
 }
